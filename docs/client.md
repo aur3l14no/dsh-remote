@@ -7,7 +7,7 @@ The client and supplied-runtime SSH transport work against helper 0.1.1/API 1. A
 | Component | Behavior |
 | --- | --- |
 | `packages/client` | Node 24 ESM TypeScript, strict bounded framing, safe integer/Base64 checks, hello/capability validation, multiplexing, heartbeat, same-epoch reconnect, exact request journal, files, process handles, raw iterators and collected rings. |
-| `packages/ssh` | System OpenSSH argv and separately quoted POSIX control arguments; existing SSH configuration, authentication and jumps remain in use. Connects to an explicit installed helper/socket. |
+| `packages/ssh` | System OpenSSH argv and separately quoted POSIX control arguments; existing SSH configuration, authentication and jumps remain in use. Supports supplied runtimes and the later manifest/cache-based bootstrap described in [bootstrap.md](bootstrap.md). |
 | `packages/dsh-ssh` | Experimental external Cordis runtime owner, FS provider, provisional pipe/collection subprocess provider and exact configured executable mapping. All workspace I/O goes through the client. |
 | `tests/integration` | Real Loader entry groups read from `cordis.yml`, scoped providers, guarded file edits, actual DSH search with its unchanged 20 MB budget, completed-slot reuse, independent owners sharing a World, separate Worlds and inactive-consumer rejection. |
 
@@ -61,4 +61,4 @@ The container helper suite used a 10-second reconnect grace to accommodate multi
 
 This fixture has no model calls or real Agent publication. Creating/resuming an Agent with logged World context, child-Agent inheritance, handoff, approval metadata, actual tool registration/Session jobs and UI integration still need a complete application composition. The process owner tests exercise provider fibers, not Agent/session ownership. The DSH PTY adapter, npm resolver branch and installation as separately packaged external plugins also remain unverified.
 
-Production SSH bootstrap, trusted artifact manifests, atomic installation, upgrade coexistence, corruption repair and offline provisioning are the next implementation stage. Current tests supply artifacts explicitly; there is no automatic installer hidden behind `connectSuppliedRuntime`.
+The subsequent [bootstrap milestone](bootstrap.md) implements manifest/cache-based installation, startup, upgrade coexistence, corruption repair and offline provisioning. `connectSuppliedRuntime` still only connects to an existing runtime; automatic provisioning uses the separate `bootstrapSshWorld` entry point. Trusted release downloads and distribution remain open.

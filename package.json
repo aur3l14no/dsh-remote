@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test tests/client/*.test.ts"
+    "test": "node --test tests/client/*.test.ts tests/bootstrap/*.test.ts",
+    "test:bootstrap": "node --test tests/bootstrap/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

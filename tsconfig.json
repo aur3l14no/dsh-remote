@@ -11,5 +11,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["packages/client/**/*.ts", "packages/ssh/**/*.ts", "tests/client/**/*.ts"]
+  "include": ["packages/client/**/*.ts", "packages/ssh/**/*.ts", "tests/client/**/*.ts", "tests/bootstrap/**/*.ts", "scripts/prepare-artifacts.ts"]
 }

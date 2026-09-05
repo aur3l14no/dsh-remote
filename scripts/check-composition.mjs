@@ -9,12 +9,12 @@ const paths = Object.fromEntries(Object.entries(upstream).map(([key, values]) =>
   const path = resolve(root, value);
   return existsSync(path) && statSync(path).isDirectory() ? join(path, 'index.ts') : path;
 })]));
-const program = ts.createProgram(['world', 'fs', 'subprocess'].map(name => join(local, 'src', name + '.ts')), {
-  target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, strict: true, noEmit: true, skipLibCheck: true,
+const program = ts.createProgram([...['world', 'fs', 'subprocess'].map(name => join(local, 'src', name + '.ts')), ...['composition', 'remote-runtime'].map(name => resolve('tests/integration', name + '.ts'))], {
+  target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext, strict: true, noEmit: true, skipLibCheck: true,
   allowImportingTsExtensions: true, paths, types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
 // Check our providers against the pinned source interfaces. Upstream owns its full repository gate.
-const diagnostics = ts.getPreEmitDiagnostics(program).filter(d => !d.file || d.file.fileName.startsWith(resolve('packages') + '/'));
+const diagnostics = ts.getPreEmitDiagnostics(program).filter(d => !d.file || ['packages', 'tests/integration'].some(dir => d.file.fileName.startsWith(resolve(dir) + '/')));
 if (diagnostics.length) {
   console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics, { getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n' }));
   process.exitCode = 1;

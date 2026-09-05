@@ -11,11 +11,12 @@ import { remoteRuntime } from './remote-runtime.ts';
 
 const ssh = !!process.env.DSH_TEST_HOST;
 const localRg = process.env.DSH_TEST_RG;
-const rg = ssh ? process.env.DSH_TEST_REMOTE_RG : localRg;
 const fixture = ssh ? process.env.DSH_TEST_REMOTE_FIXTURE : nativeFixture;
-if (!rg || !localRg || !fixture) throw new Error('Explicit local identity and target-native artifacts are required');
+if (!localRg || !fixture) throw new Error('Explicit local identity and target-native artifacts are required');
 const r = ssh ? await remoteRuntime('first-world') : await runtime({ lease: 5000 });
 const second = ssh ? await remoteRuntime('second-world') : await runtime({ world: 'second-world', lease: 5000 });
+const rg = 'ripgrep' in r ? r.ripgrep : ssh ? process.env.DSH_TEST_REMOTE_RG : localRg;
+if (!rg) throw new Error('Explicit target-native ripgrep required');
 const local = await mkdtemp('/tmp/dsh-composition-local.');
 const ctx = new Context();
 const originalExecPath = process.execPath;
@@ -70,7 +71,9 @@ try {
   // The real search consumer requests its unchanged 20 MB default and passes its exact packaged path.
   const input = 'needle '.repeat(100) + '\n';
   await remote.fs.writeText(await remote.fs.resolve('large.txt'), input.repeat(25000));
-  const exec = { signal: new AbortController().signal, agent: { session: { header: { cwd: r.dir } } } };
+  // This consumer fixture supplies the execution fields read by runRipgrep; it does not construct an Agent.
+  const searchExecution = (cwd: string) => ({ signal: new AbortController().signal, agent: { session: { header: { cwd } } } }) as Parameters<typeof runRipgrep>[1];
+  const exec = searchExecution(r.dir);
   const search = await runRipgrep(remote, exec, 'grep', ['--no-heading', 'needle', 'large.txt'], RAW_OUTPUT_MAX_BYTES, SEARCH_GRACE_MS, SEARCH_STDERR_MAX_BYTES);
   assert.equal(search.stdout, input.repeat(25000));
   assert.ok(Buffer.byteLength(search.stdout) > 16 * 1024 * 1024);
@@ -88,7 +91,7 @@ try {
     stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 200 });
   let shared!: Context;
   ctx.loader.builtins['shared-consumer'] = { name: 'shared-consumer', inject: ['remoteWorld', 'fs', 'subprocess'], apply(scope: Context) { shared = scope; } };
-  await ctx.loader.create({ id: 'shared-owner', name: 'cordis:group', isolate: { subprocess: true }, config: [
+  await ctx.loader.create({ name: 'cordis:group', isolate: { subprocess: true }, config: [
     { id: 'shared-process', name: 'cordis:subprocess-ssh', config: { executables: {} } },
     { id: 'shared-consumer', name: 'cordis:shared-consumer' },
   ] }, 'world');
@@ -122,7 +125,7 @@ try {
   assert.notEqual(firstFileSystem, other.fs);
   assert.throws(() => other.fs.processPath(target), { code: 'FS_IO_ERROR' });
   await other.fs.writeText(await other.fs.resolve('sentinel.txt'), 'needle\n');
-  await assert.rejects(runRipgrep(other, { ...exec, agent: { session: { header: { cwd: second.dir } } } }, 'grep', ['needle', 'sentinel.txt'], RAW_OUTPUT_MAX_BYTES, SEARCH_GRACE_MS, SEARCH_STDERR_MAX_BYTES), { code: 'SEARCH_FAILED' });
+  await assert.rejects(runRipgrep(other, searchExecution(second.dir), 'grep', ['needle', 'sentinel.txt'], RAW_OUTPUT_MAX_BYTES, SEARCH_GRACE_MS, SEARCH_STDERR_MAX_BYTES), { code: 'SEARCH_FAILED' });
   const survivor = other.subprocess.spawn({ argv: [fixture, 'hold'], cwd: second.dir, stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 200 });
   await new Promise(resolve => setTimeout(resolve, 100));
   await ctx.loader.remove('world');

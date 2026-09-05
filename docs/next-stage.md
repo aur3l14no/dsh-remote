@@ -1,12 +1,12 @@
-# Next stage: local SSH runtime and external DSH composition
+# Next stage: Agent World binding and application composition
 
-Status: client and minimal external composition milestone implemented and accepted on native macOS and SSH-connected embedded/container Linux, 2026-09-05. Helper 0.1.1 extends API revision 1 with bounded 32 MiB collection and target signal names, and fixes guarded-create version observation. See [current scope and reproduction](client.md) and [measured evidence](client-acceptance-results.json). Production installation and Agent/application integration remain open. The original helper baseline is commit `74bf93d`.
+Status: client, minimal external composition, and manifest/cache-based SSH bootstrap implemented and accepted, 2026-09-05. Installation and real helper 0.1.0 → 0.1.1 upgrade checks passed on native macOS and SSH-connected embedded/container Linux. See [bootstrap scope and evidence](bootstrap.md), [client scope](client.md) and [client evidence](client-acceptance-results.json). Agent/application integration and trusted release distribution remain open. The original helper baseline is commit `74bf93d`.
 
 ## Target outcome
 
 An external DSH composition binds an Agent to an explicit SSH World before publication. One local runtime owner uses system OpenSSH to install/validate target-native artifacts, start or resume the remote helper, and supply the same connection to filesystem and subprocess adapters. A real DSH filesystem/search/process consumer demonstrates remote execution and fails explicitly when the World is unavailable. Model calls, Agent loop, Session persistence, UI and approval policy remain local.
 
-The first deliverable now contains a TypeScript protocol client and an E2B-style Loader composition experiment using supplied artifacts. Actual FS/subprocess services and the DSH search consumer resolve the isolated providers. This establishes the narrow seam experiment; Agent lifecycle, complete application consumers and production distribution still require the work below.
+The completed deliverables contain a TypeScript protocol client, SSH installer/runtime bootstrap and an E2B-style Loader composition experiment. Actual FS/subprocess services and the DSH search consumer resolve the isolated providers, including after cold installation from a local cache. Agent lifecycle, complete application consumers and production distribution still require the work below.
 
 ## Source baseline and concrete findings
 
@@ -81,20 +81,20 @@ The checked-in fixture proves provider scoping, guarded edits, synchronous handl
 
 Completion: a checked-in fixture demonstrates real consumer routing and setup rollback without DSH core edits. If a consumer bypasses the World seam, provide an external adaptation or explicitly exclude it from this composition. Do not call an untested plugin compatible merely because the principal tools passed.
 
-### 3. SSH resolver, bootstrap and installation
+### 3. SSH resolver, bootstrap and installation — implemented for trusted local artifacts
 
-- [ ] Use system `ssh` with argv and the user-selected SSH host/config. Preserve keys, ssh-agent, ProxyJump and host verification. No embedded SSH library, implicit host-key acceptance, or arbitrary `shell:true` command construction.
-- [ ] Keep remote control-command quoting separate from Agent process argv. SSH control scripts may detect the target, upload artifacts and start/connect the helper; Agent commands go through `process.spawn` after readiness.
-- [ ] Require explicit remote cwd and validate/canonicalize it. Never derive a remote workspace from local `process.cwd()`.
-- [ ] Define a manifest containing helper build/API, OS/architecture/ABI, byte size/SHA-256 and ripgrep version/digest. Obtain artifacts in a local cache; a target needs neither public internet nor a compiler.
-- [ ] Install to configurable account-writable storage without sudo. Use private staging, bounded installation locking and atomic publication of immutable versioned/content-addressed artifacts. Interrupted or concurrent installs must not expose an incomplete executable.
-- [ ] Upload over SSH stdio so targets without SFTP remain supported. Verify the actual remote bytes and executable before use; do not rely on filenames or the system's existing ripgrep.
-- [ ] Keep runtime sockets in fresh private directories with a path that fits platform Unix-socket limits. `start` must receive an absent runtime directory; an installer must not pre-create it accidentally.
-- [ ] Start `connect`, negotiate, validate required capabilities and the installed remote ripgrep, then expose readiness. Preserve resumable runtime credentials in local owner memory; never put them into Session history/logs.
-- [ ] Heartbeat faster than the configured inbound lease. Reconnect within finite grace to the same runtime; on expiry expose the failure. A later explicit new runtime has fresh handles.
-- [ ] Install upgrades alongside active binaries. Existing owners keep their helper/runtime; new owners can use the selected compatible build. Do not restart live tasks to upgrade or recover output from a previous helper epoch.
+- [x] Use system `ssh` with argv and the user-selected SSH host/config. Preserve keys, ssh-agent, ProxyJump and host verification. No embedded SSH library, implicit host-key acceptance, or arbitrary `shell:true` command construction.
+- [x] Keep remote control-command quoting separate from Agent process argv. SSH control scripts detect the target, upload artifacts and start/connect the helper; Agent commands go through `process.spawn` after readiness.
+- [x] Require explicit remote cwd and validate/canonicalize it. Never derive a remote workspace from local `process.cwd()`.
+- [x] Define a manifest containing helper build/API, OS/architecture/ABI, byte size/SHA-256 and ripgrep version/digest. Obtain caller-supplied artifacts in a local cache; a target needs neither public internet nor a compiler.
+- [x] Install to configurable account-writable storage without sudo, with private staging, bounded publication locking, immutable generations and atomic reference publication.
+- [x] Upload over SSH stdio so targets without SFTP remain supported. Verify actual remote bytes and executable versions before use.
+- [x] Keep runtime sockets in fresh private directories within platform path limits; `start` receives an absent runtime directory.
+- [x] Connect, negotiate, validate required capabilities and managed ripgrep, then expose readiness. Resume credentials remain in local owner memory.
+- [x] Heartbeat within the inbound lease and reconnect within finite grace to the same runtime. A later explicit bootstrap call creates a fresh runtime.
+- [x] Install upgrades alongside active binaries. Existing owners retain their exact helper path/runtime and tasks.
 
-Completion: cold install, reuse, corruption repair, interrupted/concurrent install, read-only default install directory with explicit alternative, incompatible API/capability, disconnect and upgrade scenarios pass. Platform records use categories only, with internal SSH coordinates supplied at execution time.
+Accepted scope: cold install, reuse without local cache, corruption repair, interrupted upload, lost publication response, concurrent install, bounded lock contention, unusable default directory with explicit alternative, incompatible API/build/capability, reconnect and real-version upgrade. Platform records use categories only. See [bootstrap limitations](bootstrap.md) for forced-SIGKILL stale locks, unreferenced staging, retained generations and unverified crash durability; automatic garbage collection and release download trust are separate work.
 
 ### 4. Release preparation
 
@@ -105,8 +105,8 @@ Completion: cold install, reuse, corruption repair, interrupted/concurrent insta
 
 Completion: published-package compatibility is proven before claiming a production SSH World. Publishing npm packages, public releases, Container resolvers, durable tasks and Remote Harness remain separate work; this preparation does not perform those actions.
 
-## First implementation slice
+## Next implementation slice
 
-Completed: `packages/client`, `packages/ssh`, and the experimental `packages/dsh-ssh/src` providers. The real-helper tests cover connection loss after spawn, commit, stdin and acknowledgement, output budgets and runtime loss. The real Loader experiment resolves provider scoping and the search budget.
+Completed: `packages/client`, manifest/cache-based bootstrap in `packages/ssh`, and the experimental `packages/dsh-ssh/src` providers. Real-helper tests cover reconnect/dedup and output budgets; installation tests cover failure/concurrency/upgrade; the Loader experiment verifies real DSH routing after automatic installation.
 
-Next implement artifact manifests, system-SSH target probing and atomic installation using the supplied-runtime transport. In parallel with that design, complete the application-level World binding contract against the pinned Agent setup/Session hooks; do not expose a production preset until all workspace consumers are scoped and the World is logged before publication. The PTY adapter and separately installed package verification remain explicit gates.
+Next implement an external Agent creation/resume entry that awaits bootstrap before synchronous publication, validates remote cwd, and records immutable World context. Verify rollback, child-Agent inheritance and explicit cross-World handoff against actual pinned Agent/Session hooks. Feed the same context to the assumed Auto Approval boundary. Load the relevant consumers in that World and reject any bypass before exposing a production preset. Then complete PTY/Session job adaptation and independently installed package verification. Release catalogs/download provenance and installation garbage collection remain distinct distribution/lifecycle work.
