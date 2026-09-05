@@ -2,7 +2,7 @@
 
 `dsh-remote` is developing an SSH Remote Execution World for DeepSeek Harness (DSH). Model calls, the Agent loop, Sessions, and the UI stay local; a Rust `dsh-remote` helper runs on the remote Linux host, where files, search, Shell/PTY, processes, background jobs, signals, cancellation, and output streams execute with no silent fallback to local execution.
 
-Connections reuse system OpenSSH: SSH config, keys, ssh-agent, and ProxyJump. The SSH bootstrap installs, validates, starts and upgrades helper/ripgrep from a caller-trusted manifest and local artifact cache. Agent creation-time World binding and production artifact distribution remain planned.
+Connections reuse system OpenSSH: SSH config, keys, ssh-agent, and ProxyJump. The SSH bootstrap installs, validates, starts and upgrades helper/ripgrep from a caller-trusted manifest and local artifact cache. An experimental external composition binds actual DSH Agents at creation/resume; production artifact distribution remains planned.
 
 ## Goals
 
@@ -56,9 +56,11 @@ The [helper API contract](docs/helper-api.md) defines message framing, methods, 
 
 ## Status
 
+Agent creation/resume binding is implemented against the pinned DSH source without core edits. Real file/search/argv tools, Agent-visible World context, approval metadata, one-shot child inheritance, handoff, shared runtime ownership and rollback are covered by the [Agent composition](docs/agents.md). Required World records use an external local SQLite Session backend because the pinned JSONL reader does not support required external event types. PTY/Session-job adaptation and independently installed package compatibility remain open.
+
 Helper 0.1.1, the TypeScript protocol client, system-SSH bootstrap and a minimal external DSH FS/subprocess composition are implemented. The client keeps a bounded request journal, resumes the same runtime, and installs final collected output before publishing completion. The real DSH search consumer works with its unchanged 20,000,000-byte budget, including after automatic SSH installation. See the [bootstrap behavior and acceptance](docs/bootstrap.md), [client/composition scope](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
 
-This is a development milestone. Creation-time Agent binding and logged World context, trusted release downloads/distribution, published-package compatibility, and the DSH terminal adapter remain in the [next-stage plan](docs/next-stage.md). The helper itself already supports PTYs; the initial DSH adapter rejects terminal allocation explicitly.
+This is a development milestone. The DSH terminal/Session-job adapters, complete application composition, trusted release distribution and published-package compatibility remain in the [next-stage plan](docs/next-stage.md). The helper itself already supports PTYs; the initial DSH adapter rejects terminal allocation explicitly.
 
 ## Build and exercise the helper
 

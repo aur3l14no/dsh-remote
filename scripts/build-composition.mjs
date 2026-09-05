@@ -5,6 +5,8 @@ import { mkdir, access, realpath, copyFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
 const source = process.argv[2];
+const suite = process.argv[3] ?? 'composition';
+if (!['composition', 'agents', 'persistence'].includes(suite)) throw new Error('Unknown composition suite');
 if (!source) throw new Error('Usage: node scripts/build-composition.mjs DSH_SOURCE_CHECKOUT');
 const baseline = 'd347e703908d0406b7a7ef80e3a0e594d86b2215';
 const root = resolve(source);
@@ -16,11 +18,12 @@ await mkdir('target/composition', { recursive: true });
 // The LLM attribution module reads its package version relative to the built entry.
 await copyFile(join(root, 'packages/llm/llm/package.json'), 'target/package.json');
 await build({
-  entryPoints: ['tests/integration/composition.ts'], outfile: 'target/composition/run.mjs',
+  entryPoints: [`tests/integration/${suite}.ts`], outfile: `target/composition/${suite === 'composition' ? 'run' : suite}.mjs`,
   bundle: true, platform: 'node', format: 'esm', target: 'node24', sourcemap: true,
   packages: 'external',
   external: ['@vscode/ripgrep', 'node-addon-require-builtin'],
   plugins: [{ name: 'pinned-dsh-source', setup(build) {
+    build.onResolve({ filter: /^@dsh-test\/mock-adapter$/ }, () => ({ path: join(root, 'packages/core/agent-loop/tests/mock-adapter.ts') }));
     build.onResolve({ filter: /^@deepseek-ai\// }, async ({ path }) => {
       const entry = paths[path]?.[0];
       if (!entry) return undefined;

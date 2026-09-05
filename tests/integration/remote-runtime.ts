@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { bootstrapSshWorld, connectSuppliedRuntime, sshArguments } from '../../packages/ssh/src/index.ts';
 
 /** Explicit SSH fixture: its setup commands never stand in for a workspace provider call. */
-export async function remoteRuntime(world: string) {
+export async function remoteRuntime(world: string, cwd?: string) {
   const host = process.env.DSH_TEST_HOST;
   const helper = process.env.DSH_TEST_REMOTE_HELPER;
   const manifest = process.env.DSH_TEST_BOOTSTRAP_MANIFEST;
@@ -17,13 +17,13 @@ export async function remoteRuntime(world: string) {
   assert.match(root, /^\/tmp\/dsh-composition\.[A-Za-z0-9]+$/);
   if (manifest) {
     assert.ok(process.env.DSH_TEST_ARTIFACT_CACHE, 'Explicit local artifact cache required');
-    const ready = await bootstrapSshWorld({ ...target, world, cwd: root, cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE,
+    const ready = await bootstrapSshWorld({ ...target, world, cwd: cwd ?? root, cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE,
       manifest: JSON.parse(await readFile(manifest, 'utf8')), installRoot: `${root}/artifacts` });
     return { client: ready.client, dir: ready.client.info.cwd, ripgrep: ready.ripgrep, async close() { await ready.close(); await command(['chmod', '-R', 'u+w', root]); await command(['rm', '-r', root]); } };
   }
   assert.ok(helper);
   try {
-    await command([helper, 'start', '--runtime-dir', `${root}/runtime`, '--cwd', root, '--grace-ms', '15000', '--lease-ms', '5000']);
+    await command([helper, 'start', '--runtime-dir', `${root}/runtime`, '--cwd', cwd ?? root, '--grace-ms', '15000', '--lease-ms', '5000']);
     const client = await connectSuppliedRuntime({ ...target, world, helper, socket: `${root}/runtime/socket` });
     return { client, dir: client.info.cwd, async close() {
       if (client.state === 'ready' || client.state === 'reconnecting') await client.shutdown();

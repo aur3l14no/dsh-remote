@@ -9,10 +9,10 @@ import type { TransportFactory } from '../../packages/client/src/index.ts';
 export const helper = resolve(process.env.DSH_TEST_HELPER ?? 'target/debug/dsh-remote');
 export const fixture = resolve(process.env.DSH_TEST_FIXTURE ?? 'target/debug/dsh-remote-fixture');
 
-export async function runtime(options: { world?: string; grace?: number; lease?: number; wrap?: (factory: TransportFactory) => TransportFactory } = {}) {
+export async function runtime(options: { world?: string; cwd?: string; grace?: number; lease?: number; wrap?: (factory: TransportFactory) => TransportFactory } = {}) {
   const dir = await mkdtemp('/tmp/dsh-client.');
   const runtimeDir = join(dir, 'runtime');
-  const child = spawn(helper, ['serve', '--runtime-dir', runtimeDir, '--cwd', dir, '--grace-ms', String(options.grace ?? 3000), '--lease-ms', String(options.lease ?? 1000)], { stdio: ['ignore', 'ignore', 'inherit'] });
+  const child = spawn(helper, ['serve', '--runtime-dir', runtimeDir, '--cwd', options.cwd ?? dir, '--grace-ms', String(options.grace ?? 3000), '--lease-ms', String(options.lease ?? 1000)], { stdio: ['ignore', 'ignore', 'inherit'] });
   const exited = new Promise<void>((resolve, reject) => { child.once('exit', () => resolve()); child.once('error', reject); });
   const connect: TransportFactory = async signal => {
     signal.throwIfAborted();
