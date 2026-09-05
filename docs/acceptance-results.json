@@ -1,0 +1,135 @@
+{
+  "date": "2026-09-05",
+  "helperVersion": "0.1.0",
+  "api": 1,
+  "sourceSha256": "803b5c126c2de6ad11fa66aaab0425a76a58a14e061b306910e1252319dd223c",
+  "sourceHashRecipe": "Concatenate relative path + NUL + bytes + NUL for Cargo.toml, Cargo.lock, then lexically sorted src/**/*.rs; SHA-256.",
+  "acceptanceSuiteSha256": "6e106ebe3018f6d309e752339cb7fb5e5524c6e29c77f281db2b199fab523d63",
+  "platforms": [
+    {
+      "platform": "macos",
+      "os": "macos",
+      "arch": "aarch64",
+      "api": 1,
+      "passed": [
+        "handshake",
+        "filesystem",
+        "pipes",
+        "input_ordering",
+        "collection",
+        "backpressure_resume",
+        "dedup",
+        "termination",
+        "pty",
+        "cancellation",
+        "search",
+        "lease",
+        "grace_cleanup"
+      ],
+      "unverified": [
+        "DSH adapter composition",
+        "restricted-account permission failures",
+        "arbitrary escaped descendants"
+      ],
+      "search": "passed",
+      "rustTarget": "aarch64-apple-darwin",
+      "profile": "debug",
+      "rustVersion": "1.95.0",
+      "abi": "Darwin",
+      "transport": "native stdio bridge",
+      "helperSha256": "8b94763004a673c04983cc009f9340ceefe2ca0614c88f88371ac06605e0e14e",
+      "fixtureSha256": "5e14593df1b5c074b243d47784e9e7e9f123beb0d356c523dfa0877a7a94dfaa",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "a326a1fb48074202e9ad41e4cd1e389eeea372c8c6f7d7e80da81176d5d9430e",
+      "ripgrepArchiveSha256": "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4"
+    },
+    {
+      "platform": "linux-container",
+      "os": "linux",
+      "arch": "x86_64",
+      "api": 1,
+      "passed": [
+        "handshake",
+        "filesystem",
+        "pipes",
+        "input_ordering",
+        "collection",
+        "backpressure_resume",
+        "dedup",
+        "termination",
+        "pty",
+        "cancellation",
+        "search",
+        "lease",
+        "grace_cleanup"
+      ],
+      "unverified": [
+        "DSH adapter composition",
+        "restricted-account permission failures",
+        "arbitrary escaped descendants"
+      ],
+      "search": "passed",
+      "rustTarget": "x86_64-unknown-linux-gnu",
+      "profile": "release",
+      "rustVersion": "1.96.0",
+      "abi": "glibc 2.39",
+      "transport": "system SSH stdio bridge",
+      "helperSha256": "430b7d0281c2fb5d822780c5e60d8711c66c5070e6ded000635d24ea2745e735",
+      "fixtureSha256": "c14c58788150f1e1c959833b72aa251a435320cae9b4a2043727febefb08a79e",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+      "ripgrepArchiveSha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
+    },
+    {
+      "platform": "linux-embedded",
+      "os": "linux",
+      "arch": "aarch64",
+      "api": 1,
+      "passed": [
+        "handshake",
+        "filesystem",
+        "pipes",
+        "input_ordering",
+        "collection",
+        "backpressure_resume",
+        "dedup",
+        "termination",
+        "pty",
+        "cancellation",
+        "search",
+        "lease",
+        "grace_cleanup"
+      ],
+      "unverified": [
+        "DSH adapter composition",
+        "restricted-account permission failures",
+        "arbitrary escaped descendants"
+      ],
+      "search": "passed",
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "profile": "release",
+      "rustVersion": "1.96.0",
+      "abi": "static musl",
+      "transport": "system SSH stdio bridge",
+      "helperSha256": "5193fd8aa9daa7def196352a55975f8d32b73deabdf2a0d0c0643fdf47aee1af",
+      "fixtureSha256": "78561b34bb3ff2cb1a07ac2d13c90a6d9797dc5f53518cd329bcb309f26c3b11",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "c14cdb389f34e504d69e386cfc67d5c5d9a730a990de03ca6910b2a15e30386a",
+      "ripgrepArchiveSha256": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915"
+    }
+  ],
+  "checks": {
+    "rustfmt": "passed",
+    "clippyAllTargetsMacOS": "passed",
+    "clippyAllTargetsLinux": "passed",
+    "behaviorGroups": 39
+  },
+  "limitations": [
+    "No external DSH adapter/composition test yet",
+    "Exact terminal input-wait proof is unavailable and reported unknown",
+    "No helper-managed persistence across helper restart",
+    "Cleanup is limited to observable managed session members; deliberately escaped descendants are outside the guarantee",
+    "Restricted-account permissions, crash durability, hostile PID-reuse stress, arbitrary external-writer races and actual peak RSS were not measured",
+    "The broader coverage-goal matrix includes cases beyond the 13 executed groups"
+  ]
+}

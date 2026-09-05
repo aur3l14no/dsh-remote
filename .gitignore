@@ -1,0 +1,4 @@
+/target/
+/.research-vscode/
+/justfile.local
+__pycache__/
