@@ -1,6 +1,6 @@
 # Helper API revision 1
 
-Status: approved behavior, implemented wire revision 1. The approval includes runtime-owned processes with bounded reconnection, local text editing, scoped cleanup facts, and bounded output/backpressure. This document describes the helper milestone; DSH provider composition and automatic production distribution remain subsequent work.
+Status: approved behavior, implemented wire revision 1, helper 0.1.1. The approval includes runtime-owned processes with bounded reconnection, local text editing, scoped cleanup facts, and bounded output/backpressure. A minimal external DSH composition is implemented; automatic production distribution and Agent lifecycle binding remain subsequent work.
 
 ## Design basis
 
@@ -103,7 +103,7 @@ Text decoding, NUL rejection for DSH text APIs, CRLF/LF handling, literal match 
 
 Spawn requires nonempty NUL-free `argv` and an absolute directory `cwd`. `argv[0]` is resolved remotely. Shell features require an explicit shell argv; exec failures are allocation errors, while an actually started shell returning 127 is a normal exit. `env` overlays the remote helper's ambient environment, after scrubbing keys matching KEY/PASSWORD/SECRET/TOKEN (case insensitive) or the `DSH_` prefix. String overrides deliberately restore values, including credentials; null deletes a value. Local model-client environment is never the base.
 
-`mode` is `pipe` (default) or `pty`. Pipe stdin is `ignore` (default), `pipe`, or `{"data":"base64"}` followed by EOF. `stdout`/`stderr` independently use `{"mode":"raw","maxBytes":65536}` or `{"mode":"collect","maxBytes":65536,"spillBytes":1048576}`. Limits must be positive; output max is 1 MiB/stream, spill max 16 MiB/stream. DSH `inherit` forwards raw remote output into a local parent stream; the child never inherits protocol stdout.
+`mode` is `pipe` (default) or `pty`. Pipe stdin is `ignore` (default), `pipe`, or `{"data":"base64"}` followed by EOF. `stdout`/`stderr` independently use `{"mode":"raw","maxBytes":65536}` or `{"mode":"collect","maxBytes":65536,"spillBytes":1048576}`. Limits must be positive. Raw output is capped at 1 MiB/stream; collection at 32 MiB/stream, with a 64 MiB runtime reservation shared by process and file-read buffers. Spill remains capped at 16 MiB/stream. Reservations follow actual buffer lifetime and are refunded after release/reader shutdown or failed allocation. DSH `inherit` forwards raw remote output into a local parent stream; the child never inherits protocol stdout.
 
 PTY mode allocates a real controlling terminal, merges output, uses positive `rows`/`cols` (defaults 24/80), and uses raw output with `maxBytes` (default 64 KiB). Environment such as `TERM` is explicit. Byte input gets no implicit newline/EOT translation. `graceMs` (default 1000) and `drainMs` (default 2000) must be 1..30000. Signal names are INT, TERM, KILL, HUP, QUIT, TSTP, CONT, USR1, USR2; signal numbers are platform constants.
 
@@ -121,13 +121,13 @@ Input writes and EOF for a process, and chunks/commit/abort for an upload, execu
 
 Raw buffers retain unacknowledged bytes up to their cap. Reading or receiving an event does not acknowledge them. At capacity the helper stops draining the OS endpoint, applying real backpressure to the child/file reader. Control traffic has separate admission capacity. On reconnect, events replay from the retained acknowledgement position with original offsets. Clients discard duplicated bytes they already hold and acknowledge only what they have consumed. Explicitly reading before the retained position reports a gap; a raw consumer must not pretend the missing prefix is available.
 
-Collect mode drains into a bounded byte tail. Slow consumers get coalesced updates and explicit gaps; no raw-protocol semantics are claimed. Tail boundaries may split UTF-8. Offsets beyond `produced` are invalid. Optional spills retain the full byte sequence through the advertised produced offset. Exceeding the spill cap removes the partial file and stops advertising a full copy; disk errors are explicit. A runtime reserves at most 64 MiB of spill capacity across its lifetime, including files kept after process release. Starting more spill-producing jobs can exhaust that reservation before disk bytes reach it.
+Collect mode drains into a bounded byte tail. Events and RPC snapshots both carry at most 32 KiB of decoded bytes, including a final large retained tail; producers need not append again for delivery to continue. Slow consumers get coalesced updates and explicit gaps; no raw-protocol semantics are claimed. Tail boundaries may split UTF-8. Offsets beyond `produced` are invalid. Optional spills retain the full byte sequence through the advertised produced offset. Exceeding the spill cap removes the partial file and stops advertising a full copy; disk errors are explicit. A runtime reserves at most 64 MiB of spill capacity across its lifetime, including files kept after process release. Starting more spill-producing jobs can exhaust that reservation before disk bytes reach it.
 
 Buffers survive a transport disconnect only within the live runtime/grace window and under the same caps. No extra unlimited reconnect buffer exists. The DSH adapter maintains a bounded local collection mirror for synchronous `readFrom`, and installs final output state before settling `done`; it cannot implement synchronous `readFrom` with an RPC. It tracks root exit and stream EOF independently because process-state and stream events have no cross-resource total ordering.
 
 ## Cleanup facts and limits
 
-`process.state` events contain `rootExit` (code/signal/core dump), `closed`, `cleanupComplete`, `cleanupScope:"observed-session-members"`, `observationError`, `terminationAccepted`, `termSent`, `killSent`, and a revision. These express separate facts:
+`process.state` events contain `rootExit` (code/signal/signalName/core dump), `closed`, `cleanupComplete`, `cleanupScope:"observed-session-members"`, `observationError`, `terminationAccepted`, `termSent`, `killSent`, and a revision. Capability `process.exit-signal-name` means the target reports the portable `SIG*` spelling alongside its numeric signal; unrecognized signals have a null name. A client must not interpret a target signal using its own OS's numeric table. These express separate facts:
 
 1. Cancellation or termination was accepted.
 2. A signal was actually sent to observed live members.

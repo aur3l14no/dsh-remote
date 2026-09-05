@@ -6,9 +6,20 @@ use std::{
     fs::File,
     io::Write,
     path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::{Mutex, Notify};
+
+pub const MAX_RAW_BYTES: usize = 1024 * 1024;
+pub const MAX_COLLECT_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_RUNTIME_BYTES: usize = 64 * 1024 * 1024;
+
+/// Reservations follow the actual buffers, including readers still shutting down.
+#[derive(Default)]
+pub struct Budget(AtomicUsize);
 
 pub struct Output {
     pub id: String,
@@ -17,6 +28,7 @@ pub struct Output {
     pub cap: usize,
     pub state: Mutex<State>,
     pub changed: Notify,
+    budget: Arc<Budget>,
 }
 pub struct State {
     bytes: VecDeque<u8>,
@@ -30,6 +42,7 @@ pub struct State {
 }
 impl Drop for Output {
     fn drop(&mut self) {
+        self.budget.0.fetch_sub(self.cap, Ordering::SeqCst);
         let state = self.state.get_mut();
         if !state.eof {
             if let Some(path) = &state.spill_path {
@@ -44,14 +57,27 @@ impl Output {
         raw: bool,
         cap: usize,
         spill: Option<(File, PathBuf, u64)>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
+        budget: Arc<Budget>,
+    ) -> Result<Arc<Self>> {
+        budget
+            .0
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |used| {
+                used.checked_add(cap)
+                    .filter(|total| *total <= MAX_RUNTIME_BYTES)
+            })
+            .map_err(|_| {
+                if let Some((_, path, _)) = &spill {
+                    let _ = std::fs::remove_file(path);
+                }
+                Error::new("RESOURCE_LIMIT", "runtime output memory reservation limit")
+            })?;
+        Ok(Arc::new(Self {
             id,
             visible: AtomicBool::new(false),
             raw,
             cap,
             state: Mutex::new(State {
-                bytes: VecDeque::new(),
+                bytes: VecDeque::with_capacity(cap),
                 start: 0,
                 end: 0,
                 eof: false,
@@ -61,7 +87,8 @@ impl Output {
                 revision: 0,
             }),
             changed: Notify::new(),
-        })
+            budget,
+        }))
     }
     pub async fn append(&self, mut bytes: &[u8]) -> bool {
         while !bytes.is_empty() {
@@ -98,12 +125,16 @@ impl Output {
                     s.spill_path = None;
                 }
             }
-            s.bytes.extend(part);
             s.end = end;
-            if !self.raw && s.bytes.len() > self.cap {
-                let excess = s.bytes.len() - self.cap;
+            if self.raw {
+                s.bytes.extend(part);
+            } else {
+                // Trim before extending so the reserved allocation never grows past cap.
+                let retained = &part[part.len().saturating_sub(self.cap)..];
+                let excess = (s.bytes.len() + retained.len()).saturating_sub(self.cap);
                 s.bytes.drain(..excess);
-                s.start += excess as u64;
+                s.bytes.extend(retained);
+                s.start = end - s.bytes.len() as u64;
             }
             s.revision += 1;
             drop(s);

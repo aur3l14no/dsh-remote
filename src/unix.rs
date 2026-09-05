@@ -246,6 +246,42 @@ pub fn signal_name(name: &str) -> Result<i32> {
         _ => return Err(Error::new("UNSUPPORTED", "unsupported portable signal")),
     })
 }
+/// Signal numbers differ between target platforms; publish the target's own spelling.
+pub fn exit_signal_name(signal: i32) -> Option<&'static str> {
+    [
+        (libc::SIGHUP, "SIGHUP"),
+        (libc::SIGINT, "SIGINT"),
+        (libc::SIGQUIT, "SIGQUIT"),
+        (libc::SIGILL, "SIGILL"),
+        (libc::SIGTRAP, "SIGTRAP"),
+        (libc::SIGABRT, "SIGABRT"),
+        (libc::SIGBUS, "SIGBUS"),
+        (libc::SIGFPE, "SIGFPE"),
+        (libc::SIGKILL, "SIGKILL"),
+        (libc::SIGUSR1, "SIGUSR1"),
+        (libc::SIGSEGV, "SIGSEGV"),
+        (libc::SIGUSR2, "SIGUSR2"),
+        (libc::SIGPIPE, "SIGPIPE"),
+        (libc::SIGALRM, "SIGALRM"),
+        (libc::SIGTERM, "SIGTERM"),
+        (libc::SIGCHLD, "SIGCHLD"),
+        (libc::SIGCONT, "SIGCONT"),
+        (libc::SIGSTOP, "SIGSTOP"),
+        (libc::SIGTSTP, "SIGTSTP"),
+        (libc::SIGTTIN, "SIGTTIN"),
+        (libc::SIGTTOU, "SIGTTOU"),
+        (libc::SIGURG, "SIGURG"),
+        (libc::SIGXCPU, "SIGXCPU"),
+        (libc::SIGXFSZ, "SIGXFSZ"),
+        (libc::SIGVTALRM, "SIGVTALRM"),
+        (libc::SIGPROF, "SIGPROF"),
+        (libc::SIGWINCH, "SIGWINCH"),
+        (libc::SIGIO, "SIGIO"),
+        (libc::SIGSYS, "SIGSYS"),
+    ]
+    .into_iter()
+    .find_map(|(number, name)| (number == signal).then_some(name))
+}
 pub fn signal_owned(
     known: &HashMap<i32, u64>,
     session: i32,

@@ -1,0 +1,253 @@
+{
+  "date": "2026-09-05",
+  "helperVersion": "0.1.1",
+  "api": 1,
+  "rustSourceSha256": "195a26332fae7c07e5a011d76eabb641178fd7a0e176bda44c9e5a5053c47ed9",
+  "rustSourceHashRecipe": "Concatenate relative path + NUL + bytes + NUL for Cargo.toml, Cargo.lock, then lexically sorted src/**/*.rs; SHA-256.",
+  "helperSuiteSha256": "6d78841ad3d6d983e79ecb08e9c655b4776bb62bedef0b728aa7f3c6f22070fe",
+  "clientSourceAndSuiteSha256": "171e9c5038a17f78889cba5340ed2fafec17ce1f0181a8ad4e26a72b907aa5ca",
+  "clientHashRecipe": "Concatenate relative path + NUL + bytes + NUL in clientHashFiles order; SHA-256.",
+  "clientHashFiles": [
+    "package-lock.json",
+    "package.json",
+    "packages/client/package.json",
+    "packages/client/src/client.ts",
+    "packages/client/src/files.ts",
+    "packages/client/src/framing.ts",
+    "packages/client/src/index.ts",
+    "packages/client/src/process.ts",
+    "packages/client/src/protocol.ts",
+    "packages/client/src/streams.ts",
+    "packages/dsh-ssh/src/fs.ts",
+    "packages/dsh-ssh/src/subprocess.ts",
+    "packages/dsh-ssh/src/world.ts",
+    "packages/ssh/package.json",
+    "packages/ssh/src/index.ts",
+    "scripts/build-composition.mjs",
+    "scripts/check-composition.mjs",
+    "tests/client/framing.test.ts",
+    "tests/client/lifecycle.test.ts",
+    "tests/client/recovery.test.ts",
+    "tests/client/ssh.test.ts",
+    "tests/client/support.ts",
+    "tests/integration/composition.ts",
+    "tests/integration/cordis.yml",
+    "tests/integration/remote-runtime.ts",
+    "tsconfig.json"
+  ],
+  "dshSourceRevision": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
+  "dshCompositionMode": "Actual pinned source, unmodified tracked files, Cordis Loader isolated groups; experimental external providers",
+  "platforms": [
+    {
+      "platform": "macos",
+      "os": "macos",
+      "arch": "aarch64",
+      "api": 1,
+      "search": "passed",
+      "rustTarget": "aarch64-apple-darwin",
+      "profile": "debug",
+      "rustVersion": "1.95.0",
+      "abi": "Darwin",
+      "transport": "native stdio bridge",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "a326a1fb48074202e9ad41e4cd1e389eeea372c8c6f7d7e80da81176d5d9430e",
+      "ripgrepArchiveSha256": "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
+      "helperSuite": {
+        "passed": [
+          "handshake",
+          "filesystem",
+          "pipes",
+          "input_ordering",
+          "collection",
+          "backpressure_resume",
+          "dedup",
+          "termination",
+          "pty",
+          "cancellation",
+          "search",
+          "lease",
+          "grace_cleanup"
+        ],
+        "graceMs": 1800,
+        "scope": "Python helper protocol suite only"
+      },
+      "helperSha256": "05c632be6b66aff96cc44987bbe6cc0fe2a834625c572ca096a84c6111d6c548",
+      "fixtureSha256": "df1af9138797b8d4ea61065f6d11509c0c95b551fd4c878891074697fe40b7b9"
+    },
+    {
+      "platform": "linux-container",
+      "os": "linux",
+      "arch": "x86_64",
+      "api": 1,
+      "search": "passed",
+      "rustTarget": "x86_64-unknown-linux-gnu",
+      "profile": "release",
+      "rustVersion": "1.96.0",
+      "abi": "glibc 2.39",
+      "transport": "system SSH stdio bridge",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+      "ripgrepArchiveSha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
+      "helperSuite": {
+        "passed": [
+          "handshake",
+          "filesystem",
+          "pipes",
+          "input_ordering",
+          "collection",
+          "backpressure_resume",
+          "dedup",
+          "termination",
+          "pty",
+          "cancellation",
+          "search",
+          "lease",
+          "grace_cleanup"
+        ],
+        "graceMs": 10000,
+        "scope": "Python helper protocol suite only"
+      },
+      "helperSha256": "dc1587dad86ec6c671676651dec4f32088d849689ffa0c8779667aba225d791f",
+      "fixtureSha256": "7fe748af3bd695237f8287c82a0c6118e1c6cfdb309aa8d58443ca1d4b3b8930"
+    },
+    {
+      "platform": "linux-embedded",
+      "os": "linux",
+      "arch": "aarch64",
+      "api": 1,
+      "search": "passed",
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "profile": "release",
+      "rustVersion": "1.96.0",
+      "abi": "static musl",
+      "transport": "system SSH stdio bridge",
+      "ripgrepVersion": "15.2.0",
+      "ripgrepSha256": "c14cdb389f34e504d69e386cfc67d5c5d9a730a990de03ca6910b2a15e30386a",
+      "ripgrepArchiveSha256": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915",
+      "helperSuite": {
+        "passed": [
+          "handshake",
+          "filesystem",
+          "pipes",
+          "input_ordering",
+          "collection",
+          "backpressure_resume",
+          "dedup",
+          "termination",
+          "pty",
+          "cancellation",
+          "search",
+          "lease",
+          "grace_cleanup"
+        ],
+        "graceMs": 1800,
+        "scope": "Python helper protocol suite only"
+      },
+      "helperSha256": "eea479c07dc4f24a667947cd4423cd0b7ea610d2576abe6533bfb78dbc0c312d",
+      "fixtureSha256": "b66136f369a60898bbd006a23be1d586d5720a0f107084b5ace005be63cd8262"
+    }
+  ],
+  "clientTests": [
+    {
+      "platform": "macos",
+      "nodeVersion": "24.19.0",
+      "passed": 14,
+      "skipped": 1,
+      "skipReason": "SSH case requires explicit target and is run separately"
+    },
+    {
+      "platform": "linux-container",
+      "nodeVersion": "24.20.0",
+      "passed": 14,
+      "skipped": 1,
+      "skipReason": "SSH case requires explicit target and is run separately"
+    }
+  ],
+  "sshClientTests": [
+    {
+      "harnessPlatform": "macos",
+      "helperPlatform": "linux-embedded",
+      "passed": 1,
+      "transport": "system OpenSSH",
+      "scope": "remote-only binary files, 20 MB collection, raw stream resume, managed ripgrep, target signal name, confirmed runtime cleanup"
+    },
+    {
+      "harnessPlatform": "macos",
+      "helperPlatform": "linux-container",
+      "passed": 1,
+      "transport": "system OpenSSH",
+      "scope": "remote-only binary files, 20 MB collection, raw stream resume, managed ripgrep, target signal name, confirmed runtime cleanup"
+    }
+  ],
+  "dshCompositionTests": [
+    {
+      "harnessPlatform": "macos",
+      "helperPlatform": "macos",
+      "transport": "native Unix socket",
+      "result": "passed",
+      "searchOutputBytes": 17525000,
+      "unchangedSearchLimitBytes": 20000000
+    },
+    {
+      "harnessPlatform": "macos",
+      "helperPlatform": "linux-embedded",
+      "transport": "system OpenSSH",
+      "result": "passed",
+      "searchOutputBytes": 17525000,
+      "unchangedSearchLimitBytes": 20000000
+    },
+    {
+      "harnessPlatform": "macos",
+      "helperPlatform": "linux-container",
+      "transport": "system OpenSSH",
+      "result": "passed",
+      "searchOutputBytes": 17525000,
+      "unchangedSearchLimitBytes": 20000000
+    }
+  ],
+  "dshCompositionCoverage": [
+    "Real Cordis Loader isolation and actual DSH runRipgrep consumer",
+    "Guarded create version remains current; local CRLF edits and stale-version precedence",
+    "Exact bundled-sidecar identity mapping to supplied target-native ripgrep",
+    "Unrelated executable and missing managed ripgrep fail explicitly",
+    "Remote workspace file absent at corresponding local coordinate in SSH runs",
+    "Synchronous provisional handles and collected readers; final output before done",
+    "Missing executable failure and best-effort finite input with early child exit",
+    "Twenty completed processes reuse bounded remote slots; local results remain readable",
+    "Two provider owners share one World; disposing one preserves the other",
+    "Separate Worlds reject foreign file targets; disposing one preserves the other"
+  ],
+  "checks": {
+    "linuxBuildSourceMatchesLocal": true,
+    "rustfmt": "passed",
+    "clippyAllTargetsMacOS": "passed",
+    "clippyAllTargetsLinux": "passed",
+    "typescriptClientSshTests": "passed",
+    "typescriptProvidersAgainstPinnedDshInterfaces": "passed",
+    "helperPlatformGroupPasses": 39,
+    "nativeClientCasePasses": 28,
+    "sshClientCasePasses": 2,
+    "dshCompositionPlatformPasses": 3
+  },
+  "limits": {
+    "collectBytesPerStream": 33554432,
+    "rawBytesPerStream": 1048576,
+    "reservedOutputBytesPerRuntime": 67108864,
+    "spillBytesPerStream": 16777216,
+    "wireOutputChunkBytes": 32768,
+    "maxGraceMs": 30000,
+    "clientFileBytes": 67108864,
+    "directoryEntries": 1000
+  },
+  "limitations": [
+    "Minimal source-based providers only; no complete Agent/Session/UI application composition or creation-time World publication",
+    "DSH terminal adapter explicitly unsupported; helper PTY baseline passed separately",
+    "Ordinary npm ripgrep resolution and independently installed external DSH packages remain unverified",
+    "Supplied artifacts only; no automatic bootstrap, atomic installer, upgrade or corruption-repair acceptance",
+    "Container helper protocol suite uses 10-second grace for multi-hop SSH; other platforms use 1.8 seconds",
+    "Shared output reservations were exercised; actual peak RSS was not measured",
+    "Restricted-account permission failures, hostile writer/PID-reuse races, crash durability and spill storage failure injection remain unverified",
+    "No helper-restart recovery; deliberately escaped descendants are outside managed cleanup scope",
+    "Exact terminal input-wait proof is unavailable and reports unknown"
+  ]
+}

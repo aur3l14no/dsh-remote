@@ -1,0 +1,13 @@
+[
+  {
+    "id": "world",
+    "name": "cordis:group",
+    "isolate": { "remoteWorld": true, "fs": true, "subprocess": true },
+    "config": [
+      { "id": "runtime", "name": "cordis:remote-world" },
+      { "id": "fs", "name": "cordis:fs-ssh", "config": { "textMaxBytes": 33554432, "diffBasisMaxBytes": 10485760 } },
+      { "id": "process", "name": "cordis:subprocess-ssh", "config": { "executables": {} } },
+      { "id": "consumer", "name": "cordis:consumer" }
+    ]
+  }
+]

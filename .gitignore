@@ -2,3 +2,5 @@
 /.research-vscode/
 /justfile.local
 __pycache__/
+node_modules/
+*.tsbuildinfo

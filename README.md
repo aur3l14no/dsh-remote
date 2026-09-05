@@ -1,8 +1,8 @@
 # dsh-remote
 
-`dsh-remote` implements an SSH Remote Execution World for DeepSeek Harness (DSH). Model calls, the Agent loop, Sessions, and the UI stay local; a Rust `dsh-remote` helper runs on the remote Linux host, where files, search, Shell/PTY, processes, background jobs, signals, cancellation, and output streams all execute — with no silent fallback to local execution.
+`dsh-remote` is developing an SSH Remote Execution World for DeepSeek Harness (DSH). Model calls, the Agent loop, Sessions, and the UI stay local; a Rust `dsh-remote` helper runs on the remote Linux host, where files, search, Shell/PTY, processes, background jobs, signals, cancellation, and output streams execute with no silent fallback to local execution.
 
-Connections reuse the system OpenSSH client: SSH config, keys, ssh-agent, and ProxyJump. DSH installs, starts, and upgrades the helper automatically, uploads target-platform ripgrep for remote search, and negotiates version and capabilities.
+Connections reuse system OpenSSH: SSH config, keys, ssh-agent, and ProxyJump. Automatic helper installation/upgrades and Agent creation-time World binding are planned; the current client connects to explicitly supplied artifacts and negotiates capabilities.
 
 ## Goals
 
@@ -56,7 +56,9 @@ The [helper API contract](docs/helper-api.md) defines message framing, methods, 
 
 ## Status
 
-The Rust helper milestone is implemented. It provides a private runtime/stdio bridge, session resumption and request deduplication, binary filesystem streams and guarded atomic publication, pipe/PTY processes, scoped cleanup, and bounded raw/collected/spill output. See [acceptance evidence](docs/helper-acceptance.md). External DSH adapters, production SSH bootstrap/distribution/upgrades, and World binding remain later stages. The [next-stage plan](docs/next-stage.md) defines the local client, external composition experiment, compatibility gates and SSH installation work.
+Helper 0.1.1, the TypeScript protocol client, system-SSH transport and a minimal external DSH FS/subprocess composition are implemented. The client keeps a bounded request journal, resumes the same runtime, and installs final collected output before publishing completion. The real DSH search consumer works with its unchanged 20,000,000-byte budget. See the [client/composition scope and checks](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
+
+This is a development milestone. Automatic artifact installation/upgrades, creation-time Agent binding and logged World context, published-package compatibility, and the DSH terminal adapter remain in the [next-stage plan](docs/next-stage.md). The helper itself already supports PTYs; the initial DSH adapter rejects terminal allocation explicitly.
 
 ## Build and exercise the helper
 

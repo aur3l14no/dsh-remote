@@ -2,7 +2,7 @@ use crate::{
     cancel::Cancel,
     error::{invalid, number, string, Error, Result},
     fs,
-    output::Output,
+    output::{self, Budget, Output},
     process::{self, Process},
     unix,
     wire::{self, Request, CHUNK},
@@ -31,6 +31,7 @@ const CAPABILITIES: &[&str] = &[
     "process.pipe",
     "process.pty",
     "process.signals",
+    "process.exit-signal-name",
     "output.ack",
     "output.collect",
     "output.spill",
@@ -76,6 +77,7 @@ pub struct Runtime {
     slots: Arc<Semaphore>,
     sequence: AtomicU64,
     spill_reserved: AtomicU64,
+    output_budget: Arc<Budget>,
     stopping: AtomicBool,
     exit_ready: AtomicBool,
 }
@@ -133,6 +135,7 @@ impl Runtime {
             slots: Arc::new(Semaphore::new(MAX_REQUESTS)),
             sequence: AtomicU64::new(1),
             spill_reserved: AtomicU64::new(0),
+            output_budget: Arc::new(Budget::default()),
             stopping: AtomicBool::new(false),
             exit_ready: AtomicBool::new(false),
         });
@@ -241,7 +244,7 @@ impl Runtime {
         }
         s.active = true;
         Ok(
-            json!({"api":1,"build":env!("CARGO_PKG_VERSION"),"runtime":self.id,"token":self.token,"world":s.world,"cwd":fs::utf8(&s.cwd)?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"capabilities":self.capabilities,"inputWaiting":"unknown","cleanupScope":"observed-session-members","graceMs":self.grace.as_millis(),"leaseMs":self.lease.as_millis(),"limits":{"frameBytes":wire::MAX_FRAME,"chunkBytes":CHUNK,"processes":MAX_PROCESSES,"streams":MAX_STREAMS,"uploads":MAX_UPLOADS,"requests":MAX_REQUESTS,"outputBytesPerStream":1024*1024,"spillBytesPerStream":16*1024*1024,"spillBytesPerRuntime":64*1024*1024,"uploadBytes":64*1024*1024,"dedupResponses":256,"dedupBytes":8*1024*1024},"requestHighWater":s.high_water}),
+            json!({"api":1,"build":env!("CARGO_PKG_VERSION"),"runtime":self.id,"token":self.token,"world":s.world,"cwd":fs::utf8(&s.cwd)?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"capabilities":self.capabilities,"inputWaiting":"unknown","cleanupScope":"observed-session-members","graceMs":self.grace.as_millis(),"leaseMs":self.lease.as_millis(),"limits":{"frameBytes":wire::MAX_FRAME,"chunkBytes":CHUNK,"processes":MAX_PROCESSES,"streams":MAX_STREAMS,"uploads":MAX_UPLOADS,"requests":MAX_REQUESTS,"outputBytesPerStream":output::MAX_COLLECT_BYTES,"rawOutputBytesPerStream":output::MAX_RAW_BYTES,"outputBytesPerRuntime":output::MAX_RUNTIME_BYTES,"maxGraceMs":30000,"spillBytesPerStream":16*1024*1024,"spillBytesPerRuntime":64*1024*1024,"uploadBytes":64*1024*1024,"dedupResponses":256,"dedupBytes":8*1024*1024},"requestHighWater":s.high_water}),
         )
     }
     async fn connection(self: Arc<Self>, mut stream: UnixStream) -> Result<()> {
@@ -299,11 +302,11 @@ impl Runtime {
                             let revision=output.revision().await;
                             if revisions.get(&output.id)==Some(&revision){continue;}
                             let offset=if let Some(offset)=offsets.get(&output.id){*offset}else if output.raw{output.snapshot(0,0).await?["retainedFrom"].as_u64().unwrap_or(0)}else{0};
-                            let value=output.snapshot(offset,if output.raw{CHUNK}else{output.cap}).await?;
+                            let value=output.snapshot(offset,CHUNK).await?;
                             let next=value["next"].as_u64().unwrap_or(offset);
                             send(&mut writer,&json!({"event":"stream.data","value":value})).await?;
                             offsets.insert(output.id.clone(),next);
-                            // Multiple frames drain a raw buffer without requiring another producer append.
+                            // Drain every mode in bounded frames even after the producer has stopped.
                             if next==value["produced"].as_u64().unwrap_or(next){revisions.insert(output.id.clone(),revision);}
                         }
                     }
@@ -565,7 +568,13 @@ impl Runtime {
                     fs::open_read(&fs::absolute(string(p, "path")?)?, max)
                 })?;
                 let id = self.resource("f");
-                let output = Output::new(id.clone(), true, 64 * 1024, None);
+                let output = Output::new(
+                    id.clone(),
+                    true,
+                    64 * 1024,
+                    None,
+                    self.output_budget.clone(),
+                )?;
                 let stop = Arc::new(Cancel::default());
                 self.streams
                     .lock()
@@ -624,7 +633,15 @@ impl Runtime {
                     })
                     .map_err(|_| Error::new("RESOURCE_LIMIT", "runtime spill reservation limit"))?;
                 let id = self.resource("p");
-                let process = match process::spawn(id.clone(), p, &self.dir, cancel).await {
+                let process = match process::spawn(
+                    id.clone(),
+                    p,
+                    &self.dir,
+                    cancel,
+                    self.output_budget.clone(),
+                )
+                .await
+                {
                     Ok(process) => process,
                     Err(error) => {
                         self.spill_reserved.fetch_sub(reservation, Ordering::SeqCst);

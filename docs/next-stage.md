@@ -1,12 +1,12 @@
 # Next stage: local SSH runtime and external DSH composition
 
-Status: implementation preparation, 2026-09-05. The helper milestone is committed as `74bf93d`; its API revision 1 and three-platform acceptance remain the baseline. This document specifies the next work, not an assertion that the TypeScript client, installer, or DSH adapters already exist.
+Status: client and minimal external composition milestone implemented and accepted on native macOS and SSH-connected embedded/container Linux, 2026-09-05. Helper 0.1.1 extends API revision 1 with bounded 32 MiB collection and target signal names, and fixes guarded-create version observation. See [current scope and reproduction](client.md) and [measured evidence](client-acceptance-results.json). Production installation and Agent/application integration remain open. The original helper baseline is commit `74bf93d`.
 
-## Outcome
+## Target outcome
 
 An external DSH composition binds an Agent to an explicit SSH World before publication. One local runtime owner uses system OpenSSH to install/validate target-native artifacts, start or resume the remote helper, and supply the same connection to filesystem and subprocess adapters. A real DSH filesystem/search/process consumer demonstrates remote execution and fails explicitly when the World is unavailable. Model calls, Agent loop, Session persistence, UI and approval policy remain local.
 
-The first deliverable is a TypeScript protocol client plus a minimal E2B-style composition experiment using already built artifacts. Production distribution is added after this proves the seam. This ordering avoids committing to an installer/package layout before verifying that real consumers resolve the intended providers.
+The first deliverable now contains a TypeScript protocol client and an E2B-style Loader composition experiment using supplied artifacts. Actual FS/subprocess services and the DSH search consumer resolve the isolated providers. This establishes the narrow seam experiment; Agent lifecycle, complete application consumers and production distribution still require the work below.
 
 ## Source baseline and concrete findings
 
@@ -24,7 +24,7 @@ Use the inspected [DSH revision d347e70](https://github.com/deepseek-ai/deepseek
 
 The DSH source baseline uses ESM, Node `^22.19.0 || >=24.0.0`, pnpm and TypeScript. Use a compatible Node/ESM toolchain for the experiment, and pin actual dependency versions at implementation time. Repository-local package directory names below are proposed; they are not reserved or published npm names.
 
-## Proposed modules
+## Module layout and intended split
 
 | Directory | Responsibility |
 | --- | --- |
@@ -35,13 +35,13 @@ The DSH source baseline uses ESM, Node `^22.19.0 || >=24.0.0`, pnpm and TypeScri
 | `packages/subprocess-ssh` | DSH provisional pipe/PTY handles, local collection mirrors, exact managed-executable mapping, owner reference sets and disposal. |
 | `tests/integration` | Real external composition fixtures, local/remote sentinels, lifecycle/failure injection and package-loading tests. |
 
-Keep Cargo/Rust sources in their current layout. Add the TypeScript workspace when the first client implementation starts; do not create empty placeholder packages or publish packages during preparation.
+Cargo/Rust sources retain their existing layout. The TypeScript workspace now contains private client and SSH packages; the experimental FS/subprocess providers currently live in `packages/dsh-ssh/src`. Split and package the providers only when an installable DSH dependency baseline is established; do not create empty placeholder packages or publish packages during preparation.
 
 ## Compatibility issues to resolve first
 
 | Issue found in the current helper / DSH comparison | Required treatment |
 | --- | --- |
-| DSH search defaults to `RAW_OUTPUT_MAX_BYTES = 20_000_000`; helper collect memory is limited to 1 MiB/stream, spill to 16 MiB, and frames to 2 MiB. | This is a release gate. Design a bounded strategy that preserves the requested complete-output contract, with aggregate resource budgets and chunked delivery. If helper collection limits are extended, do not emit a whole large tail in one JSON frame. A documented constrained composition may explicitly configure a smaller search cap; the adapter must never silently clamp the caller's value. |
+| DSH search defaults to `RAW_OUTPUT_MAX_BYTES = 20_000_000`; the original helper collection limit was 1 MiB. | Resolved for the current experiment: helper 0.1.1 supports 32 MiB/collect stream with a shared 64 MiB runtime reservation and 32 KiB frame payloads. The actual DSH search consumer passed with its unchanged default. Spill remains 16 MiB and larger requests fail explicitly. |
 | DSH accepts grace values up to its maximum Node timer; helper accepts at most 30 seconds. | Validate against advertised support before spawn and return an explicit unsupported-limit error, or extend and test the helper contract. Do not silently shorten grace. |
 | Helper directory listings stop with a resource error beyond 1000 entries; uploads are capped at 64 MiB. | Document the initial supported profile. Add bounded pagination/streaming or explicit provisioning limits before claiming unrestricted filesystem-seam compatibility. Never return a successful partial listing. |
 | Stream events can overlap RPC snapshots/reconnect replay; `process.state.closed` can arrive before the final stream frames are installed locally. | Merge by original byte offsets, deduplicate overlap, expose collect gaps, and settle `done` only after installing the final required output state. For raw streams, loss is an error, never a resumable silent omission. |
@@ -57,19 +57,21 @@ These findings do not invalidate the recorded helper behavior tests. They distin
 
 ### 1. Protocol client and ownership
 
-- [ ] Implement a typed, transport-independent framed client. Reject malformed frames/envelopes; keep byte payloads binary-safe.
-- [ ] Match the Rust hello/capability/limit report and fail before workspace operations when required support is absent.
-- [ ] Allocate monotonic IDs and retain bounded exact request content until outcome/recovery is resolved. Retransmit only the same ID/content to the same runtime.
-- [ ] Implement raw delivery with acknowledgement tied to actual bounded downstream consumption. Receiving a transport frame alone is not proof of consumption.
-- [ ] Implement collected-output mirrors/snapshots with exact offsets, gap reporting and finalization. Resolve the search-budget mismatch before enabling the default search configuration.
-- [ ] Serialize stdin/EOF locally, split input into accepted chunks, and preserve partial-write errors. Track all provisional allocations until publication or confirmed cleanup.
-- [ ] Use explicit states: starting, ready, reconnecting, closing, closed, failed. Suspend admission during reconnect; a failed World never selects a local provider.
+- [x] Implement a typed, transport-independent framed client. Reject malformed frames/envelopes; keep byte payloads binary-safe.
+- [x] Match the Rust hello/capability/limit report and fail before workspace operations when required support is absent.
+- [x] Allocate monotonic IDs and retain bounded exact request content until outcome/recovery is resolved. Retransmit only the same ID/content to the same runtime.
+- [x] Implement raw delivery with acknowledgement tied to actual bounded downstream consumption. Receiving a transport frame alone is not proof of consumption.
+- [x] Implement collected-output mirrors/snapshots with exact offsets, gap reporting and finalization. Resolve the search-budget mismatch before enabling the default search configuration.
+- [x] Serialize stdin/EOF locally, split input into accepted chunks, and preserve partial-write errors. Track all provisional allocations until publication or confirmed cleanup.
+- [x] Use explicit states: starting, ready, reconnecting, closing, closed, failed. Suspend admission during reconnect; a failed World never selects a local provider.
 
 Completion: client tests use the real helper and deterministic connection interruption around spawn, file commit, partial stdin, stream acknowledgement and final output. The same-session request is executed once; an expired/new runtime never re-executes it automatically.
 
 ### 2. Minimal external composition experiment
 
-- [ ] Load the shared runtime plus minimal filesystem/subprocess adapters and actual DSH consumers through the E2B-style external loader composition. Start with explicitly supplied artifacts to isolate provider-routing questions.
+The checked-in fixture proves provider scoping, guarded edits, synchronous handles/readers, the unchanged 20 MB search budget, completed process-slot reuse, two provider owners sharing one World and a second World. It loads an explicit client through Cordis Loader builtins. The broader Agent/application and independently packaged plugin checks below are not implied by that result.
+
+- [x] Load the shared runtime plus minimal filesystem/subprocess adapters and actual DSH consumers through the E2B-style external loader composition, using explicitly supplied artifacts.
 - [ ] Use unpublished Agent setup and a shared isolated realm for providers and relevant consumers. Validate remote cwd before first prompt/tool execution.
 - [ ] Run a real DSH filesystem read, process spawn and search using different test-owned local/remote sentinels. Induce transport and missing-artifact failures and verify no local fallback.
 - [ ] Resolve and map DSH's exact packaged-ripgrep path in both Node/package and bundled-sidecar cases as applicable. Keep argv and `--no-config` unchanged; unrelated executable paths must not be rewritten.
@@ -105,4 +107,6 @@ Completion: published-package compatibility is proven before claiming a producti
 
 ## First implementation slice
 
-Start with `packages/client` and a real-helper lifecycle test that covers `hello → spawn → output/ack → reconnect with identical request → terminate → release → shutdown`. Add a bounded protocol journal and stream mirror before the DSH adapters. In the same initial development milestone, implement the smallest external composition fixture needed to resolve provider scoping and the 20,000,000-byte search requirement. Artifact installation then builds on that verified connection and composition.
+Completed: `packages/client`, `packages/ssh`, and the experimental `packages/dsh-ssh/src` providers. The real-helper tests cover connection loss after spawn, commit, stdin and acknowledgement, output budgets and runtime loss. The real Loader experiment resolves provider scoping and the search budget.
+
+Next implement artifact manifests, system-SSH target probing and atomic installation using the supplied-runtime transport. In parallel with that design, complete the application-level World binding contract against the pinned Agent setup/Session hooks; do not expose a production preset until all workspace consumers are scoped and the World is logged before publication. The PTY adapter and separately installed package verification remain explicit gates.

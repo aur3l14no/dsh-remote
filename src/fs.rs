@@ -319,8 +319,16 @@ impl Upload {
             } else {
                 fs::rename(&self.staged, &self.path)?;
             }
+            // Removing the staging hard link changes ctime. Observe the published
+            // version only after that change, or a guarded create is immediately stale.
+            let staging_removed =
+                self.expectation["kind"] != "absent" || fs::remove_file(&self.staged).is_ok();
             // Once publication succeeds, preserve committed outcome even if metadata inspection fails.
-            let after = f.metadata().map(|m| metadata(&m)).ok();
+            let after = if staging_removed {
+                f.metadata().map(|m| metadata(&m)).ok()
+            } else {
+                None
+            };
             s.committed = true;
             s.file.take();
             Ok(

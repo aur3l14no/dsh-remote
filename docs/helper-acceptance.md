@@ -1,6 +1,6 @@
 # Helper implementation and platform acceptance plan
 
-Status: helper milestone accepted on 2026-09-05. All 13 executable behavior groups passed on each of the three specified platforms (39 platform-group passes). The Linux runs used their real system-SSH entry points and checksum-verified uploaded artifacts.
+Status: helper 0.1.0 baseline and helper 0.1.1 client milestone accepted on 2026-09-05. Both versions passed all 13 executable behavior groups on each of the three specified platforms (39 platform-group passes per version). The Linux runs used system SSH and checksum-verified uploaded artifacts. The additional 0.1.1 client/DSH evidence is recorded in [client.md](client.md) and [milestone results](client-acceptance-results.json).
 
 Hostnames, SSH aliases, IP addresses, account names, and target-specific workspace paths are execution inputs kept outside repository artifacts. Documentation, source, fixture names, and saved reports identify platforms only. Do not embed the private platform-to-host mapping, including in ignored machine-local documentation or recipes.
 
@@ -8,7 +8,7 @@ Hostnames, SSH aliases, IP addresses, account names, and target-specific workspa
 
 1. **API and semantics review — complete:** the approved revisions bind processes to the runtime, keep text edit rules local, scope cleanup facts, and require bounded backpressure/replay. See [helper-api.md](helper-api.md).
 2. **Message format and implementation — complete:** revision 1 uses big-endian length-prefixed JSON, Base64 bytes, multiplexed responses/events, ordered resource input, same-session deduplication and explicit output acknowledgements. OS modules remain separate from protocol/runtime dispatch.
-3. **Platform acceptance — complete for the executable baseline:** the same 13 groups passed on embedded Linux/musl, containerized Linux/glibc, and native macOS. Broader stress/fault cases and DSH composition remain explicitly unverified.
+3. **Platform acceptance — complete for the executable baseline:** the same 13 groups passed on embedded Linux/musl, containerized Linux/glibc, and native macOS. The later client milestone verifies a minimal DSH provider composition; broader stress/fault cases and full Agent/application integration remain unverified.
 
 User confirmation authorized implementation and the platform acceptance below. The helper milestone does not establish DSH adapter compatibility.
 
@@ -74,7 +74,7 @@ The table above is the broader coverage goal, not a claim that every race or fai
 Record platform/architecture/ABI, artifact digests and API revision, capability report, test case outcomes, peak memory and spill usage for bounded-output cases, and cleanup results. Store sanitized evidence for failures. Keep real connection targets and their mapping out of reports, example commands, source, and documentation.
 
 
-## Measured acceptance, 2026-09-05
+## Historical helper 0.1.0 acceptance, 2026-09-05
 
 The machine-readable [acceptance results](acceptance-results.json) record source/suite fingerprints, Rust versions, artifact SHA-256 digests, platform/ABI, transport, passed groups, and limitations. The remote build source fingerprint matches the local source. No connection target, account name, or target-specific path is stored there.
 
@@ -108,10 +108,12 @@ Search artifacts are pinned to [ripgrep 15.2.0](https://github.com/BurntSushi/ri
 
 During acceptance, the suite exposed and verified fixes for Darwin process-inspection scope, the Linux/Darwin PTY API signature difference, and bridge shutdown/flush behavior when stdin remains open. The final results above use the corrected build.
 
-Unverified areas include restricted-account permission failures, exhaustive pre/post-commit and PID-reuse races, hostile external writers, crash durability, actual peak RSS, spill storage failure injection, full interactive-shell foreground job switching, and external DSH composition. Deliberately escaped descendants and recovery across helper restart are outside the V1 supervision promise. Exact terminal input-wait detection is unavailable by design. These limits are distinct from the passed baseline.
+At this baseline, unverified areas included restricted-account permission failures, exhaustive pre/post-commit and PID-reuse races, hostile external writers, crash durability, actual peak RSS, spill storage failure injection, full interactive-shell foreground job switching, and external DSH composition. The later client milestone adds minimal composition evidence; the other limitations remain. Deliberately escaped descendants and recovery across helper restart are outside the V1 supervision promise. Exact terminal input-wait detection is unavailable by design.
 
 ## Reproduction
 
 Build with `cargo build --locked`, or use `sh scripts/build-linux.sh TARGET` on a Linux build machine with that Rust target installed. Use `python3 scripts/upload-artifacts.py --ssh "$TARGET" --destination "$ARTIFACT_DIR" --helper "$HELPER" --fixture "$FIXTURE" --rg "$RG"` to upload into an existing dedicated test directory over SSH stdio. Actual target values are execution inputs, not repository configuration.
 
 Run `python3 tests/acceptance.py --helper "$HELPER" --fixture "$FIXTURE" --platform macos --rg "$RG"` for an explicit native runtime. For Linux, add `--ssh "$TARGET"`, select `--platform linux-container` or `linux-embedded`, and pass the uploaded absolute artifact paths. `--report` writes only platform-oriented results. Each run creates a unique temporary workspace and cleans up its runtime/managed fixtures on success.
+
+`--grace-ms` sets the finite disconnect budget, including the expiry-cleanup test's wait. Its default is 1800 milliseconds; the 0.1.1 container run used 10000 milliseconds for a multi-hop SSH route.

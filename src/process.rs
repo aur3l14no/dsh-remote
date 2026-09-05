@@ -2,7 +2,7 @@ use crate::{
     cancel::Cancel,
     error::{invalid, number, string, Error, Result},
     fs,
-    output::Output,
+    output::{Budget, Output, MAX_COLLECT_BYTES, MAX_RAW_BYTES},
     unix,
     wire::CHUNK,
 };
@@ -52,7 +52,7 @@ pub fn environment(p: &Value) -> Result<BTreeMap<String, String>> {
     let mut env: BTreeMap<_, _> = std::env::vars()
         .filter(|(key, _)| {
             let upper = key.to_uppercase();
-            !key.starts_with("DSH_")
+            !upper.starts_with("DSH_")
                 && !["KEY", "PASSWORD", "SECRET", "TOKEN"]
                     .iter()
                     .any(|s| upper.contains(s))
@@ -128,12 +128,17 @@ pub fn executable(command: &str, env: &BTreeMap<String, String>, cwd: &Path) -> 
         "executable unavailable in target environment",
     ))
 }
-fn output(id: String, spec: &Value, dir: &Path) -> Result<Arc<Output>> {
+fn output(id: String, spec: &Value, dir: &Path, budget: Arc<Budget>) -> Result<Arc<Output>> {
     let mode = spec.get("mode").and_then(Value::as_str).unwrap_or("raw");
     if mode != "raw" && mode != "collect" {
         return Err(invalid("output mode must be raw or collect"));
     }
-    let cap = number(spec, "maxBytes", 64 * 1024, 1024 * 1024)? as usize;
+    let limit = if mode == "raw" {
+        MAX_RAW_BYTES
+    } else {
+        MAX_COLLECT_BYTES
+    };
+    let cap = number(spec, "maxBytes", 64 * 1024, limit as u64)? as usize;
     if cap == 0 {
         return Err(invalid("output maxBytes must be positive"));
     }
@@ -158,9 +163,15 @@ fn output(id: String, spec: &Value, dir: &Path) -> Result<Arc<Output>> {
     } else {
         None
     };
-    Ok(Output::new(id, mode == "raw", cap, spill))
+    Output::new(id, mode == "raw", cap, spill, budget)
 }
-pub async fn spawn(id: String, p: &Value, dir: &Path, cancel: &Cancel) -> Result<Arc<Process>> {
+pub async fn spawn(
+    id: String,
+    p: &Value,
+    dir: &Path,
+    cancel: &Cancel,
+    budget: Arc<Budget>,
+) -> Result<Arc<Process>> {
     cancel.check()?;
     let args = p["argv"]
         .as_array()
@@ -213,6 +224,7 @@ pub async fn spawn(id: String, p: &Value, dir: &Path, cancel: &Cancel) -> Result
             format!("{id}.pty"),
             &json!({"mode":"raw","maxBytes":number(p,"maxBytes",64*1024,1024*1024)?}),
             dir,
+            budget,
         )?];
     } else {
         let stdin = p.get("stdin").unwrap_or(&Value::Null);
@@ -243,8 +255,8 @@ pub async fn spawn(id: String, p: &Value, dir: &Path, cancel: &Cancel) -> Result
         }
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         outputs = vec![
-            output(format!("{id}.stdout"), &p["stdout"], dir)?,
-            output(format!("{id}.stderr"), &p["stderr"], dir)?,
+            output(format!("{id}.stdout"), &p["stdout"], dir, budget.clone())?,
+            output(format!("{id}.stderr"), &p["stderr"], dir, budget)?,
         ];
     }
     let is_pty = terminal.is_some();
@@ -442,7 +454,7 @@ impl Process {
                 match child.try_wait() {
                     Ok(Some(exit)) => {
                         s.exit = Some(
-                            json!({"code":exit.code(),"signal":exit.signal(),"coreDumped":exit.core_dumped()}),
+                            json!({"code":exit.code(),"signal":exit.signal(),"signalName":exit.signal().and_then(unix::exit_signal_name),"coreDumped":exit.core_dumped()}),
                         );
                         self.stop_input.cancel();
                         root_exit_at = Some(Instant::now());

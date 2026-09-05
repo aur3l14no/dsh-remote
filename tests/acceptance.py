@@ -140,7 +140,9 @@ class Suite:
     def run(self, argv):
         return subprocess.check_output(self.command(argv), text=True, stderr=subprocess.PIPE)
 
-    def start(self, name="runtime", grace=1800, lease=5000):
+    def start(self, name="runtime", grace=None, lease=5000):
+        grace = self.args.grace_ms if grace is None else grace
+        self.grace_ms = grace
         self.runtime = self.root + "/" + name
         self.run([self.helper, "start", "--runtime-dir", self.runtime, "--cwd", self.root,
                   "--grace-ms", str(grace), "--lease-ms", str(lease)])
@@ -226,6 +228,7 @@ class Suite:
         data = b"a\x00\xff\r\n" + bytes(range(256)) * 300
         result = self.write(path, data, {"kind": "absent"})
         assert result["committed"]
+        assert result["metadata"]["version"] == c.request("fs.stat", path=path)["version"]
         assert self.read(path) == data
         expect("TOO_LARGE", lambda: c.request("fs.read", path=path, maxBytes=len(data) - 1))
         assert self.read(path, len(data)) == data
@@ -450,7 +453,7 @@ class Suite:
         credentials = c.hello
         proc = self.spawn("hold")
         c.disconnect()
-        time.sleep(2.5)
+        time.sleep(self.grace_ms / 1000 + 0.7)
         # Connection failure is a failure to resume, never a new local execution.
         child = subprocess.run(self.command([self.helper, "connect", "--socket", self.runtime + "/socket"]), input=b"", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert child.returncode != 0
@@ -477,7 +480,7 @@ class Suite:
             assert c.hello["platform"] == ("macos" if self.args.platform == "macos" else "linux")
             for name in ["handshake", "filesystem", "pipes", "input_ordering", "collection", "backpressure_resume", "dedup", "termination", "pty", "cancellation", "search", "lease", "grace_cleanup"]:
                 self.case(name, getattr(self, name))
-            report = {"platform": self.args.platform, "os": c.hello["platform"], "arch": c.hello["arch"], "api": c.hello["api"], "passed": self.passed,
+            report = {"platform": self.args.platform, "os": c.hello["platform"], "arch": c.hello["arch"], "api": c.hello["api"], "graceMs": self.args.grace_ms, "passed": self.passed,
                       "unverified": ["DSH adapter composition", "restricted-account permission failures", "arbitrary escaped descendants"],
                       "search": "passed" if self.args.rg else "unverified: no uploaded artifact provided"}
             if self.args.report:
@@ -494,4 +497,5 @@ if __name__ == "__main__":
     parser.add_argument("--ssh")
     parser.add_argument("--rg")
     parser.add_argument("--report")
+    parser.add_argument("--grace-ms", type=int, default=1800, help="runtime grace budget; include full SSH setup time for nested or high-latency transports")
     Suite(parser.parse_args()).execute()
