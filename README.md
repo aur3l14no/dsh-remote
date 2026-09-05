@@ -56,7 +56,7 @@ The [helper API contract](docs/helper-api.md) defines message framing, methods, 
 
 ## Status
 
-The Rust helper milestone is implemented. It provides a private runtime/stdio bridge, session resumption and request deduplication, binary filesystem streams and guarded atomic publication, pipe/PTY processes, scoped cleanup, and bounded raw/collected/spill output. See [acceptance evidence](docs/helper-acceptance.md). External DSH adapters, production SSH bootstrap/distribution/upgrades, and World binding remain later stages.
+The Rust helper milestone is implemented. It provides a private runtime/stdio bridge, session resumption and request deduplication, binary filesystem streams and guarded atomic publication, pipe/PTY processes, scoped cleanup, and bounded raw/collected/spill output. See [acceptance evidence](docs/helper-acceptance.md). External DSH adapters, production SSH bootstrap/distribution/upgrades, and World binding remain later stages. The [next-stage plan](docs/next-stage.md) defines the local client, external composition experiment, compatibility gates and SSH installation work.
 
 ## Build and exercise the helper
 

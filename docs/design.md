@@ -85,6 +85,8 @@ PTY support requires usable Unix 98 PTY facilities such as `/dev/ptmx` and `/dev
 
 ## Development stages
 
+The immediate implementation sequence and compatibility gates are detailed in [the next-stage plan](next-stage.md).
+
 The helper API has been confirmed with runtime-owned reconnectable resources, local text editing, scoped cleanup, and output backpressure. The [wire contract](helper-api.md) fixes revision 1. The [acceptance plan](helper-acceptance.md) covers embedded Linux/musl, containerized Linux/glibc, and native macOS using platform labels only.
 
 1. **Helper foundation and non-PTY execution.** Define the Rust protocol model, handshake, structured errors, and runtime owner independent of its bridge. Implement filesystem primitives needed for a first read/write path, executable lookup, fully specified argv/cwd/env execution, stdin/stdout/stderr, live process status, and cancellation. Exercise search by invoking the uploaded target-platform ripgrep through the same subprocess path, without adding a separate search engine. Use a small test client; no DSH or model call is required to validate this layer. Advertise only implemented capabilities.
