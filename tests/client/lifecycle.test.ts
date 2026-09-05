@@ -76,7 +76,7 @@ test('real helper: lost runtime fails pending work without inventing exit or rep
   try {
     const process = await RemoteProcess.spawn(r.client, { argv: [fixture, 'hold'], cwd: r.dir, stdout: { mode: 'collect', maxBytes: 1024 }, stderr: { mode: 'collect', maxBytes: 1024 } });
     t.after(() => { try { killProcess(process.pid, 'SIGKILL'); } catch {} });
-    const rejected = assert.rejects(process.done);
+    const rejected = Promise.all([assert.rejects(process.done), assert.rejects(process.exited), assert.rejects(process.quiescent)]);
     r.child.kill('SIGKILL');
     await rejected;
     assert.equal(r.client.state, 'failed');

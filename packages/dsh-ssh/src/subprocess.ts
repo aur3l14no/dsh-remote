@@ -5,6 +5,7 @@ import { Readable, Writable } from 'node:stream';
 import { RemoteProcess, RemoteError } from '../../client/src/index.ts';
 import type { OutputSpec } from '../../client/src/index.ts';
 import './world.ts';
+import { SshTerminal } from './terminal.ts';
 
 export interface Config {
   /** Exact packaged executable identity -> target-native deployed executable. */
@@ -15,18 +16,19 @@ function output(mode: SubprocessOutputMode): OutputSpec {
   return typeof mode === 'string' ? { mode: 'raw', maxBytes: 65536 }
     : { mode: 'collect', maxBytes: mode.maxBytes, ...(mode.spill ? { spillBytes: mode.spill.maxBytes } : {}) };
 }
-function outcome(state: Awaited<RemoteProcess['done']>): SubprocessOutcome {
+export function outcome(state: Awaited<RemoteProcess['done']>): SubprocessOutcome {
   if (!state.rootExit) throw new RemoteError('EXIT_UNOBSERVED', 'Root exit is not observed');
   const signal = state.rootExit.signal === null ? null : state.rootExit.signalName;
   if (state.rootExit.signal !== null && !signal) throw new RemoteError('UNSUPPORTED_SIGNAL', 'Unknown target exit signal');
   return { exitCode: state.rootExit.code, signal: signal as NodeJS.Signals | null };
 }
 
-/** Minimal seam experiment: pipes/collection; PTY remains explicitly gated until its adapter is tested. */
+/** Remote-only subprocess provider, with per-provider ownership in a shared runtime. */
 export default class SshSubprocess extends SubprocessRuntime {
   static inject = ['remoteWorld'];
   private executables: Map<string, string>;
   private owned = new Set<Promise<RemoteProcess>>();
+  private terminals = new Set<Promise<SshTerminal>>();
   private disposed = false;
 
   constructor(ctx: Context, config: Config) {
@@ -39,13 +41,14 @@ export default class SshSubprocess extends SubprocessRuntime {
       const results = await Promise.allSettled([...this.owned].map(async pending => {
         const process = await pending;
         await process.terminate(); await process.release();
-      }));
+      }).concat([...this.terminals].map(async pending => { await (await pending).dispose(); })));
       const failures = results.filter(r => r.status === 'rejected');
       if (failures.length) throw new AggregateError(failures.map(r => r.reason), 'Remote subprocess owner cleanup failed');
     }));
   }
 
   async resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string> {
+    if (this.disposed) throw new RemoteError('OWNER_CLOSED', 'Subprocess owner is disposed');
     const client = this.ctx.remoteWorld.client;
     return (await client.requestWhenReady<{ path: string }>('process.resolveExecutable', { command: this.executables.get(command) ?? command, cwd: client.info.cwd, ...(env ? { env: { ...env } } : {}) }, signal)).path;
   }
@@ -139,7 +142,27 @@ export default class SshSubprocess extends SubprocessRuntime {
     };
   }
 
-  async spawnTerminal(_spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
-    throw new RemoteError('UNSUPPORTED', 'Terminal adapter is not enabled in the initial composition experiment');
+  async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SshTerminal> {
+    const client = this.ctx.remoteWorld.client;
+    if (this.disposed) throw new RemoteError('OWNER_CLOSED', 'Subprocess owner is disposed');
+    if (!['process.pty', 'process.signals'].every(cap => client.info.capabilities.includes(cap))) throw new RemoteError('UNSUPPORTED', 'Target lacks required terminal capabilities');
+    if (!spec.cwd.startsWith('/') || !spec.argv.length || !spec.argv[0]) throw new RemoteError('INVALID_ARGUMENT', 'Terminal requires argv and absolute target cwd');
+    if (![spec.rows, spec.cols].every(n => Number.isInteger(n) && n > 0 && n <= 65535)) throw new RemoteError('INVALID_ARGUMENT', 'Invalid terminal dimensions');
+    if (!Number.isInteger(spec.graceMs) || spec.graceMs < 1 || spec.graceMs > (client.info.limits.maxGraceMs ?? 30000)) throw new RemoteError('UNSUPPORTED_LIMIT', 'Terminal grace exceeds helper support');
+    if (spec.signal?.aborted) throw new RemoteError('CANCELLED', 'Terminal allocation aborted');
+    // Do not abandon an admitted allocation on caller abort. Resolve its replay journal, then clean it.
+    const allocated = RemoteProcess.spawn(client, { argv: [this.executables.get(spec.argv[0]) ?? spec.argv[0], ...spec.argv.slice(1)],
+      cwd: spec.cwd, mode: 'pty', rows: spec.rows, cols: spec.cols, graceMs: spec.graceMs, drainMs: spec.graceMs, env: spec.env });
+    const pending = allocated.then(p => new SshTerminal(client, p, () => this.terminals.delete(pending)));
+    this.terminals.add(pending);
+    void pending.catch(error => {
+      if (error instanceof RemoteError && ['NOT_FOUND', 'NOT_DIRECTORY', 'PERMISSION_DENIED', 'INVALID_ARGUMENT', 'RESOURCE_LIMIT', 'UNSUPPORTED', 'CLIENT_RESOURCE_LIMIT', 'WORLD_NOT_READY'].includes(error.code)) this.terminals.delete(pending);
+    });
+    const terminal = await pending;
+    if (this.disposed || spec.signal?.aborted) {
+      await terminal.dispose(); this.terminals.delete(pending);
+      throw new RemoteError('CANCELLED', 'Terminal allocation cancelled and cleaned up');
+    }
+    return terminal;
   }
 }

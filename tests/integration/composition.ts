@@ -78,7 +78,12 @@ try {
   assert.equal(search.stdout, input.repeat(25000));
   assert.ok(Buffer.byteLength(search.stdout) > 16 * 1024 * 1024);
   await assert.rejects(remote.subprocess.resolveExecutable(`${r.dir}/unrelated/rg`), { code: 'NOT_FOUND' });
-  await assert.rejects(remote.subprocess.spawnTerminal({ argv: ['sh'], cwd: r.dir, rows: 24, cols: 80, graceMs: 500 }), { code: 'UNSUPPORTED' });
+  const terminal = await remote.subprocess.spawnTerminal({ argv: ['sh', '-c', 'printf pty-ok'], cwd: r.dir, rows: 24, cols: 80, graceMs: 500 });
+  let terminalOutput = '';
+  for await (const chunk of terminal.output) terminalOutput += String(chunk);
+  assert.equal((await terminal.done).exitCode, 0);
+  assert.equal(terminalOutput, 'pty-ok');
+  await terminal.terminate();
 
   // Completed collection handles must not exhaust the helper's 16 process slots.
   for (let i = 0; i < 20; i++) {

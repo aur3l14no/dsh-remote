@@ -17,6 +17,8 @@ import { applyExecTool } from './exec-tool.ts';
 import WorldToolRuntime from './tools.ts';
 import WorldSessionPersistence from './persistence.ts';
 import * as SessionCheckpointPolicy from '@deepseek-ai/dsh-session-checkpoint-policy';
+import { applyTerminalConsumers, terminalTools } from './terminal-consumers.ts';
+import type { TerminalConfig } from './terminal-consumers.ts';
 
 export interface WorldBinding {
   readonly schema: 1;
@@ -43,7 +45,7 @@ declare module '@deepseek-ai/dsh-session' {
 const PROFILE = new Set(['read', 'write', 'edit', 'glob', 'grep', 'exec']);
 const serviceIdentity = (service: object): object => (service as { [symbols.original]?: object })[symbols.original] ?? service;
 interface ActiveBinding { readonly public: WorldBinding; readonly client: Client; readonly scope: Context; readonly assert: () => void }
-export interface Config { readonly worlds: readonly WorldDefinition[] }
+export interface Config { readonly worlds: readonly WorldDefinition[]; readonly terminal?: TerminalConfig }
 
 function identityEqual(left: WorldIdentity, right: WorldIdentity): boolean {
   return left.id === right.id && left.target === right.target && left.cwd === right.cwd;
@@ -67,11 +69,13 @@ export default class WorldAgentRegistry extends AgentRegistry {
   static inject = ['tools', 'systemPrompt'];
   private pool: WorldPool;
   private bindings = new WeakMap<Agent, ActiveBinding>();
+  private terminal?: TerminalConfig;
 
   constructor(ctx: Context, config: Config) {
     super(ctx);
     if (!(ctx.tools instanceof WorldToolRuntime)) throw new Error('SSH Agent composition requires WorldToolRuntime');
     this.pool = new WorldPool(config.worlds);
+    this.terminal = config.terminal ? Object.freeze({ ...config.terminal }) : undefined;
     // This runs after extensible approval: approval cannot make an unbound or failed World executable.
     ctx.tools.guard(exec => {
       if (!exec.agent) return 'Workspace execution requires a bound Agent';
@@ -171,7 +175,7 @@ export default class WorldAgentRegistry extends AgentRegistry {
         helperBuild: info.build, platform: info.platform, arch: info.arch, capabilities: Object.freeze([...info.capabilities]) });
       // Same public isolation metadata used by Cordis Loader. Replace only this unpublished Agent's map.
       const isolation = Object.create(ctx[Context.isolate]) as Context[typeof Context.isolate];
-      for (const name of ['remoteWorld', 'fs', 'subprocess']) isolation[name] = Symbol(name);
+      for (const name of ['remoteWorld', 'fs', 'subprocess', 'terminals', 'jobs', 'sandboxPolicy']) isolation[name] = Symbol(name);
       Object.defineProperty(ctx, Context.isolate, { value: Object.freeze(isolation), writable: false, configurable: false });
       await ctx.plugin(worldPlugin(connection.client, lease.release));
       await ctx.plugin(SshFileSystem, { textMaxBytes: 64 * 1024 * 1024, diffBasisMaxBytes: 1024 * 1024 });
@@ -180,17 +184,29 @@ export default class WorldAgentRegistry extends AgentRegistry {
       let assert!: () => void;
       await ctx.plugin({ name: 'ssh-agent-consumers', inject: ['fs', 'subprocess', 'remoteWorld', 'tools', 'systemPrompt'], apply: async (scope: Context) => {
         const fs = serviceIdentity(scope.fs), subprocess = serviceIdentity(scope.subprocess), world = serviceIdentity(scope.remoteWorld);
+        let assertTerminal = () => {};
         assert = () => {
           if (disposed || connection.client.state !== 'ready') throw new RemoteError('WORLD_NOT_READY', 'Agent World is unavailable');
           if (serviceIdentity(scope.fs) !== fs || serviceIdentity(scope.subprocess) !== subprocess || serviceIdentity(scope.remoteWorld) !== world || agent.session.header.cwd !== binding.world.cwd) throw new RemoteError('WORLD_MISMATCH', 'Agent provider realm or cwd changed');
+          assertTerminal();
         };
         this.bindings.set(agent, { public: binding, client: connection.client, scope, assert });
         (scope.tools as WorldToolRuntime).maskInherited();
-        scope.tools.guard(exec => PROFILE.has(exec.name) ? undefined : 'Tool is outside the verified SSH World profile');
+        const profile = new Set([...PROFILE, ...(this.terminal ? terminalTools : [])]);
+        scope.tools.guard(exec => profile.has(exec.name) ? undefined : 'Tool is outside the verified SSH World profile');
         await scope.plugin(FileTools);
         await scope.plugin(SearchTools, { sampleOverCapGlobResults: false });
         await scope.plugin(SessionCheckpointPolicy);
         applyExecTool(scope);
+        if (this.terminal) {
+          await applyTerminalConsumers(scope, this.terminal);
+          await scope.plugin({ inject: ['terminals', 'jobs', 'sandboxPolicy'], apply(consumer: Context) {
+            const identities = ['terminals', 'jobs', 'sandboxPolicy'].map(name => [name, serviceIdentity(consumer.get(name))] as const);
+            assertTerminal = () => {
+              if (identities.some(([name, identity]) => serviceIdentity(consumer.get(name)) !== identity)) throw new RemoteError('WORLD_MISMATCH', 'Agent terminal provider realm changed');
+            };
+          } });
+        }
         scope.systemPrompt.context({ name: 'execution-world', order: -1000,
           text: () => `Execution World (workspace operations must remain here; cross-World work requires a new Agent/handoff):\n${JSON.stringify(this.contextFor(agent))}` });
       } });

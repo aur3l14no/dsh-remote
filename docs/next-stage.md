@@ -78,7 +78,8 @@ The checked-in fixture proves provider scoping, guarded edits, synchronous handl
 - [ ] Resolve and map DSH's exact packaged-ripgrep path in both Node/package and bundled-sidecar cases as applicable. Keep argv and `--no-config` unchanged; unrelated executable paths must not be rewritten.
 - [x] Exercise two owners sharing one World, owner disposal, child creation, and a second World. One owner's disposal must not terminate the other owner's process; cross-World work uses a new Agent/handoff.
 - [x] Add World identity, remote cwd, platform/capabilities and connection state to the Agent context before publication. Provide the same World context to the assumed Auto Approval boundary.
-- [ ] Compare adapter FS edit fixtures with the pinned DSH rules, and test synchronous `spawn`/`readFrom`, PTY lifetime, post-exit reads and job teardown.
+- [ ] Compare adapter FS edit fixtures with the pinned DSH rules.
+- [x] Test synchronous `spawn`/`readFrom`, PTY lifetime, post-exit reads and actual terminal/job teardown; see [terminal acceptance](terminal.md).
 
 Completion: a checked-in fixture demonstrates real consumer routing and setup rollback without DSH core edits. If a consumer bypasses the World seam, provide an external adaptation or explicitly exclude it from this composition. Do not call an untested plugin compatible merely because the principal tools passed.
 
@@ -110,6 +111,8 @@ Completion: published-package compatibility is proven before claiming a producti
 
 Completed: client, bootstrap, providers, Agent creation/resume binding, one-shot child inheritance, explicit handoff and the verified read/write/edit/glob/grep/exec profile. The external local Session backend keeps World ownership records required and checkpoints full live history. See [Agent behavior and limits](agents.md).
 
-Next implement the PTY adapter using the existing helper API, with resize, stdin, streaming, termination and final-output semantics matched to DSH. Then compose the actual terminal and Session-job consumers in the World. Bind every job to its Agent owner, verify close during reconnect and after root exit, and keep nonpersistent runtime ownership explicit. Bash-dependent consumers must be gated by target capabilities.
+Completed next slice: the [PTY adapter and actual terminal/Session-job consumers](terminal.md), including target Bash validation, Agent-owned jobs, reconnect-time teardown and post-root-exit cleanup. Resize is available on the concrete adapter; the pinned DSH terminal tool seam has no resize surface. Runtime tasks remain nonpersistent.
+
+Next implement child-tool restrictions and continuation composition against the actual scoped tool runtime. First test child tool calls, including inherited/scoped guards and both allow/deny filters; then verify continuation resume retains World identity and never replays old work automatically. Keep required World persistence and the external-plugin boundary intact.
 
 Before exposing a full application preset, resolve per-child tool restrictions and continuation composition, review every workspace consumer for direct Node filesystem/process use, and verify independently installed packages. The source experiment now also requires `WorldToolRuntime` and `WorldSessionPersistence`; ordinary JSONL persistence cannot read its required extension records. Evaluate storage migration, asynchronous write performance, capacity policy and package compatibility explicitly. Release catalogs/download provenance and installation garbage collection remain distinct distribution/lifecycle work.

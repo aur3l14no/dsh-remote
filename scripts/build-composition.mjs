@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 
 const source = process.argv[2];
 const suite = process.argv[3] ?? 'composition';
-if (!['composition', 'agents', 'persistence'].includes(suite)) throw new Error('Unknown composition suite');
+if (!['composition', 'agents', 'persistence', 'terminal'].includes(suite)) throw new Error('Unknown composition suite');
 if (!source) throw new Error('Usage: node scripts/build-composition.mjs DSH_SOURCE_CHECKOUT');
 const baseline = 'd347e703908d0406b7a7ef80e3a0e594d86b2215';
 const root = resolve(source);

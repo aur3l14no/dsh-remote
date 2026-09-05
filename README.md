@@ -56,11 +56,11 @@ The [helper API contract](docs/helper-api.md) defines message framing, methods, 
 
 ## Status
 
-Agent creation/resume binding is implemented against the pinned DSH source without core edits. Real file/search/argv tools, Agent-visible World context, approval metadata, one-shot child inheritance, handoff, shared runtime ownership and rollback are covered by the [Agent composition](docs/agents.md). Required World records use an external local SQLite Session backend because the pinned JSONL reader does not support required external event types. PTY/Session-job adaptation and independently installed package compatibility remain open.
+Agent creation/resume binding is implemented against the pinned DSH source without core edits. Real file/search/argv tools, Agent-visible World context, approval metadata, one-shot child inheritance, handoff, shared runtime ownership and rollback are covered by the [Agent composition](docs/agents.md). Required World records use an external local SQLite Session backend because the pinned JSONL reader does not support required external event types. The optional [terminal and Session-job profile](docs/terminal.md) now composes actual DSH consumers over remote PTYs. Independently installed package compatibility remains open.
 
 Helper 0.1.1, the TypeScript protocol client, system-SSH bootstrap and a minimal external DSH FS/subprocess composition are implemented. The client keeps a bounded request journal, resumes the same runtime, and installs final collected output before publishing completion. The real DSH search consumer works with its unchanged 20,000,000-byte budget, including after automatic SSH installation. See the [bootstrap behavior and acceptance](docs/bootstrap.md), [client/composition scope](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
 
-This is a development milestone. The DSH terminal/Session-job adapters, complete application composition, trusted release distribution and published-package compatibility remain in the [next-stage plan](docs/next-stage.md). The helper itself already supports PTYs; the initial DSH adapter rejects terminal allocation explicitly.
+This is a development milestone. Complete application composition, child-tool restrictions/continuations, trusted release distribution and published-package compatibility remain in the [next-stage plan](docs/next-stage.md). The Bash terminal profile requires a verified target Bash; platforms without Bash still support the portable PTY primitive.
 
 ## Build and exercise the helper
 

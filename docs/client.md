@@ -27,7 +27,7 @@ Raw iterators request bounded chunks and acknowledge each chunk when the consume
 
 FS reads/uploads have a 64 MiB client bound; the experimental FS provider explicitly configures text and diff-basis limits. Listings fail beyond 1000 entries. Text decoding, NUL rejection, literal matching, CRLF/LF handling and before/after diff bases run locally. Remote version checks and atomic publication protect edits. A committed write with unavailable post-publication metadata reports `COMMITTED_UNOBSERVED` as the FS error cause and must not be retried automatically. In 0.1.1 a guarded create observes its version after removing the staging hard link, avoiding an immediately stale result.
 
-The subprocess adapter rejects grace periods above 30 seconds, output/spill caps outside advertised support and PTY allocation. It does not silently clamp a consumer request. Finite stdin follows DSH's best-effort contract; explicit pipe writes preserve input errors, and actual process exit/output determines the batch outcome. A lost runtime does not synthesize exit facts.
+The subprocess adapter rejects grace periods above 30 seconds and output/spill caps outside advertised support. The subsequent [terminal milestone](terminal.md) enables PTY allocation. It does not silently clamp a consumer request. Finite stdin follows DSH's best-effort contract; explicit pipe writes preserve input errors, and actual process exit/output determines the batch outcome. A lost runtime does not synthesize exit facts.
 
 ## Reproduce
 
@@ -59,6 +59,6 @@ The container helper suite used a 10-second reconnect grace to accommodate multi
 
 ## Remaining work
 
-This fixture has no model calls or real Agent publication. Creating/resuming an Agent with logged World context, child-Agent inheritance, handoff, approval metadata, actual tool registration/Session jobs and UI integration still need a complete application composition. The process owner tests exercise provider fibers, not Agent/session ownership. The DSH PTY adapter, npm resolver branch and installation as separately packaged external plugins also remain unverified.
+This fixture has no model calls or real Agent publication. Creating/resuming an Agent with logged World context, child-Agent inheritance, handoff, approval metadata, actual tool registration/Session jobs and UI integration still need a complete application composition. The process owner tests exercise provider fibers, not Agent/session ownership. Subsequent [Agent](agents.md) and [terminal](terminal.md) fixtures cover real ownership and terminal/job consumers. The npm resolver branch and installation as separately packaged external plugins remain unverified.
 
 The subsequent [bootstrap milestone](bootstrap.md) implements manifest/cache-based installation, startup, upgrade coexistence, corruption repair and offline provisioning. `connectSuppliedRuntime` still only connects to an existing runtime; automatic provisioning uses the separate `bootstrapSshWorld` entry point. Trusted release downloads and distribution remain open.

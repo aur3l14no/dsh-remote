@@ -36,9 +36,12 @@ export class RemoteProcess {
   readonly outputs: ReadonlyArray<{ stream: string; mode: 'raw' | 'collect' }>;
   readonly collected: ReadonlyArray<CollectedStream | undefined>;
   readonly done: Promise<ProcessState>;
+  /** Root exit alone, independent of output drain and observable-session cleanup. */
+  readonly exited: Promise<ProcessState>;
   readonly quiescent: Promise<void>;
   #client: Client;
   #closed = Promise.withResolvers<ProcessState>();
+  #exit = Promise.withResolvers<ProcessState>();
   #quiet = Promise.withResolvers<void>();
   #input: Promise<unknown> = Promise.resolve();
   #inputBytes = 0;
@@ -54,14 +57,14 @@ export class RemoteProcess {
     this.#client = client; this.id = spawned.process; this.pid = spawned.pid;
     this.outputs = spawned.outputs;
     this.collected = spawned.outputs.map((o, i) => o.mode === 'collect' ? new CollectedStream(o.stream, (i === 0 ? spec.stdout : spec.stderr)!.maxBytes) : undefined);
-    this.done = this.#closed.promise; this.quiescent = this.#quiet.promise;
-    this.done.catch(() => {}); this.quiescent.catch(() => {});
+    this.done = this.#closed.promise; this.quiescent = this.#quiet.promise; this.exited = this.#exit.promise;
+    this.done.catch(() => {}); this.quiescent.catch(() => {}); this.exited.catch(() => {});
     this.#onOutput = value => {
       const id = object(value).stream;
       const mirror = this.collected.find(c => c?.id === id);
       if (mirror) mirror.install(value);
     };
-    this.#onFailure = error => { this.#closed.reject(error); this.#quiet.reject(error); };
+    this.#onFailure = error => { this.#exit.reject(error); this.#closed.reject(error); this.#quiet.reject(error); };
     client.on('stream.data', this.#onOutput);
     client.on('failure', this.#onFailure);
     void this.#monitor();
@@ -80,6 +83,7 @@ export class RemoteProcess {
         await this.#client.whenReady();
         const s = status(await this.#client.requestWhenReady('process.status', { process: this.id }), this.id);
         this.#state = s;
+        if (s.rootExit) this.#exit.resolve(s);
         if (s.closed && !this.#finalizing) {
           this.#finalizing = true;
           // Closed may precede final stream events. Install the complete retained output first.
@@ -89,7 +93,7 @@ export class RemoteProcess {
         if (s.closed && s.cleanupComplete) return;
         await delay(40);
       }
-    } catch (error) { this.#closed.reject(error); this.#quiet.reject(error); }
+    } catch (error) { this.#exit.reject(error); this.#closed.reject(error); this.#quiet.reject(error); }
   }
 
   raw(index: number, signal?: AbortSignal): AsyncGenerator<Buffer> {
