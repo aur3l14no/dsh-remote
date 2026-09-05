@@ -56,11 +56,11 @@ The [helper API contract](docs/helper-api.md) defines message framing, methods, 
 
 ## Status
 
-Agent creation/resume binding is implemented against the pinned DSH source without core edits. Real file/search/argv tools, Agent-visible World context, approval metadata, one-shot child inheritance, handoff, shared runtime ownership and rollback are covered by the [Agent composition](docs/agents.md). Required World records use an external local SQLite Session backend because the pinned JSONL reader does not support required external event types. The optional [terminal and Session-job profile](docs/terminal.md) now composes actual DSH consumers over remote PTYs. Independently installed package compatibility remains open.
+Helper 0.1.1, the TypeScript client, system OpenSSH bootstrap and external FS/subprocess/PTY providers are implemented. Target-native ripgrep executes search remotely; no workspace operation silently falls back to the client machine. See [bootstrap](docs/bootstrap.md), [client](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
 
-Helper 0.1.1, the TypeScript protocol client, system-SSH bootstrap and a minimal external DSH FS/subprocess composition are implemented. The client keeps a bounded request journal, resumes the same runtime, and installs final collected output before publishing completion. The real DSH search consumer works with its unchanged 20,000,000-byte budget, including after automatic SSH installation. See the [bootstrap behavior and acceptance](docs/bootstrap.md), [client/composition scope](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
+The [corrected DSH composition](docs/agents.md) uses standing presets and unchanged DSH Agent, tool and subagent services. World context follows the preset into children, and native tool filters work. The earlier custom Agent/ToolRuntime, handoff and SQLite Session implementation have been removed. Actual DSH terminal/jobs consumers remain [integration fixtures](docs/terminal.md), not a tool policy owned by this plugin.
 
-This is a development milestone. Complete application composition, child-tool restrictions/continuations, trusted release distribution and published-package compatibility remain in the [next-stage plan](docs/next-stage.md). The Bash terminal profile requires a verified target Bash; platforms without Bash still support the portable PTY primitive.
+This is an experimental source integration. Safe durable World reconstruction, parent-path FS canonicalization and independent World/preset selection need [upstream interface coordination](docs/upstream-seams.md). Installed-package compatibility and distribution remain in the [next-stage plan](docs/next-stage.md). This project does not implement a subagent system.
 
 ## Build and exercise the helper
 

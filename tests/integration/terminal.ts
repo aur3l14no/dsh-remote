@@ -3,16 +3,11 @@ import { copyFile, mkdtemp, rm, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Context } from '@deepseek-ai/cordis';
-import LlmRuntime, { ToolCallId } from '@deepseek-ai/dsh-llm';
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session';
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection';
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
-import AgentLoop from '@deepseek-ai/dsh-agent-loop';
+import { ToolCallId } from '@deepseek-ai/dsh-llm';
+import { SessionId } from '@deepseek-ai/dsh-session';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import { MockAdapter } from '@dsh-test/mock-adapter';
-import WorldAgentRegistry from '../../packages/dsh-ssh/src/agents.ts';
-import WorldToolRuntime from '../../packages/dsh-ssh/src/tools.ts';
-import WorldSessionPersistence from '../../packages/dsh-ssh/src/persistence.ts';
+import { presetHarness, serviceForAgent } from './preset-harness.ts';
 import type SshSubprocess from '../../packages/dsh-ssh/src/subprocess.ts';
 import { SshTerminal } from '../../packages/dsh-ssh/src/terminal.ts';
 import { RemoteProcess } from '../../packages/client/src/index.ts';
@@ -30,16 +25,15 @@ const contexts: Context[] = [];
 const shell = process.env.DSH_TEST_TERMINAL_SHELL;
 const deadline = setTimeout(() => { throw new Error('Terminal acceptance exceeded 120 seconds'); }, 120000);
 async function harness(terminal?: { shell: string }) {
-  const ctx = new Context(); contexts.push(ctx);
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt]) await ctx.plugin(plugin);
-  await ctx.plugin(WorldToolRuntime, { mode: 'native' });
-  await ctx.plugin(WorldAgentRegistry, { terminal, worlds: [{ id: 'terminal-world', target: 'acceptance-target', cwd: r.dir,
-    open: async () => ({ client: r.client, ripgrep: ('ripgrep' in r ? r.ripgrep : ssh ? process.env.DSH_TEST_REMOTE_RG : rg)!, close: async () => {} }) }] });
-  await ctx.plugin(WorldSessionPersistence, { root: `${local}/sessions` });
-  await ctx.plugin(AgentLoop, { agents: [] });
+  const ctx = await presetHarness(`${local}/presets-${contexts.length}`, [{ id: 'terminal-world', client: r.client,
+    ripgrep: ('ripgrep' in r ? r.ripgrep : ssh ? process.env.DSH_TEST_REMOTE_RG : rg)!, shell: terminal?.shell }]);
+  contexts.push(ctx);
   ctx.llm.registerAdapter(['mock'], new MockAdapter([]));
   return ctx;
 }
+const create = (ctx: Context, id: string) => ctx.agents.create({ sessionId: SessionId(id), meta: { cwd: r.dir, agentPreset: 'terminal-world' },
+  setup: async c => { await ctx.agentPresets.mount(c, 'terminal-world'); } });
+
 async function until(test: () => boolean | Promise<boolean>) {
   for (let i = 0; i < 250; i++) { if (await test()) return; await delay(20); }
   throw new Error('Expected observation did not arrive');
@@ -53,9 +47,9 @@ async function ok(agent: Agent, name: string, args: unknown) {
 try {
   process.execPath = `${local}/harness`; Reflect.set(process, 'pkg', {}); await copyFile(rg, `${process.execPath}-rg`);
   const ctx = await harness();
-  const registry = ctx.agents as WorldAgentRegistry;
-  const owner = await ctx.agents.create({ sessionId: SessionId('primitive'), world: 'terminal-world' });
-  const scope = registry.scopeFor(owner.agent), subprocess = scope.subprocess as SshSubprocess;
+  const owner = await create(ctx, 'primitive');
+  const fs = serviceForAgent(ctx, owner.agent, 'fs')!;
+  const subprocess = serviceForAgent(ctx, owner.agent, 'subprocess')! as SshSubprocess;
   const spec = { argv: [fixture, 'pty'], cwd: r.dir, rows: 24, cols: 80, graceMs: 1000 };
   await assert.rejects(subprocess.spawnTerminal({ ...spec, signal: AbortSignal.abort() }), { code: 'CANCELLED' });
   await assert.rejects(subprocess.spawnTerminal({ ...spec, rows: 0 }), { code: 'INVALID_ARGUMENT' });
@@ -79,7 +73,7 @@ try {
 
   const blockedMarker = `${r.dir}/input-blocker`;
   const blocked = await subprocess.spawnTerminal({ ...spec, argv: [fixture, 'hold', 'ignore', blockedMarker] });
-  await until(async () => !!await scope.fs.stat(await scope.fs.resolve(blockedMarker)));
+  await until(async () => !!await fs.stat(await fs.resolve(blockedMarker)));
   // Complete canonical lines fill unread terminal input; one overlong line would be discarded.
   const writing = blocked.write('x\n'.repeat(256 * 1024)).then(() => 'written', () => 'cancelled');
   await delay(100);
@@ -93,13 +87,13 @@ try {
   const marker = `${r.dir}/burst-complete`;
   const slow = await subprocess.spawnTerminal({ ...spec, argv: [fixture, 'burst', '400000', marker] });
   await delay(200);
-  assert.equal(await scope.fs.stat(await scope.fs.resolve(marker)), undefined, 'Unconsumed raw output must backpressure the child');
+  assert.equal(await fs.stat(await fs.resolve(marker)), undefined, 'Unconsumed raw output must backpressure the child');
   const delivered: Buffer[] = [];
   for await (const chunk of slow.output) delivered.push(chunk);
   assert.equal((await slow.done).exitCode, 0);
   const expected = Buffer.from(Array.from({ length: 400000 }, (_, i) => (i % 8192) % 251).flatMap(byte => byte === 10 ? [13, 10] : [byte]));
   assert.deepEqual(Buffer.concat(delivered), expected, 'Default PTY ONLCR is the only output transformation');
-  assert.equal(await scope.fs.readText(await scope.fs.resolve(marker)), 'complete');
+  assert.equal(await fs.readText(await fs.resolve(marker)), 'complete');
   await slow.terminate();
   console.log('PASS bounded raw PTY backpressure and complete delivery after reader resumes');
 
@@ -127,26 +121,26 @@ try {
     await t.done; await t.dispose();
   }
   const abandoned = await subprocess.spawnTerminal({ ...spec, argv: [fixture, 'burst', '400000'] });
-  await owner.dispose(); await abandoned.done;
-  console.log('PASS post-root-exit cleanup, late allocation cancellation, process-slot reuse and unread-output owner disposal');
+  await owner.dispose(); await ctx.fiber.dispose(); await abandoned.done;
+  console.log('PASS post-root-exit cleanup, late allocation cancellation, process-slot reuse and unread-output provider disposal');
 
   const missing = await harness({ shell: '/dsh-acceptance-missing-bash' });
-  await assert.rejects(missing.agents.create({ sessionId: SessionId('missing-shell'), world: 'terminal-world' }), { code: 'NOT_FOUND' });
+  await assert.rejects(create(missing, 'missing-shell'), { code: 'agent-preset/invalid', message: /executable unavailable in target environment/ });
   assert.equal(missing.agents.get(SessionId('missing-shell')), undefined);
   await missing.fiber.dispose();
   console.log('PASS absent target shell refuses Agent publication without local fallback');
 
   if (shell) {
-    const app = await harness({ shell }), agents = app.agents as WorldAgentRegistry;
-    const a = await app.agents.create({ sessionId: SessionId('terminal-owner'), world: 'terminal-world' });
-    const b = await app.agents.create({ sessionId: SessionId('terminal-peer'), world: 'terminal-world' });
-    let consumer!: Context;
-    await agents.scopeFor(a.agent).plugin({ inject: ['terminals', 'jobs'], apply(c: Context) { consumer = c; } });
+    const app = await harness({ shell });
+    const a = await create(app, 'terminal-owner');
+    const b = await create(app, 'terminal-peer');
+    const consumer = { terminals: serviceForAgent(app, a.agent, 'terminals')!, jobs: serviceForAgent(app, a.agent, 'jobs')! };
+    const agentFs = serviceForAgent(app, a.agent, 'fs')!;
     await ok(a.agent, 'terminal_open', { type: 'shell', name: 'main' });
     const id = consumer.terminals.list(a.agent)[0]!.sessionId;
     const result = await ok(a.agent, 'terminal_send', { sessionId: id, text: "printf 'remote-terminal✓\\n'; printf world > terminal-marker" });
     assert.ok(JSON.stringify(result).includes('remote-terminal✓'));
-    assert.equal(await agents.scopeFor(a.agent).fs.readText(await agents.scopeFor(a.agent).fs.resolve('terminal-marker')), 'world');
+    assert.equal(await agentFs.readText(await agentFs.resolve('terminal-marker')), 'world');
     if (ssh) await assert.rejects(readFile(`${r.dir}/terminal-marker`), { code: 'ENOENT' });
     assert.equal((await call(b.agent, 'terminal_send', { sessionId: id, text: 'echo forbidden' })).isError, true);
     await ok(a.agent, 'terminal_send', { sessionId: id, text: "sh -c 'while :; do echo tick; sleep 0.1; done'", run_in_background: true });
@@ -162,8 +156,7 @@ try {
 
     await ok(a.agent, 'terminal_send', { sessionId: id, text: "sh -c 'while :; do echo tick; sleep 0.1; done'", run_in_background: true });
     await ok(b.agent, 'terminal_open', { type: 'shell' });
-    let peerConsumer!: Context;
-    await agents.scopeFor(b.agent).plugin({ inject: ['terminals'], apply(c: Context) { peerConsumer = c; } });
+    const peerConsumer = { terminals: serviceForAgent(app, b.agent, 'terminals')! };
     const peerId = peerConsumer.terminals.list(b.agent)[0]!.sessionId;
     r.client.reconnect(); await a.dispose();
     assert.equal(ownedJobs.list(a.agent).length, 0);

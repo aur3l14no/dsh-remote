@@ -175,5 +175,7 @@
     "localStorageGroupsPassed": 2,
     "noPrivateConnectionMappingsInRepositoryArtifacts": true,
     "pinnedDshCheckoutUnmodified": true
-  }
+  },
+  "status": "Historical evidence; custom Agent/tool/Session composition has been removed. See preset-acceptance-results.json for the current integration.",
+  "implementationRevision": "4a64ea82ae7f759d33e0a304d8586c6cd212aa5a"
 }

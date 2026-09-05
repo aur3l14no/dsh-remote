@@ -1,23 +1,14 @@
 # Remote PTY and Session jobs
 
-The external subprocess adapter implements the pinned DSH terminal primitive using helper 0.1.1 / API 1. An optional Agent profile composes the actual DSH terminal registry, Bash backend, terminal tools, local jobs registry and job tools. Neither DSH core nor the Rust helper changes in this milestone. See the [platform evidence](terminal-acceptance-results.json).
+The external subprocess adapter implements the pinned DSH terminal primitive using helper 0.1.1 / API 1. An application-owned DSH preset composes the actual terminal registry, Bash backend, terminal tools, local jobs registry and job tools. Neither DSH core nor the Rust helper changes in this milestone. See the [current platform evidence](preset-acceptance-results.json).
 
 ## Enable the consumer profile
 
-After configuring the ordinary local services and external providers described in [Agent composition](agents.md), configure the registry with:
+The application places the existing terminal, Bash backend, jobs and tool plugins beside the remote providers in a standing DSH preset. The checked-in example is `tests/integration/terminal-consumers.ts`, called by the acceptance harness; it is not a runtime/tool policy shipped by the World plugin.
 
-```ts
-await ctx.plugin(WorldAgentRegistry, {
-  worlds,
-  terminal: { shell: 'bash' },
-});
-```
+The fixture resolves and probes Bash remotely before preset mount completes. Missing Bash or required PTY capability fails through DSH's normal preset-mount rollback. Omitting those consumers still permits the portable PTY primitive. The same standing terminal/jobs services are shared by joined Agents; DSH's registries enforce each owner's access and cleanup. Local terminal emulation and job bookkeeping do not execute workspace processes locally.
 
-`shell` resolves through the selected World's remote executable resolver. Before Agent publication, a bounded remote probe verifies that the executable runs Bash. Missing Bash, missing terminal capability or a failed probe rejects creation and releases setup resources. There is no local PATH lookup or fallback. Omitting `terminal` retains the read/write/edit/glob/grep/exec profile; the subprocess PTY primitive remains usable by trusted World consumers without Bash.
-
-The optional profile adds `terminal_open`, `terminal_send`, `terminal_read`, `terminal_signal`, `terminal_close`, `terminal_list`, `job_output`, `job_list` and `job_kill`. Every Agent receives isolated terminal, jobs and sandbox-policy services alongside its filesystem/subprocess services. Provider identities are checked before tool dispatch. The policy uses the SSH account's authority (`danger-full-access`) and the declared remote workspace. Auto Approval remains the assumed separate authorization boundary. Enabling this profile does not provide OS confinement or make arbitrary Node plugins safe.
-
-The actual DSH backend, despite its local-oriented class names, allocates and controls processes exclusively through `ctx.subprocess`. Its terminal emulator, bounded scrollback and job bookkeeping stay local. PowerShell and other backends are not enabled. The full UI and independently installed package configuration are still outside the accepted source composition.
+The fixture uses SSH-account authority (`danger-full-access`) with the remote workspace. Auto Approval remains separate. It neither provides OS confinement nor makes arbitrary Node plugins safe. PowerShell, a full UI configuration and independently installed package loading are not accepted.
 
 ## Primitive semantics
 
@@ -25,7 +16,7 @@ The actual DSH backend, despite its local-oriented class names, allocates and co
 | --- | --- |
 | `spawnTerminal` | Asynchronous allocation of a real controlling PTY. Explicit argv, absolute remote cwd, environment, dimensions and cleanup grace. Exact managed executable mapping also applies here. |
 | Allocation cancellation | A pre-aborted request allocates nothing. After admission, the client retains ownership while it resolves the same request journal; a late allocation is cleaned before cancellation returns. Cancellation is not permission to repeat spawn with a new ID. |
-| Published handle lifetime | The allocation signal no longer owns the terminal after publication. Explicit termination or Agent/provider teardown owns its later cleanup. |
+| Published handle lifetime | The allocation signal no longer owns the terminal after publication. Consumers explicitly terminate their handles; provider teardown owns final cleanup. |
 | `write` | UTF-8 bytes with no implicit Enter conversion. The shared process client serializes writes, bounds pending input to 1 MiB and preserves partial/unknown write errors. |
 | `done` | Target-observed root exit, using target signal names. It can settle before output or observed descendants finish. The protocol client's new `exited` promise supplies this fact; existing pipe `done` retains its final-collection behavior. |
 | `output` | Ordered raw bytes through a Node `Readable`; its end follows queued output. Reconnect resumes original offsets. Missing bytes or interrupted drain produce an error. |
@@ -45,7 +36,7 @@ The Bash profile retains at most 1 MiB / 10,000 scrollback lines and returns at 
 
 Background sends use the real local jobs registry, with at most 10 active jobs per Agent and quiet completion delivery. A job owns a send operation within a terminal; the terminal remains an Agent-owned resource after the send settles. `completed` can mean the send returned readiness, inferred idle or timeout, and does not mean every foreground or descendant process exited. `job_kill` requests foreground interruption; `terminal_close` performs terminal-session cleanup. Agent disposal cancels its jobs and closes its terminals without stopping another Agent's resources in the shared runtime.
 
-Terminal state and job records are live local/runtime resources, not durable task recovery. Local Session history remains checkpointed, but resuming history does not recreate an old terminal, adopt a job or re-execute a command. Helper restart recovery remains unsupported.
+Terminal state and job records are live local/runtime resources, not durable task recovery. DSH owns Session persistence. This project no longer supplies a Session backend or claims safe cross-restart World reconstruction; see [upstream boundaries](upstream-seams.md). Helper restart recovery remains unsupported.
 
 ## Reproduce acceptance
 
@@ -59,4 +50,4 @@ DSH_TEST_RG="$LOCAL_RG" DSH_TEST_TERMINAL_SHELL=bash node target/composition/ter
 
 Native acceptance uses the local helper/fixture paths described in [Agent validation](agents.md). SSH acceptance additionally supplies `DSH_TEST_HOST`, `DSH_TEST_REMOTE_FIXTURE`, `DSH_TEST_BOOTSTRAP_MANIFEST` and an absolute `DSH_TEST_ARTIFACT_CACHE`. Omit `DSH_TEST_TERMINAL_SHELL` only for the platform profile expected to lack Bash; the suite verifies that absence explicitly. Keep private connection mappings outside repository artifacts.
 
-The suite covers exact PTY byte delivery, dimensions, reconnect, blocked input cancellation, backpressure, cleanup after root exit, late allocation cancellation, slot reuse, unread-output disposal and missing-shell rollback. Bash-capable platforms additionally exercise actual terminal/job tools, cross-Agent isolation, interruption, peer survival and final output on shell exit. Permanent helper loss is injected in the native adapter test. This is source-seam acceptance, not a production package or UI release.
+The suite covers exact PTY byte delivery, dimensions, reconnect, blocked input cancellation, backpressure, cleanup after root exit, late allocation cancellation, slot reuse, unread-output provider disposal and missing-shell rollback. Bash-capable platforms additionally exercise actual terminal/job tools, cross-Agent isolation, interruption, peer survival and final output on shell exit. Permanent helper loss is injected in the native adapter test. This is source-seam acceptance, not a production package or UI release.

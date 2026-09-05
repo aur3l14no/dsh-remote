@@ -5,12 +5,11 @@ import * as TerminalTools from '@deepseek-ai/dsh-tool-terminal';
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local';
 import * as JobTools from '@deepseek-ai/dsh-tool-jobs';
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy';
-import { RemoteError } from '../../client/src/index.ts';
+import { RemoteError } from '../../packages/client/src/index.ts';
 
-export const terminalTools = ['terminal_open', 'terminal_send', 'terminal_read', 'terminal_signal', 'terminal_close', 'terminal_list', 'job_output', 'job_list', 'job_kill'];
 export interface TerminalConfig { /** Resolved in the World, never on the local PATH. */ shell: string }
 
-/** Actual DSH consumers, configured for SSH-account authority and bounded local presentation. */
+/** Acceptance-only application composition of actual DSH consumers; not part of the World plugin. */
 export async function applyTerminalConsumers(ctx: Context, config: TerminalConfig): Promise<void> {
   if (!ctx.remoteWorld.client.info.capabilities.includes('process.pty')) throw new RemoteError('UNSUPPORTED', 'Terminal profile requires remote PTY');
   const shell = await ctx.subprocess.resolveExecutable(config.shell);

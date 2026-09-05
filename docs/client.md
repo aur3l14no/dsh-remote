@@ -59,6 +59,6 @@ The container helper suite used a 10-second reconnect grace to accommodate multi
 
 ## Remaining work
 
-This fixture has no model calls or real Agent publication. Creating/resuming an Agent with logged World context, child-Agent inheritance, handoff, approval metadata, actual tool registration/Session jobs and UI integration still need a complete application composition. The process owner tests exercise provider fibers, not Agent/session ownership. Subsequent [Agent](agents.md) and [terminal](terminal.md) fixtures cover real ownership and terminal/job consumers. The npm resolver branch and installation as separately packaged external plugins remain unverified.
+This Loader fixture proves provider behavior, not a complete application. The current [preset composition](agents.md) uses unchanged DSH Agent/tool/subagent services and verifies World inheritance. Actual terminal/job consumers are application fixtures. Safe durable World reconstruction, the npm ripgrep resolver branch and independently packaged plugin compatibility remain open; see [upstream boundaries](upstream-seams.md).
 
 The subsequent [bootstrap milestone](bootstrap.md) implements manifest/cache-based installation, startup, upgrade coexistence, corruption repair and offline provisioning. `connectSuppliedRuntime` still only connects to an existing runtime; automatic provisioning uses the separate `bootstrapSshWorld` entry point. Trusted release downloads and distribution remain open.

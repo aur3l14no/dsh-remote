@@ -1,13 +1,20 @@
 {
-  "date": "2026-09-05",
-  "milestone": "external PTY adapter and actual DSH terminal/Session jobs consumers",
+  "date": "2026-09-06",
+  "milestone": "remove harness replacements and integrate Execution World through native DSH presets",
   "dshSourceRevision": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
   "dshCoreModified": false,
+  "agentRegistryReplaced": false,
+  "toolRuntimeReplaced": false,
+  "subagentImplementationProvided": false,
+  "sessionPersistenceProvided": false,
+  "toolConsumersRegisteredPerAgent": false,
+  "binding": "live World identity observed through DSH publication events and standing preset services",
+  "coldResumeWorldValidation": "unsupported pending upstream required identity/reconstruction contract",
   "helperApi": 1,
   "helperVersion": "0.1.1",
   "rustSourceSha256": "195a26332fae7c07e5a011d76eabb641178fd7a0e176bda44c9e5a5053c47ed9",
   "rustImplementationChanged": false,
-  "sourceAndSuiteSha256": "33ecf9406e67a24f4f38762841bb664b1897031dd58837801f7edd0ae8aa7e87",
+  "sourceAndSuiteSha256": "b34714c14e094ac465004bf8fe70f30c288e06d2de7539a97243bdbe2bc7d80c",
   "sourceHashRecipe": "Sort sourceHashFiles lexically; SHA-256 of each UTF-8 relative path + NUL + exact file bytes + NUL, concatenated in order. Documentation and generated bundles are excluded.",
   "sourceHashFiles": [
     "package-lock.json",
@@ -19,15 +26,10 @@
     "packages/client/src/process.ts",
     "packages/client/src/protocol.ts",
     "packages/client/src/streams.ts",
-    "packages/dsh-ssh/src/agents.ts",
-    "packages/dsh-ssh/src/exec-tool.ts",
+    "packages/dsh-ssh/src/context.ts",
     "packages/dsh-ssh/src/fs.ts",
-    "packages/dsh-ssh/src/persistence.ts",
     "packages/dsh-ssh/src/subprocess.ts",
-    "packages/dsh-ssh/src/terminal-consumers.ts",
     "packages/dsh-ssh/src/terminal.ts",
-    "packages/dsh-ssh/src/tools.ts",
-    "packages/dsh-ssh/src/world-pool.ts",
     "packages/dsh-ssh/src/world.ts",
     "packages/ssh/src/bootstrap.ts",
     "packages/ssh/src/control.ts",
@@ -47,8 +49,9 @@
     "tests/integration/agents.ts",
     "tests/integration/composition.ts",
     "tests/integration/cordis.yml",
-    "tests/integration/persistence.ts",
+    "tests/integration/preset-harness.ts",
     "tests/integration/remote-runtime.ts",
+    "tests/integration/terminal-consumers.ts",
     "tests/integration/terminal.ts",
     "tsconfig.json"
   ],
@@ -66,7 +69,13 @@
       "localHarnessPlatform": "macos",
       "localHarnessNodeVersion": "24.19.0",
       "transport": "native Unix socket",
-      "groupsPassed": [
+      "result": "passed",
+      "presetGroupsPassed": [
+        "standing_world_and_tools_model_approval_context",
+        "actual_dsh_child_world_inheritance_native_allow_deny_empty_filters",
+        "world_isolation_publication_rollback_changed_world_and_local_realpath_refusal"
+      ],
+      "terminalGroupsPassed": [
         "pty_allocation_resize_input_final_bytes_same_runtime_reconnect",
         "blocked_input_cancellation_during_reconnect_and_quiescence",
         "bounded_raw_backpressure_and_exact_bytes",
@@ -75,8 +84,7 @@
         "actual_terminal_and_session_job_tools_owner_isolation_cancellation",
         "agent_disposal_during_reconnect_peer_survival_and_final_shell_output",
         "permanent_helper_loss_unconfirmed_cleanup"
-      ],
-      "result": "passed"
+      ]
     },
     {
       "platform": "linux-container",
@@ -91,7 +99,13 @@
       "localHarnessPlatform": "macos",
       "localHarnessNodeVersion": "24.19.0",
       "transport": "system OpenSSH with automatic bootstrap",
-      "groupsPassed": [
+      "result": "passed",
+      "presetGroupsPassed": [
+        "standing_world_and_tools_model_approval_context",
+        "actual_dsh_child_world_inheritance_native_allow_deny_empty_filters",
+        "world_isolation_publication_rollback_changed_world_and_local_realpath_refusal"
+      ],
+      "terminalGroupsPassed": [
         "pty_allocation_resize_input_final_bytes_same_runtime_reconnect",
         "blocked_input_cancellation_during_reconnect_and_quiescence",
         "bounded_raw_backpressure_and_exact_bytes",
@@ -99,8 +113,7 @@
         "missing_shell_refuses_agent_publication",
         "actual_terminal_and_session_job_tools_owner_isolation_cancellation",
         "agent_disposal_during_reconnect_peer_survival_and_final_shell_output"
-      ],
-      "result": "passed"
+      ]
     },
     {
       "platform": "linux-embedded",
@@ -115,15 +128,20 @@
       "localHarnessPlatform": "macos",
       "localHarnessNodeVersion": "24.19.0",
       "transport": "system OpenSSH with automatic bootstrap",
-      "groupsPassed": [
+      "result": "passed",
+      "presetGroupsPassed": [
+        "standing_world_and_tools_model_approval_context",
+        "actual_dsh_child_world_inheritance_native_allow_deny_empty_filters",
+        "world_isolation_publication_rollback_changed_world_and_local_realpath_refusal"
+      ],
+      "terminalGroupsPassed": [
         "pty_allocation_resize_input_final_bytes_same_runtime_reconnect",
         "blocked_input_cancellation_during_reconnect_and_quiescence",
         "bounded_raw_backpressure_and_exact_bytes",
         "post_root_exit_cleanup_late_cancel_slot_reuse_unread_disposal",
         "missing_shell_refuses_agent_publication",
         "bash_absence_explicitly_verified"
-      ],
-      "result": "passed"
+      ]
     }
   ],
   "regression": {
@@ -131,21 +149,19 @@
       "passed": 18,
       "skipped": 2,
       "failed": 0,
-      "skipReason": "Explicit bootstrap and SSH client environment-selected suites were not selected by the default command; terminal SSH suites ran separately."
+      "skipReason": "Environment-selected standalone bootstrap and SSH client suites not selected by the default command; current preset/terminal SSH suites ran separately."
     },
-    "nativeAgentGroupsPassed": 9,
-    "nativeLoaderComposition": "passed",
     "typescriptWorkspace": "passed",
-    "pinnedDshInterfaceTypecheck": "passed"
+    "pinnedDshInterfaceTypecheck": "passed",
+    "nativeLoaderComposition": "passed"
   },
   "limitations": [
-    "Source aliases against the pinned DSH checkout; independently installed packages and full UI are not accepted.",
-    "Embedded platform has no Bash; its six groups cover the portable primitive and explicit Bash refusal.",
-    "Permanent helper loss injection ran on the native adapter only.",
-    "Foreground groups may disappear before signal delivery; failures propagate rather than claiming a signal was sent.",
-    "No cross-helper-restart terminal/job recovery, task adoption or automatic command replay.",
-    "Container SSH acceptance used an explicitly selected temporary transport route; the default route remains unverified."
-  ],
-  "status": "Historical evidence; custom Agent/tool/Session composition has been removed. See preset-acceptance-results.json for the current integration.",
-  "implementationRevision": "00c5fe81c2b65045347ebcab06d232b646e839b7"
+    "One configured World per standing preset generation; independent dynamic World selection needs an upstream binding seam.",
+    "Parent-path tool-fs requests are explicitly refused because the pinned consumer canonicalizes through local realpath.",
+    "Raw handles belong to provider/runtime; DSH consumers own Agent-specific cleanup.",
+    "No cross-helper-restart task recovery or custom Session backend.",
+    "Native adapter only for permanent helper-loss injection.",
+    "Container acceptance used an explicitly configured temporary SSH route; default-route recovery is not claimed.",
+    "Source-alias acceptance does not establish installed-package or full UI compatibility."
+  ]
 }

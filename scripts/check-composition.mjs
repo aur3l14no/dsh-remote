@@ -10,7 +10,7 @@ const paths = Object.fromEntries(Object.entries(upstream).map(([key, values]) =>
   return existsSync(path) && statSync(path).isDirectory() ? join(path, 'index.ts') : path;
 })]));
 paths['@dsh-test/mock-adapter'] = [join(root, 'packages/core/agent-loop/tests/mock-adapter.ts')];
-const program = ts.createProgram([...['world', 'world-pool', 'agents', 'tools', 'persistence', 'exec-tool', 'fs', 'subprocess', 'terminal', 'terminal-consumers'].map(name => join(local, 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'persistence', 'terminal'].map(name => resolve('tests/integration', name + '.ts'))], {
+const program = ts.createProgram([...['world', 'context', 'fs', 'subprocess', 'terminal'].map(name => join(local, 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'preset-harness', 'terminal-consumers', 'terminal'].map(name => resolve('tests/integration', name + '.ts'))], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext, strict: true, noEmit: true, skipLibCheck: true,
   allowImportingTsExtensions: true, paths, types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
