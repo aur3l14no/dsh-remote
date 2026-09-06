@@ -98,6 +98,11 @@ export default class ExecutionWorlds extends Service {
     return definition;
   }
 
+  /** Concrete providers for application-owned workspace selection, before a Session exists. */
+  async prepareWorld(input: WorldDefinition): Promise<Context> {
+    return (await this.open(input)).ctx;
+  }
+
   /** Application setup before normal DSH resume. Starts a new helper after application restart. */
   async prepare(sessionId: string): Promise<WorldDefinition> {
     const definition = this.bindings.get(sessionId);

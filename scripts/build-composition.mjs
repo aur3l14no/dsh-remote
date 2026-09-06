@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 
 const source = process.argv[2];
 const suite = process.argv[3] ?? 'composition';
-if (!['composition', 'agents', 'terminal', 'session-routing'].includes(suite)) throw new Error('Unknown composition suite');
+if (!['composition', 'agents', 'terminal', 'session-routing', 'project-worlds'].includes(suite)) throw new Error('Unknown composition suite');
 if (!source) throw new Error('Usage: node scripts/build-composition.mjs DSH_SOURCE_CHECKOUT');
 const baseline = 'd347e703908d0406b7a7ef80e3a0e594d86b2215';
 const root = resolve(source);
@@ -24,6 +24,10 @@ await build({
   external: ['@vscode/ripgrep', 'node-addon-require-builtin'],
   plugins: [{ name: 'pinned-dsh-source', setup(build) {
     build.onResolve({ filter: /^@dsh-test\/mock-adapter$/ }, () => ({ path: join(root, 'packages/core/agent-loop/tests/mock-adapter.ts') }));
+    // Test witnesses for the unchanged Web activation path; never imported by our plugins.
+    build.onResolve({ filter: /^@dsh-test\/web-(agent|commands|model-selection-projection)$/ }, ({ path }) => ({
+      path: join(root, 'packages/api/session-controller/src', path.slice('@dsh-test/web-'.length) + '.ts'),
+    }));
     build.onResolve({ filter: /^@deepseek-ai\// }, async ({ path }) => {
       const entry = paths[path]?.[0];
       if (!entry) return undefined;

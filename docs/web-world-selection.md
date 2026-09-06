@@ -1,6 +1,6 @@
 # World selection in Web projects
 
-Proposed product flow, based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. Not implemented; no upstream patch is assumed.
+Product flow based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. A [source-only Project experiment](../experiments/project-worlds/README.md) now validates the service and entry wiring. Settings/UI and transparent Web activation are not implemented.
 
 ## User flow
 
@@ -11,7 +11,7 @@ Proposed product flow, based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d
 
 A World catalog describes the execution environment; a project chooses a directory within it. One World can host many projects, and different Worlds can contain the same path. Their project identities must remain distinct. This does not require a preset per World.
 
-The current `WorldDefinition` combines SSH coordinates and `cwd`, and its immutable ID rejects another cwd. The catalog therefore cannot directly expose these existing records as environment definitions. Separate reusable environment configuration from the bound workspace before adding the UI. Preserve existing binding identities through an explicit compatibility/migration design; do not reinterpret saved IDs or rewrite live bindings in place. This note does not fix a new storage or wire format.
+The current `WorldDefinition` combines SSH coordinates and `cwd`. The experiment keeps this contract: catalog entries describe reusable environments, while Projects receive distinct concrete workspace binding IDs. Existing v1 bindings are not migrated or reinterpreted. Saved Projects pin the catalog connection definition; removing or changing it prevents opening them. The experimental Project storage format is not a released contract.
 
 ## External plugin seam
 
@@ -30,7 +30,7 @@ A lightweight external Project–World map cannot by itself prevent the unchange
 
 ## Separate Project integration plugin
 
-Evaluate an external Project plugin before requiring upstream changes. DSH's Workspace registry, API controller and project UI are plugins themselves. The UI exposes `sidebar.workspaces` and `conversation.hero.workspace` slots for the project region and picker; the application can compose a World-aware occupant without replacing the full sidebar or chat UI. This is a source-supported implementation route, not yet a tested replacement composition.
+DSH's Workspace registry, API controller and project UI are plugins themselves. The experiment replaces the Workspace service while retaining native Agent/Session services. The UI exposes `sidebar.workspaces` and `conversation.hero.workspace` slots for a World-aware project region and picker; that UI composition remains untested.
 
 | Component | Responsibility |
 | --- | --- |
@@ -42,11 +42,11 @@ The Project plugin must make the relevant project operations environment-aware: 
 
 Creation/resume entry wiring means preparing the World and durable binding, then calling the ordinary DSH Agent APIs and opening that Session through the existing UI. It does not mean another Agent registry, Session backend, subagent driver or message system. The normal Web controller's local mkdir and cold-resume behavior still need a verified composition path; slots alone do not solve them.
 
-The next step is a minimal real-composition experiment for this separate plugin:
+The experiment establishes distinct same-path Projects and explicit Project create/reopen through native Agent/Session services. Unchanged Web activation controllers adopt those live Sessions. Missing or changed World configuration rejects before activation.
 
-1. Two Worlds with the same canonical path produce distinct projects, validated in their respective environments.
-2. A project creates a bound root Session through the existing Agent services and opens it in the existing Web conversation UI.
-3. Restart/reopen and a direct Session link cannot skip World preparation or use local workspace checks. Missing World configuration fails explicitly.
+It also reproduces the remaining entry gap: unprepared Web creation runs local `mkdir`; cold Web activation skips preparation and fails the World guard. The Session Controller owns its Typert lookup exclusively and promotes history followers through a private activation controller. A Project picker cannot cover those paths. No complete Web profile or browser flow is claimed.
+
+Next: obtain a supported asynchronous environment-preparation seam covering Web creation, cold resume and history promotion, with directory validation delegated to the World. Keep the experiment out of the distributed plugin until these entry paths are covered; then implement settings, the Project feed and the two UI slots.
 
 Keep the replacement within Project responsibilities. If an inherited API requires changing the Agent registry, Session history or unsupported private internals, report that concrete gap. Upstream changes remain an option for improving the seam, not a prerequisite already established for every external-plugin approach.
 

@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "started": "2026-09-06T16:42:03.823Z",
+  "completed": "2026-09-06T16:43:29.718Z",
+  "dsh": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
+  "platform": {
+    "os": "linux",
+    "arch": "x86_64",
+    "abi": {
+      "kind": "glibc",
+      "minimum": "2.39"
+    }
+  },
+  "transport": "system-ssh/podman-exec",
+  "containers": 2,
+  "containerNetwork": "none",
+  "sshServerInContainer": false,
+  "containersRemoved": true,
+  "checks": [
+    "PASS two catalog Worlds with the same canonical workspace remain distinct Projects",
+    "PASS Project entry creates native bound Agents; unchanged Web activation adopts them under one shared preset",
+    "GAP native Web create makes a local directory before preset/binding admission",
+    "GAP cold Web activation has no async World preparation; the owned Agent lookup rejects a second resolver",
+    "PASS Project entry prepares the saved World and native JSONL resume is adopted by unchanged Web activation",
+    "PASS missing catalog configuration cannot resume or redirect a saved Project",
+    "PASS changed catalog configuration cannot resume or redirect a saved Project",
+    "PASS Project metadata and native JSONL survive separate host processes; no helper runtime is restored",
+    "PASS workspace exists only in the two final containers, never on the local host or SSH entry"
+  ],
+  "limits": [
+    "Source composition with unchanged Web activation controllers; no browser or complete Web profile",
+    "Known unprepared Web create and cold-resume gaps prevent shipping the Project experiment as a Web integration"
+  ]
+}

@@ -9,8 +9,8 @@ An external JSON map holds bindings; DSH retains Session history. Shared presets
 | Issue | Current behavior | Next step |
 | --- | --- | --- |
 | Parent-path resolution | DSH tool-fs calls local `realpath` for `..`; affected requests are refused. | Upstream bug; deferred. |
-| Web Session creation | The controller calls local `mkdir(cwd)` before Agent preset setup; the request has no World field. | Verify creation and cold resume through a separate Project plugin's World preparation entry; keep native Agent/Session services. |
-| Web Project identity | Built-in project plugins accept host paths and use local checks, path-only identity and recovery. | Evaluate a separate World-aware Project plugin. A map or picker alone is insufficient; the registry must not inspect remote cwd locally. See [World selection](web-world-selection.md). |
+| Web activation | Direct creation calls local `mkdir` before World admission; cold activation lacks preparation. Its owned lookup rejects a second resolver. | Reproduced in the [Project experiment](../experiments/project-worlds/README.md). Need an awaited environment-preparation seam across create/resume/history promotion. |
+| Web Project integration | Replacement service supports World-qualified identity and explicit native Session create/reopen. | Settings, Project feed and browser flow remain unimplemented pending the activation seam. |
 | Cross-root demo orchestration | Ordinary messaging is parent/child-only; experimental Teams also creates subagents in one shared workspace. | Defer the main-thread/multi-World demo. Cross-root messaging belongs upstream or in a separate plugin. |
 | Calls outside tool dispatch | Explicit `forAgent` lookup is available; automatic terminal/job initialization through the shared router is unverified. | Defer consumer integration; never infer a default World. |
 | Child publication failure | DSH contains session-start observer errors. A failed binding commit can leave a published Agent whose model context/tools are blocked. | Keep fail-closed admission. Atomic rejection of creation needs a suitable upstream hook. |

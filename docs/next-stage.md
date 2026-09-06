@@ -12,6 +12,7 @@ DSH owns Agents, subagents, tool filtering, Session persistence and UI. The prev
 - External JSON Session–World bindings and shared routing, with actual DSH JSONL restart validation. See [lifecycle and limits](session-routing.md).
 - Private compiled plugin tarball, Loader package entries, declarations and ordinary npm ripgrep identity mapping. See [package validation boundary](packaging.md).
 - Experimental [SSH → Podman exec](podman.md) entry for a running container pinned by full ID; the same helper runs in the final environment.
+- Separate [Project seam experiment](../experiments/project-worlds/README.md): World-qualified metadata, remote validation and explicit native Session creation/reopen. Not distributed as a Web plugin.
 
 The source baseline remains DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`; source-alias tests do not establish installed-package compatibility. See [composition](agents.md), [upstream findings](upstream-seams.md), [bootstrap](bootstrap.md) and [helper acceptance](helper-acceptance.md).
 
@@ -28,7 +29,7 @@ Report concrete seams to the user before expanding scope. Do not modify DSH core
 
 The proposed coordinating Web thread cannot use existing upstream messaging for independent World Sessions under the agreed same-World child rule. See [the assessment](demo-assessment.md). Defer that demo instead of implementing orchestration here. Web's local `mkdir(cwd)` during Session creation is a separate newly identified integration obstacle.
 
-The preferred entry is [World settings → Create Project with World + workspace](web-world-selection.md), with Sessions inheriting the project selection. Evaluate a separate external Project plugin using the existing settings and project UI slots. It may own environment-qualified project records and replace the relevant project services while reusing DSH Agent and Session services. The current local registry and Web create/resume paths require a real composition test; do not assume either transparent compatibility or that upstream patches are mandatory. Keep Project behavior outside the execution provider.
+The preferred entry is [World settings → Create Project with World + workspace](web-world-selection.md). The independent Project experiment successfully replaces the local registry and prepares native Session create/reopen. Direct Web creation and cold activation still bypass preparation; tests reproduce local `mkdir` and rejected cold resume. Report this entry boundary without replacing Session Controller internals. Next obtain a supported preparation hook, then add the settings card, Project feed and UI slots. Keep Project behavior outside the execution provider.
 
 - Select an installable DSH baseline before public-release compatibility validation. The current source version is not available as the corresponding npm preset package.
 - Compare remote FS behavior with upstream rules; keep explicit listing/upload/output limits until bounded pagination/streaming is implemented and tested.

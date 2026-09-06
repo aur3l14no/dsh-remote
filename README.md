@@ -64,6 +64,8 @@ The [persistent Session-based router](docs/session-routing.md) supports multiple
 
 The experimental [SSH → Podman exec entry](docs/podman.md) uses the final container for bootstrap and runtime transport. A [Web demo assessment](docs/demo-assessment.md) records two upstream gaps: local directory creation before preset setup, and no existing cross-root messaging composition suitable for coordinating independent World Sessions. A complete Web demo is not yet implemented.
 
+A separate [Project experiment](experiments/project-worlds/README.md) supports World + workspace identity and explicit native Session creation/reopen. Direct Web creation and cold activation still need a World preparation seam; the experiment is not shipped as a Web plugin.
+
 ## Build and exercise the helper
 
 ```sh
