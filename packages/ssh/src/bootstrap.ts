@@ -34,7 +34,7 @@ export interface SshWorld {
 }
 
 export function bootstrapSshWorld(options: BootstrapOptions): Promise<SshWorld> {
-  const target = { host: options.host, configFile: options.configFile };
+  const target = { host: options.host, configFile: options.configFile, podmanContainer: options.podmanContainer };
   return provisionWorld(sshControl(target), args => connectSuppliedRuntime({ ...target, ...args }), options);
 }
 

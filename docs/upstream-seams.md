@@ -9,6 +9,8 @@ An external JSON map holds bindings; DSH retains Session history. Shared presets
 | Issue | Current behavior | Next step |
 | --- | --- | --- |
 | Parent-path resolution | DSH tool-fs calls local `realpath` for `..`; affected requests are refused. | Upstream bug; deferred. |
+| Web Session creation | The controller calls local `mkdir(cwd)` before Agent preset setup; the request has no World field. | Report the seam. Verify a World preparation/selection entry; never create local workspace placeholders. |
+| Cross-root demo orchestration | Ordinary messaging is parent/child-only; experimental Teams also creates subagents in one shared workspace. | Defer the main-thread/multi-World demo. Cross-root messaging belongs upstream or in a separate plugin. |
 | Calls outside tool dispatch | Explicit `forAgent` lookup is available; automatic terminal/job initialization through the shared router is unverified. | Defer consumer integration; never infer a default World. |
 | Child publication failure | DSH contains session-start observer errors. A failed binding commit can leave a published Agent whose model context/tools are blocked. | Keep fail-closed admission. Atomic rejection of creation needs a suitable upstream hook. |
 | Interrupted mapping write | Atomic JSON remains readable; forced writer death can leave a lock. | Report busy; verified manual lock recovery. Automatic recovery/garbage collection deferred. |

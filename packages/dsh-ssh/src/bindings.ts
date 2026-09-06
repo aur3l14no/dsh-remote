@@ -9,6 +9,7 @@ const path = identifier.refine(value => value.startsWith('/'), 'Absolute path re
 const worldSchema = z.object({
   id: identifier, kind: z.literal('ssh'), host: identifier.refine(value => !value.startsWith('-')),
   cwd: path, configFile: path.optional(), installRoot: path.optional(), runtimeBase: path.optional(),
+  podmanContainer: z.string().length(64).regex(/^[a-f0-9]{64}$/).optional(),
 }).strict();
 const documentSchema = z.object({
   version: z.literal(1), worlds: z.array(worldSchema),

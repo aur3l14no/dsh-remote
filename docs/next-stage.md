@@ -11,6 +11,7 @@ DSH owns Agents, subagents, tool filtering, Session persistence and UI. The prev
 - Actual DSH terminal/job consumers tested as application fixtures over a shared World.
 - External JSON Session–World bindings and shared routing, with actual DSH JSONL restart validation. See [lifecycle and limits](session-routing.md).
 - Private compiled plugin tarball, Loader package entries, declarations and ordinary npm ripgrep identity mapping. See [package validation boundary](packaging.md).
+- Experimental [SSH → Podman exec](podman.md) entry for a running container pinned by full ID; the same helper runs in the final environment.
 
 The source baseline remains DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`; source-alias tests do not establish installed-package compatibility. See [composition](agents.md), [upstream findings](upstream-seams.md), [bootstrap](bootstrap.md) and [helper acceptance](helper-acceptance.md).
 
@@ -25,10 +26,12 @@ Report concrete seams to the user before expanding scope. Do not modify DSH core
 
 ## Work within this project's responsibility
 
+The proposed coordinating Web thread cannot use existing upstream messaging for independent World Sessions under the agreed same-World child rule. See [the assessment](demo-assessment.md). Defer that demo instead of implementing orchestration here. Web's local `mkdir(cwd)` during Session creation is a separate newly identified integration obstacle.
+
 - Select an installable DSH baseline before public-release compatibility validation. The current source version is not available as the corresponding npm preset package.
 - Compare remote FS behavior with upstream rules; keep explicit listing/upload/output limits until bounded pagination/streaming is implemented and tested.
 - Verify consumer World loss/reconnect and no direct local workspace access. Report bypasses rather than adding harness replacements.
 - The tarball is tested against a source-built host fixture; verify the complete installed host when a matching dependency set is available.
 - Prepare reproducible artifacts/checksums and ripgrep redistribution notices. Release catalogs/download trust and installation garbage collection remain separate work.
 
-Bootstrap currently accepts caller-trusted local artifacts. Publishing packages, downloading release catalogs, collecting old generations and recovering forced-SIGKILL publication locks are not implemented. Public releases, Container resolvers and Remote Harness remain separate work.
+Bootstrap currently accepts caller-trusted local artifacts. Publishing packages, downloading release catalogs, collecting old generations and recovering forced-SIGKILL publication locks are not implemented. Public releases, general resolver composition, container lifecycle management and Remote Harness remain separate work.

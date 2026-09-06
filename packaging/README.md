@@ -17,6 +17,8 @@ Cordis Loader entry points:
 
 Before normal DSH creation, the host calls `await ctx.executionWorlds.bind(sessionId, { id: worldId, kind: 'ssh', host, cwd })`. Cwd must be the canonical remote workspace. Before normal DSH resume, it calls `await ctx.executionWorlds.prepare(sessionId)`. The host then uses DSH's usual preset mount and Agent APIs. The plugin neither chooses Agent behavior nor installs a replacement factory.
 
+In alpha.2, optional `podmanContainer` selects a running container on the SSH host using its full 64-character lowercase hexadecimal ID. Control, artifact upload and helper protocol all run through `podman exec -i`; container SSH is unnecessary. Paths refer to the container. Names/short IDs are refused, and container removal never selects the host or a replacement container. The caller owns container lifecycle; this is one optional Podman step, not a general resolver system.
+
 Load the routers and existing DSH file/search tools together in an isolated standing preset. The shared World service stays outside that preset, so many Worlds use one preset. `executionWorldContext(ctx, agentOrExecution)` supplies the same World facts to model context and approval. Calls outside tool dispatch must explicitly select a bound Agent's concrete providers.
 
 The shared `agent.cordis.yml` contains:

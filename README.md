@@ -15,12 +15,12 @@ Connections reuse system OpenSSH: SSH config, keys, ssh-agent, and ProxyJump. Th
 
 ## Scope
 
-- V1: SSH hosts only.
+- V1: SSH entry. An experimental optional Podman exec step reaches an existing container on that host without container SSH.
 - Ship entirely as external DSH plugins and the Rust helper; no DSH core patch is assumed.
 - Develop incrementally, starting with the helper. A working helper is an intermediate milestone, not proof of DSH integration.
 - The helper API and behavior are approved; message revision 1 and the Rust helper are implemented. Native acceptance covers embedded Linux/musl, containerized Linux/glibc, and macOS, with explicit target selection.
 - V1 provides managed subprocesses and background execution during the live runtime, without helper-managed task persistence, detached task supervision, or cross-restart recovery. Agents may arrange persistence themselves using remote programs.
-- Future: composable resolvers enter SSH, Container, and other environments, starting the same helper in the final environment.
+- Future: a general composable resolver system enters SSH, Container, and other environments, starting the same helper in the final environment. The current container entry is limited to one Podman step after SSH.
 
 ## Agreed constraints
 
@@ -40,7 +40,7 @@ The repository is expected to contain:
 2. A remote filesystem provider implementing DSH's filesystem contract, with search using uploaded ripgrep through the remote subprocess provider and an explicit managed-executable mapping.
 3. A remote subprocess provider implementing DSH's process and terminal contract: Shell/PTY, processes, background jobs, signals, cancellation, and output streams.
 4. A user-level Rust Linux server (the helper) exposing filesystem and process/PTY APIs, with search executed by the uploaded ripgrep.
-5. A composable resolver for the entry environment: SSH in V1; Container and other environments later, with the same helper started in the final environment.
+5. An SSH entry with an optional Podman step into an existing container, starting the same helper in the final environment. General resolver composition remains future work.
 
 See [design constraints, DSH seam findings, and development stages](docs/design.md). This distinguishes agreed requirements from proposed mechanisms and unverified compatibility.
 
@@ -61,6 +61,8 @@ Helper 0.1.1, the TypeScript client, system OpenSSH bootstrap and external FS/su
 The [corrected DSH composition](docs/agents.md) uses standing presets and unchanged DSH Agent, tool and subagent services. World context follows the preset into children, and native tool filters work. The earlier custom Agent/ToolRuntime, handoff and SQLite Session implementation have been removed. Actual DSH terminal/jobs consumers remain [integration fixtures](docs/terminal.md), not a tool policy owned by this plugin.
 
 The [persistent Session-based router](docs/session-routing.md) supports multiple Worlds under one preset with a lightweight external JSON map and unchanged DSH Session storage. Restart reconstructs the bound World into a new helper without replaying tasks. A [private plugin tarball](docs/packaging.md) provides compiled Loader entries and declarations. Shared-router initialization/background integration and parent-path FS canonicalization remain [open](docs/upstream-seams.md). Public DSH release compatibility and distribution remain in the [next-stage plan](docs/next-stage.md).
+
+The experimental [SSH → Podman exec entry](docs/podman.md) uses the final container for bootstrap and runtime transport. A [Web demo assessment](docs/demo-assessment.md) records two upstream gaps: local directory creation before preset setup, and no existing cross-root messaging composition suitable for coordinating independent World Sessions. A complete Web demo is not yet implemented.
 
 ## Build and exercise the helper
 

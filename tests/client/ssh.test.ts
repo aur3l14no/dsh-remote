@@ -14,7 +14,8 @@ const run = promisify(execFile);
 
 test('system OpenSSH: remote files, large collection, raw resume, search and scoped cleanup', { skip: !host, timeout: 120000 }, async () => {
   assert.ok(host && helper && fixture && rg, 'Explicit remote artifacts are required');
-  const target = { host, ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}) };
+  const target = { host, podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER,
+    ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}) };
   const command = async (argv: string[]) => (await run('ssh', sshArguments(target, argv), { timeout: 20000, maxBuffer: 65536 })).stdout;
   const root = (await command(['mktemp', '-d', '/tmp/dsh-client-ssh.XXXXXXXX'])).trim();
   assert.match(root, /^\/tmp\/dsh-client-ssh\.[A-Za-z0-9]+$/);

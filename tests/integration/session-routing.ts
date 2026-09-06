@@ -35,7 +35,8 @@ const packaged = process.env.DSH_TEST_PACKAGED === '1';
 const phase = process.argv[2];
 if (!phase) {
   const base = await mkdtemp(packaged ? new URL('state-', import.meta.url).pathname : '/tmp/dsh-durable-routing.');
-  const control = sshControl({ host: process.env.DSH_TEST_HOST!, configFile: process.env.DSH_TEST_SSH_CONFIG });
+  const control = sshControl({ host: process.env.DSH_TEST_HOST!, configFile: process.env.DSH_TEST_SSH_CONFIG,
+    podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER });
   let workspaceRoot = `${base}/workspaces`;
   try {
     if (ssh) {
@@ -49,6 +50,7 @@ if (!phase) {
     const definitions: WorldDefinition[] = ['a', 'b'].map(id => ({ id: `route-${id}`, kind: 'ssh',
       host: process.env.DSH_TEST_HOST ?? 'native-acceptance.invalid', cwd: `${workspaceRoot}/${id}`,
       ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}),
+      ...(process.env.DSH_TEST_PODMAN_CONTAINER ? { podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER } : {}),
       ...(ssh ? { installRoot: `${workspaceRoot}/artifacts`, runtimeBase: workspaceRoot } : {}) }));
     await writeFile(`${base}/definitions.json`, JSON.stringify(definitions), { mode: 0o600 });
     for (const stage of ['create', 'resume']) {

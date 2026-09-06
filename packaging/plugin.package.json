@@ -1,6 +1,6 @@
 {
   "name": "@dsh-remote/ssh-world",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "SSH Execution Worlds for DSH, with remote FS/subprocess providers and local Session bindings",
   "type": "module",

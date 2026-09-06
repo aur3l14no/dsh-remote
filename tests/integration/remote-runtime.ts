@@ -10,7 +10,8 @@ export async function remoteRuntime(world: string, cwd?: string) {
   const helper = process.env.DSH_TEST_REMOTE_HELPER;
   const manifest = process.env.DSH_TEST_BOOTSTRAP_MANIFEST;
   assert.ok(host && (helper || manifest), 'Explicit SSH host and helper or manifest are required');
-  const target = { host, ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}) };
+  const target = { host, podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER,
+    ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}) };
   const run = promisify(execFile);
   const command = async (argv: string[]) => (await run('ssh', sshArguments(target, argv), { timeout: 20000, maxBuffer: 65536 })).stdout;
   const root = (await command(['mktemp', '-d', '/tmp/dsh-composition.XXXXXXXX'])).trim();

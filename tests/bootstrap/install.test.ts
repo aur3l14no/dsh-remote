@@ -17,7 +17,8 @@ const host = process.env.DSH_TEST_HOST;
 const enabled = !!host || process.env.DSH_TEST_NATIVE_BOOTSTRAP === '1';
 
 test('bootstrap acceptance: supplied local cache to selected platform', { skip: !enabled, timeout: 600000 }, async t => {
-  const target = { host: host ?? 'native-acceptance', configFile: process.env.DSH_TEST_SSH_CONFIG };
+  const target = { host: host ?? 'native-acceptance', configFile: process.env.DSH_TEST_SSH_CONFIG,
+    podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER };
   const control: Control = host ? sshControl(target) : (argv, options) => execute(argv[0]!, argv.slice(1), options);
   const root = (await control(['mktemp', '-d', '/tmp/dsh-bootstrap-test.XXXXXXXX'])).trim();
   assert.match(root, /^\/tmp\/dsh-bootstrap-test\.[A-Za-z0-9]{8}$/);

@@ -48,6 +48,20 @@ test('concurrent processes serialize or report busy without losing successful bi
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('container bindings retain the final environment and reject replacement or malformed IDs', async () => {
+  const dir = await mkdtemp('/tmp/dsh-bindings.');
+  try {
+    const file = `${dir}/bindings.json`, store = BindingStore.create(file);
+    const container = { ...definition, podmanContainer: 'a'.repeat(64) };
+    store.bind('container', container);
+    assert.deepEqual(new BindingStore(file).get('container'), container);
+    assert.throws(() => store.bind('container', definition), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('container', { ...container, podmanContainer: 'b'.repeat(64) }), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('other', { ...container, id: 'other', podmanContainer: 'reusable-name' }), { code: 'INVALID_WORLD' });
+    assert.throws(() => store.bind('other', { ...container, id: 'other', podmanContainer: container.podmanContainer + '\n' }), { code: 'INVALID_WORLD' });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('missing, corrupt, future-format, duplicate and unsafe maps fail without replacement', async () => {
   const dir = await mkdtemp('/tmp/dsh-bindings.');
   try {

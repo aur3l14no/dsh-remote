@@ -3,7 +3,12 @@ import { Duplex } from 'node:stream';
 import { Client, RemoteError } from '../../client/src/index.ts';
 import type { TransportFactory } from '../../client/src/index.ts';
 
-export interface SshTarget { host: string; configFile?: string }
+export interface SshTarget {
+  host: string;
+  configFile?: string;
+  /** Optional final environment: a running Podman container pinned by its full immutable ID. */
+  podmanContainer?: string;
+}
 export interface SuppliedRuntime extends SshTarget {
   world: string;
   helper: string;
@@ -20,7 +25,11 @@ export function quote(value: string): string {
 
 export function sshArguments(target: SshTarget, command: readonly string[]): string[] {
   if (!target.host || target.host.startsWith('-') || /[\0\r\n]/.test(target.host)) throw new Error('Invalid SSH host');
-  return ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...(target.configFile ? ['-F', target.configFile] : []), '--', target.host, command.map(quote).join(' ')];
+  if (target.podmanContainer !== undefined && (target.podmanContainer.length !== 64 || !/^[a-f0-9]{64}$/.test(target.podmanContainer))) {
+    throw new RemoteError('INVALID_ARGUMENT', 'Podman transport requires the full container ID, never a reusable name');
+  }
+  const final = target.podmanContainer === undefined ? command : ['podman', 'exec', '-i', target.podmanContainer, ...command];
+  return ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...(target.configFile ? ['-F', target.configFile] : []), '--', target.host, final.map(quote).join(' ')];
 }
 
 /** Uses an already installed helper/socket; bootstrap owns provisioning separately. */

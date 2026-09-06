@@ -8,6 +8,8 @@ The external plugin implements this chain through DSH's public `tools/execute` h
 
 `bindings.ts` stores versioned JSON containing World definitions and Session-to-World IDs. Definitions contain only an immutable ID, `kind: ssh`, SSH host, canonical remote cwd, and optional SSH config/install/runtime paths. No Session history, helper runtime ID or resume token is stored.
 
+The optional `podmanContainer` pins the final container by full immutable ID for [SSH → Podman exec](podman.md). It participates in the same immutable World comparison and survives binding reload.
+
 Explicitly initialize the local file once with `BindingStore.create(bindingFile)`. Its parent directory must be private to the local account. Normal plugin startup opens the existing file and refuses a missing or malformed map.
 
 ```ts

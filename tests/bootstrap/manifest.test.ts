@@ -35,6 +35,18 @@ test('OpenSSH control quoting preserves literal metacharacters without shell sub
   assert.throws(() => sshArguments({ host: '-option' }, ['true']));
 });
 
+test('Podman entry preserves quoted argv and requests no transport PTY', async () => {
+  const container = 'a'.repeat(64);
+  const value = "space 'quote' ; $(printf substituted) `printf substituted` \\ tail";
+  const args = sshArguments({ host: 'example.invalid', podmanContainer: container }, ['printf', '%s', value]);
+  // A shell function observes the actual argv after OpenSSH's login-shell parsing.
+  const observed = await execute('sh', ['-c', `podman() { printf '%s\\n' "$@"; }; ${args.at(-1)}`]);
+  assert.equal(observed, ['exec', '-i', container, 'printf', '%s', value, ''].join('\n'));
+  for (const invalid of ['', 'reusable-name', 'abc123', '-option', 'a'.repeat(64) + '\n']) {
+    assert.throws(() => sshArguments({ host: 'example.invalid', podmanContainer: invalid }, ['true']), { code: 'INVALID_ARGUMENT' });
+  }
+});
+
 test('control transport bounds output and honours cancellation and deadlines', async () => {
   await assert.rejects(execute(process.execPath, ['-e', 'process.stdout.write("x".repeat(100000))']), { code: 'CONTROL_OUTPUT_LIMIT' });
   await assert.rejects(execute(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeoutMs: 30 }), { code: 'CONTROL_TIMEOUT' });

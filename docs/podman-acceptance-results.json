@@ -1,0 +1,211 @@
+{
+  "date": "2026-09-06",
+  "milestone": "SSH to rootless Podman final environment",
+  "dshSourceRevision": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
+  "dshCoreModified": false,
+  "agentOrchestrationAdded": false,
+  "sourceHashRecipe": "Sort sourceHashFiles lexically; SHA-256 of UTF-8 relative path + NUL + exact file bytes + NUL for each.",
+  "sourceHashFiles": [
+    "packages/client/src/client.ts",
+    "packages/client/src/files.ts",
+    "packages/client/src/framing.ts",
+    "packages/client/src/index.ts",
+    "packages/client/src/process.ts",
+    "packages/client/src/protocol.ts",
+    "packages/client/src/streams.ts",
+    "packages/dsh-ssh/src/bindings.ts",
+    "packages/dsh-ssh/src/fs.ts",
+    "packages/dsh-ssh/src/routed-fs.ts",
+    "packages/dsh-ssh/src/routed-subprocess.ts",
+    "packages/dsh-ssh/src/routing.ts",
+    "packages/dsh-ssh/src/subprocess.ts",
+    "packages/dsh-ssh/src/terminal.ts",
+    "packages/dsh-ssh/src/world.ts",
+    "packages/dsh-ssh/src/worlds.ts",
+    "packages/ssh/src/bootstrap.ts",
+    "packages/ssh/src/control.ts",
+    "packages/ssh/src/index.ts",
+    "packages/ssh/src/manifest.ts",
+    "packages/ssh/src/provision.ts",
+    "packages/ssh/src/transport.ts",
+    "packaging/README.md",
+    "packaging/plugin.package.json",
+    "scripts/build-composition.mjs",
+    "scripts/check-composition.mjs",
+    "scripts/check-plugin.mjs",
+    "scripts/pack-plugin.mjs",
+    "tests/bindings/store.test.ts",
+    "tests/bootstrap/install.test.ts",
+    "tests/bootstrap/manifest.test.ts",
+    "tests/client/ssh.test.ts",
+    "tests/client/support.ts",
+    "tests/integration/preset-harness.ts",
+    "tests/integration/remote-runtime.ts",
+    "tests/integration/session-routing.ts",
+    "tests/integration/terminal-consumers.ts",
+    "tests/integration/terminal.ts"
+  ],
+  "sourceAndSuiteSha256": "e4f9fc9bd4c271fd64d8d4933e45f34918bb473ff62b7964c6052ccdf817f230",
+  "validation": {
+    "defaultRegression": {
+      "passed": 25,
+      "skipped": 2,
+      "failed": 0
+    },
+    "finalTargetedValidation": {
+      "passed": 11,
+      "failed": 0
+    },
+    "workspaceTypecheck": true,
+    "upstreamInterfaceTypecheck": true,
+    "unpackedPluginDeclarations": true
+  },
+  "sourceAcceptance": {
+    "schema": 1,
+    "started": "2026-09-06T07:19:01.145Z",
+    "completed": "2026-09-06T07:22:33.827Z",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "abi": {
+        "kind": "glibc",
+        "minimum": "2.39"
+      }
+    },
+    "transport": "system-ssh/podman-exec",
+    "imageId": "bbdabce66f1b7dde0c081a6b4536d837cd81dd322dd8c99edd68860baf3b2db3",
+    "helper": "0.1.1",
+    "helperSha256": "dc1587dad86ec6c671676651dec4f32088d849689ffa0c8779667aba225d791f",
+    "fixtureSha256": "7fe748af3bd695237f8287c82a0c6118e1c6cfdb309aa8d58443ca1d4b3b8930",
+    "sshServerInContainer": false,
+    "containerNetwork": "none",
+    "checks": [
+      {
+        "suite": "client",
+        "passed": true,
+        "observations": [],
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "suite": "bootstrap",
+        "passed": true,
+        "observations": [],
+        "counts": {
+          "tests": 11,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 1
+        }
+      },
+      {
+        "suite": "build-session-routing",
+        "passed": true,
+        "observations": []
+      },
+      {
+        "suite": "session-routing",
+        "passed": true,
+        "observations": [
+          "PASS persistent bindings route concurrent real DSH FS/search and approval context under one preset",
+          "PASS unchanged DSH child persists its World identity before execution and keeps native filtering",
+          "PASS publication rollback and binding write failure admit no unbound tool execution",
+          "PASS real DSH JSONL resume restores World identity into a new runtime and refuses missing or changed bindings",
+          "PASS separate harness processes restore DSH JSONL Sessions and World bindings without helper task replay"
+        ]
+      },
+      {
+        "suite": "build-terminal",
+        "passed": true,
+        "observations": []
+      },
+      {
+        "suite": "terminal",
+        "passed": true,
+        "observations": [
+          "PASS PTY allocation, target dimensions/resize, input, final bytes and same-runtime reconnect",
+          "PASS terminate during reconnect cancels blocked input, awaits operations and confirms observed-session cleanup",
+          "PASS bounded raw PTY backpressure and complete delivery after reader resumes",
+          "PASS post-root-exit cleanup, late allocation cancellation, process-slot reuse and unread-output provider disposal",
+          "PASS absent target shell refuses Agent publication without local fallback",
+          "PASS actual terminal tools and Session jobs: target execution, owner isolation, background output and foreground cancellation",
+          "PASS Agent teardown during reconnect cancels its terminal/job while a peer World owner survives"
+        ]
+      },
+      {
+        "suite": "removed-container",
+        "passed": true,
+        "observations": [
+          "Removed final environment refuses control and bootstrap without selecting the SSH host"
+        ]
+      }
+    ],
+    "limits": [
+      "Source-built DSH fixtures; no Web application or model-driven cross-root communication",
+      "Terminal consumer fixture uses one World; shared-router terminal initialization remains unverified"
+    ]
+  },
+  "packageAcceptance": {
+    "schema": 1,
+    "started": "2026-09-06T11:02:18.119Z",
+    "completed": "2026-09-06T11:03:11.723Z",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "abi": {
+        "kind": "glibc",
+        "minimum": "2.39"
+      }
+    },
+    "transport": "system-ssh/podman-exec",
+    "imageId": "bbdabce66f1b7dde0c081a6b4536d837cd81dd322dd8c99edd68860baf3b2db3",
+    "helper": "0.1.1",
+    "helperSha256": "dc1587dad86ec6c671676651dec4f32088d849689ffa0c8779667aba225d791f",
+    "fixtureSha256": "7fe748af3bd695237f8287c82a0c6118e1c6cfdb309aa8d58443ca1d4b3b8930",
+    "package": {
+      "file": "dsh-remote-ssh-world-0.1.0-alpha.2.tgz",
+      "integrity": "sha512-dLpQ2bG33QTSJK5+18sLphzM+CPAykd+rbQnMwjOf6qZKVz1G6nPTCuUc8cw3SoSiDDmRWz3EDsJa4oVGqEwGQ==",
+      "sha256": "1cddcf46917f2c453729837702ef17c96b363283639783a122ee0d3551583275"
+    },
+    "sshServerInContainer": false,
+    "containerNetwork": "none",
+    "checks": [
+      {
+        "suite": "package-session-routing",
+        "passed": true,
+        "counts": {},
+        "observations": [
+          "PASS persistent bindings route concurrent real DSH FS/search and approval context under one preset",
+          "PASS unchanged DSH child persists its World identity before execution and keeps native filtering",
+          "PASS publication rollback and binding write failure admit no unbound tool execution",
+          "PASS real DSH JSONL resume restores World identity into a new runtime and refuses missing or changed bindings",
+          "PASS separate harness processes restore DSH JSONL Sessions and World bindings without helper task replay"
+        ]
+      },
+      {
+        "suite": "removed-container",
+        "passed": true,
+        "observations": [
+          "Removed final environment refuses control and bootstrap without selecting the SSH host"
+        ]
+      }
+    ],
+    "limits": [
+      "Source-built DSH fixtures; no Web application or model-driven cross-root communication",
+      "Terminal consumer fixture uses one World; shared-router terminal initialization remains unverified"
+    ]
+  },
+  "limits": [
+    "No complete Web application acceptance or model-driven cross-root communication",
+    "Bootstrap upgrade case skipped in this additional container run because no previous helper artifact was supplied",
+    "Earlier three-platform results belong to alpha.1; alpha.2 Loader acceptance here covers Linux/glibc via Podman",
+    "Raw root Sessions remain independent; no subagent World switching or replacement messaging service",
+    "Direct SSH entry later timed out during banner exchange; package acceptance used an existing verified SSH route with host-key checks retained"
+  ],
+  "containerCleanupConfirmed": true,
+  "publicPublicationPerformed": false
+}

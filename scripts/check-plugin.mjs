@@ -26,7 +26,7 @@ import { executionWorldContext } from '@dsh-remote/ssh-world/routing';
 import { BindingStore, type WorldDefinition } from '@dsh-remote/ssh-world/bindings';
 import { Client } from '@dsh-remote/ssh-world/client';
 import type { Context } from '@deepseek-ai/cordis';
-const definition: WorldDefinition = { id: 'example', kind: 'ssh', host: 'example.invalid', cwd: '/workspace' };
+const definition: WorldDefinition = { id: 'example', kind: 'ssh', host: 'example.invalid', cwd: '/workspace', podmanContainer: 'a'.repeat(64) };
 const config: Config = { bindingFile: '/private/bindings.json', packagedRipgrep: '/managed/rg', bootstrap: { manifest: {}, cacheDir: '/cache' } };
 declare const ctx: Context;
 const connector: WorldConnector = async () => { throw new Error('type check only'); };

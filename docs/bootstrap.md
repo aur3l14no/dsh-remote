@@ -27,6 +27,8 @@ The workspace packages remain private source packages. The example describes the
 
 `installRoot` defaults to the account's `$HOME/.cache/dsh-remote`; `runtimeBase` defaults to `/tmp`. Both may be set explicitly. The workspace must already exist and is canonicalized remotely. Bootstrap path coordinates must be absolute and exclude NUL and line breaks; spaces, quotes, backslashes and other literal characters are quoted rather than evaluated. An unusable installation root fails explicitly; it does not trigger an undisclosed alternative.
 
+An optional `podmanContainer` full container ID selects [SSH → Podman exec](podman.md). All paths, probes, uploads and runtime operations then refer to the container. The same pinned ID is used on reconnect; a missing container never selects the SSH host as a replacement.
+
 The result exposes the client, selected platform, exact installed helper/ripgrep paths and whether installation was reused. Resume credentials remain inside the client. `close()` confirms runtime shutdown before deleting only that World's private temporary parent. Cleanup failures propagate; they are not reported as successful shutdown.
 
 ## Manifest and local cache
