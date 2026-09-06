@@ -15,7 +15,7 @@ Do not build a cross-root Agent registry, mailbox or delegation tools here, or m
 
 The Web creation path needs a World-aware preparation hook or an external World selection entry that prepares the binding before ordinary Agent creation. Pre-creating a bound Agent can avoid the local mkdir branch when Web adopts an explicit live ID, but that is not verified Web integration. Do not treat local placeholder directories as remote workspaces.
 
-For now, use an explicit acceptance command to exercise remote execution and produce measured results. A future one-page report can compare platform, final environment, file/search results, PTY, cancellation, reconnect and cleanup. Label it as acceptance evidence; it must not imply a coordinating model or cross-Session communication was exercised. The next application task remains the smallest single-Session Web World-selection/create/resume path, subject to the upstream creation seam above.
+For now, use an explicit acceptance command to exercise remote execution and produce measured results. A future one-page report can compare platform, final environment, file/search results, PTY, cancellation, reconnect and cleanup. Label it as acceptance evidence; it must not imply a coordinating model or cross-Session communication was exercised. The preferred application entry is now [World settings and project-level World + workspace selection](web-world-selection.md), with Session creation/resume inheriting the project selection.
 
 Source anchors in the pinned upstream:
 
