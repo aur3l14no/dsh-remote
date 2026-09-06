@@ -36,7 +36,7 @@ The Bash profile retains at most 1 MiB / 10,000 scrollback lines and returns at 
 
 Background sends use the real local jobs registry, with at most 10 active jobs per Agent and quiet completion delivery. A job owns a send operation within a terminal; the terminal remains an Agent-owned resource after the send settles. `completed` can mean the send returned readiness, inferred idle or timeout, and does not mean every foreground or descendant process exited. `job_kill` requests foreground interruption; `terminal_close` performs terminal-session cleanup. Agent disposal cancels its jobs and closes its terminals without stopping another Agent's resources in the shared runtime.
 
-Terminal state and job records are live local/runtime resources, not durable task recovery. DSH owns Session persistence. This project no longer supplies a Session backend or claims safe cross-restart World reconstruction; see [upstream boundaries](upstream-seams.md). Helper restart recovery remains unsupported.
+Terminal state and job records are live local/runtime resources, not durable task recovery. DSH owns Session persistence. The separate [JSON sidecar](session-routing.md) restores World bindings; terminal/job integration with its shared router remains unverified. Helper restart task recovery remains unsupported.
 
 ## Reproduce acceptance
 

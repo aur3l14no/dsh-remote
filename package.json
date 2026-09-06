@@ -10,14 +10,16 @@
   ],
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test tests/client/*.test.ts tests/bootstrap/*.test.ts",
+    "test": "node --test tests/client/*.test.ts tests/bootstrap/*.test.ts tests/bindings/*.test.ts",
     "test:bootstrap": "node --test tests/bootstrap/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "@vscode/ripgrep": "1.18.0",
     "@xterm/headless": "6.0.0",
     "diff": "9.0.0",
     "esbuild": "0.28.2",
+    "fs-ext": "2.1.1",
     "js-yaml": "4.3.2",
     "typescript": "6.0.3",
     "zod": "4.4.3"

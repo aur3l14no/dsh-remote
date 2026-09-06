@@ -8,6 +8,8 @@ The application places a World and its consumers in an isolated group inside a D
 
 This follows E2B's provider/consumer split. Our earlier per-Agent tool registration caused the filter conflict. The custom Agent registry, ToolRuntime, handoff method, argv tool, Agent-specific World pool and SQLite Session backend have been removed. Application composition belongs in the fixture `tests/integration/preset-harness.ts`, not in a second harness shipped by the plugin.
 
+A [persistent Session-based router](session-routing.md) supports multiple Worlds under one preset. The composition described below remains the lower-level single-World implementation.
+
 The application uses normal DSH APIs:
 
 ```ts
@@ -28,7 +30,7 @@ World readiness belongs in awaited provider setup. The fixture supplies already-
 
 `worldContextFor(ctx, agentOrExecution)` uses DSH's public `serviceForAgent`, checks the live binding, and returns World/runtime IDs, remote cwd, platform, capabilities and connection state. The system prompt and Auto Approval can read these facts without SSH arguments or resume tokens. An existing Agent cannot silently change its bound World/runtime/cwd. The context plugin registers no tools and implements no tool filters.
 
-This is a **live binding**, not durable cross-restart verification. Safe cold resume against a changed remote target remains open pending the [upstream identity contract](upstream-seams.md). No previous experimental SQLite files are migrated or deleted; the removed backend remains available only in Git history.
+This lower-level context plugin provides a **live binding**. Durable binding and restart validation use the separate [JSON sidecar and shared router](session-routing.md), with DSH's original Session backend. No previous experimental SQLite files are migrated or deleted; the removed backend remains available only in Git history.
 
 Providers are shared by joined Agents. DSH consumers own Agent-specific lifetimes: terminal/job registries close the appropriate owner's work without terminating peers. Direct subprocess specs carry no Agent owner in the pinned seam; callers must close their handles. Provider/World disposal is the final cleanup boundary. This project does not infer ownership by rebuilding an Agent manager.
 

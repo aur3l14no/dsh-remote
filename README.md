@@ -60,7 +60,7 @@ Helper 0.1.1, the TypeScript client, system OpenSSH bootstrap and external FS/su
 
 The [corrected DSH composition](docs/agents.md) uses standing presets and unchanged DSH Agent, tool and subagent services. World context follows the preset into children, and native tool filters work. The earlier custom Agent/ToolRuntime, handoff and SQLite Session implementation have been removed. Actual DSH terminal/jobs consumers remain [integration fixtures](docs/terminal.md), not a tool policy owned by this plugin.
 
-This is an experimental source integration. Safe durable World reconstruction, parent-path FS canonicalization and independent World/preset selection need [upstream interface coordination](docs/upstream-seams.md). Installed-package compatibility and distribution remain in the [next-stage plan](docs/next-stage.md). This project does not implement a subagent system.
+The [persistent Session-based router](docs/session-routing.md) supports multiple Worlds under one preset with a lightweight external JSON map and unchanged DSH Session storage. Restart reconstructs the bound World into a new helper without replaying tasks. A [private plugin tarball](docs/packaging.md) provides compiled Loader entries and declarations. Shared-router initialization/background integration and parent-path FS canonicalization remain [open](docs/upstream-seams.md). Public DSH release compatibility and distribution remain in the [next-stage plan](docs/next-stage.md).
 
 ## Build and exercise the helper
 

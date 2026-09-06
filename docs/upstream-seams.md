@@ -1,23 +1,24 @@
-# DSH integration findings and responsibility boundary
+# Known integration issues
 
-Inspected source: DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`, unchanged. Findings concern this pinned revision, not every published package or newer revision. No issue or message has been sent upstream.
+Baseline: unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. [Persistent routing](session-routing.md) implements:
 
-## Resolved embedding mistake
+`Tool call Agent → Session ID → binding map → World → remote client`
 
-The filter conflict came from this project's per-Agent registration, not a need for a subagent implementation. DSH `ToolRuntime.view()` filters inherited tools and then adds the scope's own registrations. We incorrectly registered every tool in each Agent's own scope and used a replacement ToolRuntime to reject filters.
+An external JSON map holds bindings; DSH retains Session history. Shared presets route through the public tool-dispatch hook. Creation, child inheritance and restart into a new helper are covered by the integration fixture.
 
-The existing standing-preset seam resolves this. `AgentPresets.mount()` mounts once; `composeFrom()` joins a child to the same generation. The existing in-process driver calls `applyChildComposition()` and then applies DSH's filters. Tests now use these exact implementations, including a child executing a remote read. No continuation or handoff manager belongs here.
-
-Source locations: `packages/core/tools/src/index.ts` (`view`, `restrict`), `packages/preset/agent-presets/src/index.ts` (`mount`, `composeFrom`), `packages/subagent/subagent/src/child-agent.ts` (`applyChildComposition`, `childSessionMeta`), and `packages/e2b/e2b/tests/fixtures/composition/cordis.yml`.
-
-## Remaining interfaces to discuss
-
-| Boundary | Evidence and consequence | Treatment here |
+| Issue | Current behavior | Next step |
 | --- | --- | --- |
-| Parent-path filesystem resolution | `packages/fs/tool-fs/src/session-cwd.ts` calls `canonicalPath(cwd)` for `..`, using local filesystem identity before reaching the remote provider. | Refuse affected requests. Request upstream delegation to the selected filesystem provider. No ToolRuntime replacement or argument-rewriting registry. |
-| Durable World identity | `packages/core/session/src/types.ts` has cwd/preset fields but no World identity; `packages/session/session-persistence/src/storage-contract.ts` rejects required events outside its generated known-event catalog. Preset ID/cwd cannot detect a changed target at the same path after restart. | Safe cold-resume validation remains open. Request a required identity/extension contract and reconstruction validation. Do not mark ownership ignorable or create another Session database. |
-| Preset identity versus execution identity | Standing mounts are keyed by preset ID/generation. A configured World is shared by joined Agents. | Accepted scope: one World per standing preset generation. Independent dynamic World selection with one preset needs an explicit host/preset binding seam. Do not build another preset/Agent system to hide this coupling. |
-| Publication timing | `AgentLoop.setupAndPublish()` calls setup commit, then awaits persistence before publication. A synchronous `agent/created` listener can reject publication and trigger DSH rollback. | Use the existing event for live World identity checks. Coordinate a universal durable validation hook upstream rather than replacing the registry. |
-| Raw subprocess ownership | Subprocess spawn specs carry no Agent owner. Existing terminal/job consumers do carry owners and clean their own work. | Keep runtime/provider ownership and consumer cleanup. If every raw spawn must be automatically attributed, request an explicit ownership seam instead of guessing from ancestry. |
+| Parent-path resolution | DSH tool-fs calls local `realpath` for `..`; affected requests are refused. | Upstream bug; deferred. |
+| Calls outside tool dispatch | Explicit `forAgent` lookup is available; automatic terminal/job initialization through the shared router is unverified. | Defer consumer integration; never infer a default World. |
+| Child publication failure | DSH contains session-start observer errors. A failed binding commit can leave a published Agent whose model context/tools are blocked. | Keep fail-closed admission. Atomic rejection of creation needs a suitable upstream hook. |
+| Interrupted mapping write | Atomic JSON remains readable; forced writer death can leave a lock. | Report busy; verified manual lock recovery. Automatic recovery/garbage collection deferred. |
+| Public DSH package baseline | The tarball loads in a source-built host; the matching `0.1.3-alpha.1` preset package is absent from npm. | Keep exact baseline requirements; validate an installed release when available. |
+| Raw subprocess ownership | Runtime/provider owns raw handles; DSH terminal/job consumers track Agent owners. | Accepted boundary; no replacement Agent manager. |
 
-Execution World belongs here: target resolution/provisioning, runtime lifecycle, remote capabilities, FS/subprocess/PTY semantics, World identity/context and no local fallback. Agent creation, delegation, filters, fork/continuation/handoff, job policy, Session persistence and UI belong to DSH or its existing consumers. Integration tests do not transfer implementation ownership.
+Bindings pin World IDs and selected SSH coordinates. SSH config remains authoritative. Root selections and successful child bindings survive failed/later Agent lifecycles; there is no distributed transaction with Session storage. Restoring a binding does not restore tasks across helper restarts.
+
+Resolved: per-Agent tool registration caused the filter conflict. Standing presets let children inherit the same World/tool instances and use DSH's native filters. Custom Agent, ToolRuntime, handoff and Session implementations were removed.
+
+Source anchors: `packages/fs/tool-fs/src/session-cwd.ts`; `packages/core/session/src/types.ts`; `packages/session/session-persistence/src/storage-contract.ts`; `packages/preset/agent-presets/src/index.ts`; `packages/core/agent-loop/src/index.ts`; `packages/subprocess/subprocess/src/types.ts`. Composition references: `packages/subagent/subagent/src/child-agent.ts` and `packages/e2b/e2b/tests/fixtures/composition/cordis.yml`.
+
+Scope: this project owns execution providers, lifecycle and World context. DSH owns Agents, delegation, filtering, Session history and UI. If existing interfaces cannot support the mapping or World selection, report the limitation before adding another framework.

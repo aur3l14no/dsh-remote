@@ -13,7 +13,7 @@ The client and supplied-runtime SSH transport work against helper 0.1.1/API 1. A
 
 The composition takes a negotiated client through `worldPlugin(client)`. It loads runtime, providers and consumers in the same isolated realm. Runtime teardown awaits registered provider owners before closing the helper; disposing one subprocess provider cleans only its allocations. Completed collection handles keep their local bounded results while remote slots are released. Raw handles retain the remote resource until consumption finishes or the owner is disposed. Remote cleanup retains the helper's observed-session-members limitation.
 
-The exact packaged-ripgrep identity is an explicit map key; arbitrary executables named `rg` are not rewritten. The fixture exercises DSH's bundled-sidecar resolver and preserves argv, including `--no-config`. The ordinary npm `@vscode/ripgrep` resolution branch and packaged-app installation remain separate validation work. FS target keys include both World and runtime identity, reject cross-World/epoch use and do not imply that host paths name remote files.
+The exact packaged-ripgrep identity is an explicit map key; arbitrary executables named `rg` are not rewritten. Fixtures exercise both DSH's bundled-sidecar resolver and the [ordinary npm resolver](packaging.md), preserving argv including `--no-config`. Complete installed-app compatibility remains open. FS target keys include both World and runtime identity, reject cross-World/epoch use and do not imply that host paths name remote files.
 
 ## Client behavior and budgets
 
@@ -59,6 +59,6 @@ The container helper suite used a 10-second reconnect grace to accommodate multi
 
 ## Remaining work
 
-This Loader fixture proves provider behavior, not a complete application. The current [preset composition](agents.md) uses unchanged DSH Agent/tool/subagent services and verifies World inheritance. Actual terminal/job consumers are application fixtures. Safe durable World reconstruction, the npm ripgrep resolver branch and independently packaged plugin compatibility remain open; see [upstream boundaries](upstream-seams.md).
+This Loader fixture proves provider behavior, not a complete application. The [preset composition](agents.md) uses unchanged DSH Agent/tool/subagent services; the [persistent router](session-routing.md) adds an external Session–World map and DSH JSONL restart validation. Actual terminal/job consumers are application fixtures. The [plugin tarball](packaging.md) is tested with a source-built host; installed public DSH compatibility remains open.
 
 The subsequent [bootstrap milestone](bootstrap.md) implements manifest/cache-based installation, startup, upgrade coexistence, corruption repair and offline provisioning. `connectSuppliedRuntime` still only connects to an existing runtime; automatic provisioning uses the separate `bootstrapSshWorld` entry point. Trusted release downloads and distribution remain open.

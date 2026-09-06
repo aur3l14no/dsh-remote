@@ -29,7 +29,7 @@ export class RemoteWorld extends Service {
 }
 
 /** Embed in the same isolated Loader group as FS, subprocess and their consumers. */
-export function worldPlugin(client: Client, close?: () => Promise<void>) {
+export function worldPlugin(client: Client, close?: () => Promise<void>): new (ctx: Context) => RemoteWorld {
   return class BoundWorld extends RemoteWorld {
     constructor(ctx: Context) { super(ctx, client, close); }
   };
