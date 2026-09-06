@@ -9,8 +9,8 @@ An external JSON map holds bindings; DSH retains Session history. Shared presets
 | Issue | Current behavior | Next step |
 | --- | --- | --- |
 | Parent-path resolution | DSH tool-fs calls local `realpath` for `..`; affected requests are refused. | Upstream bug; deferred. |
-| Web Session creation | The controller calls local `mkdir(cwd)` before Agent preset setup; the request has no World field. | Report the seam. Verify a World preparation/selection entry; never create local workspace placeholders. |
-| Web Project identity | Picker/create accept only a path; the registry uses local path checks and merges equal paths across environments. Attachment/status/recovery also assume local paths. | Request an environment-qualified project seam; an external map or picker replacement alone is insufficient. See [World selection](web-world-selection.md). |
+| Web Session creation | The controller calls local `mkdir(cwd)` before Agent preset setup; the request has no World field. | Verify creation and cold resume through a separate Project plugin's World preparation entry; keep native Agent/Session services. |
+| Web Project identity | Built-in project plugins accept host paths and use local checks, path-only identity and recovery. | Evaluate a separate World-aware Project plugin. A map or picker alone is insufficient; the registry must not inspect remote cwd locally. See [World selection](web-world-selection.md). |
 | Cross-root demo orchestration | Ordinary messaging is parent/child-only; experimental Teams also creates subagents in one shared workspace. | Defer the main-thread/multi-World demo. Cross-root messaging belongs upstream or in a separate plugin. |
 | Calls outside tool dispatch | Explicit `forAgent` lookup is available; automatic terminal/job initialization through the shared router is unverified. | Defer consumer integration; never infer a default World. |
 | Child publication failure | DSH contains session-start observer errors. A failed binding commit can leave a published Agent whose model context/tools are blocked. | Keep fail-closed admission. Atomic rejection of creation needs a suitable upstream hook. |
@@ -24,4 +24,4 @@ Resolved: per-Agent tool registration caused the filter conflict. Standing prese
 
 Source anchors: `packages/fs/tool-fs/src/session-cwd.ts`; `packages/core/session/src/types.ts`; `packages/session/session-persistence/src/storage-contract.ts`; `packages/preset/agent-presets/src/index.ts`; `packages/core/agent-loop/src/index.ts`; `packages/subprocess/subprocess/src/types.ts`. Composition references: `packages/subagent/subagent/src/child-agent.ts` and `packages/e2b/e2b/tests/fixtures/composition/cordis.yml`.
 
-Scope: this project owns execution providers, lifecycle and World context. DSH owns Agents, delegation, filtering, Session history and UI. If existing interfaces cannot support the mapping or World selection, report the limitation before adding another framework.
+Scope: the execution plugin owns execution providers, lifecycle and World context. A separate Project plugin may own project location, identity and UI integration. DSH retains Agents, delegation, filtering, Session history and conversation UI. Report concrete incompatible interfaces rather than expanding the execution plugin into another harness.

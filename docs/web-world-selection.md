@@ -17,7 +17,7 @@ The current `WorldDefinition` combines SSH coordinates and `cwd`, and its immuta
 
 DSH's Web plugin configuration has the `settings.plugin.item` slot and `settingsScope`; the host settings controller exposes registered namespaces with schema, revisioned writes and secret redaction. A World settings card and catalog can use these existing seams. Adding a TypeScript `Config` interface alone does not register a settings namespace or render a card. Save catalog configuration locally; keep the Session binding map separate from DSH history.
 
-## Upstream project limitations
+## Limits of the built-in project plugins
 
 | Existing behavior | Required capability |
 | --- | --- |
@@ -26,9 +26,29 @@ DSH's Web plugin configuration has the `settings.plugin.item` slot and `settings
 | Workspace status, Session attachment and recovery also validate local paths; records contain no World identity. | Preserve environment-qualified project identity and use it consistently during attachment/status/recovery. |
 | Web Session creation runs local `mkdir(cwd)` before Agent preset setup. | Await World/binding preparation before publication, with workspace operations delegated to the selected provider. |
 
-A lightweight external Project–World map could retain an association if suitable hooks exist. It cannot by itself prevent the current registry from merging equal paths, rejecting remote-only directories, or validating them locally. Replacing just the directory picker is insufficient. Replacing the Workspace registry/sidebar, encoding fake local paths or monkey-patching Node filesystem calls is outside this project's approach.
+A lightweight external Project–World map cannot by itself prevent the unchanged registry from merging equal paths, rejecting remote-only directories, or validating them locally. Replacing just the directory picker is insufficient. These findings constrain reuse of the built-in project composition; they do not establish that an external Project plugin is impossible.
 
-The next step is to specify these minimal upstream extension needs and implement the independent World catalog/settings portion. Full Create Project integration is gated on a suitable upstream seam. DSH continues to own projects, Agents, Session history and navigation; this plugin supplies environment selection, remote execution and durable binding context.
+## Separate Project integration plugin
+
+Evaluate an external Project plugin before requiring upstream changes. DSH's Workspace registry, API controller and project UI are plugins themselves. The UI exposes `sidebar.workspaces` and `conversation.hero.workspace` slots for the project region and picker; the application can compose a World-aware occupant without replacing the full sidebar or chat UI. This is a source-supported implementation route, not yet a tested replacement composition.
+
+| Component | Responsibility |
+| --- | --- |
+| `dsh-remote` | World connections, helper lifecycle, execution providers and Session binding context. |
+| Separate Project plugin | World + workspace selection, project identity and persistence, project UI, and creation/resume entry wiring. |
+| Existing DSH services | Agent creation/loop, subagents, tool filtering, Session history, model execution and conversation UI. |
+
+The Project plugin must make the relevant project operations environment-aware: registration, identity, status, membership and reload. Where public contracts permit, it can supply compatible services or reuse existing components. The local registry must not remain active scanning remote Session cwd values through local `realpath`; disabling only its picker is insufficient. Do not encode fake local paths or monkey-patch Node filesystem calls.
+
+Creation/resume entry wiring means preparing the World and durable binding, then calling the ordinary DSH Agent APIs and opening that Session through the existing UI. It does not mean another Agent registry, Session backend, subagent driver or message system. The normal Web controller's local mkdir and cold-resume behavior still need a verified composition path; slots alone do not solve them.
+
+The next step is a minimal real-composition experiment for this separate plugin:
+
+1. Two Worlds with the same canonical path produce distinct projects, validated in their respective environments.
+2. A project creates a bound root Session through the existing Agent services and opens it in the existing Web conversation UI.
+3. Restart/reopen and a direct Session link cannot skip World preparation or use local workspace checks. Missing World configuration fails explicitly.
+
+Keep the replacement within Project responsibilities. If an inherited API requires changing the Agent registry, Session history or unsupported private internals, report that concrete gap. Upstream changes remain an option for improving the seam, not a prerequisite already established for every external-plugin approach.
 
 Source anchors in the pinned upstream:
 
