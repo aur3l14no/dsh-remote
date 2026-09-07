@@ -309,6 +309,7 @@ pub fn signal_owned(
     Ok(sent)
 }
 pub fn random_id() -> Result<String> {
+    use std::fmt::Write;
     use std::io::Read;
     let mut bytes = [0u8; 24];
     std::fs::OpenOptions::new()
@@ -316,5 +317,9 @@ pub fn random_id() -> Result<String> {
         .custom_flags(libc::O_CLOEXEC)
         .open("/dev/urandom")?
         .read_exact(&mut bytes)?;
-    Ok(bytes.iter().map(|x| format!("{x:02x}")).collect())
+    let mut id = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut id, "{byte:02x}").expect("writing to a String cannot fail");
+    }
+    Ok(id)
 }
