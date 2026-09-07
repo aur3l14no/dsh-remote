@@ -78,7 +78,7 @@ node integrations/dsh/scripts/check-web-plugin.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 ```
 
-需要 pnpm 与宿主 Chromium 系统依赖；首次构建会下载依赖和浏览器。`prepare-web-host` 只替换 `target/web-host`，不修改上游源码 checkout。Ubuntu workflow 使用同一入口，并显式安装浏览器系统依赖。该 workflow 已配置，本地通过不等于 GitHub runner 已执行。
+需要 pnpm 与宿主 Chromium 系统依赖；首次构建会下载依赖和浏览器。`prepare-web-host` 只替换 `target/web-host`，不修改上游源码 checkout。GitHub Actions 的 `CI` workflow 在 push、pull request 和手动触发时运行两个独立的 Ubuntu 24.04 job：Runtime 执行固定 Rust 1.85.1 的格式、Clippy、构建、测试及 TypeScript 检查/测试；DSH 执行 unchanged-source 类型/打包检查、patched-host gate、双 World SSH 和完整 Web E2E。浏览器系统依赖显式安装，重复提交取消旧运行。只上传截图与脱敏验收结果，保留 7 天；临时状态、凭据和缓存不上传。具体远端运行状态以 GitHub Actions 为准。
 
 当前 browser/SSH 验收覆盖创建与同路径隔离、原生 fork、冷启动 deep link、新 runtime、远端进程取消、丢失 binding、停止 World 和宿主 Web Search 边界。它不代表默认工具全集、公开安装包、真实模型或外部搜索服务验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
 

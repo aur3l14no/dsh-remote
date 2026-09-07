@@ -1,14 +1,37 @@
-name: DSH Web and SSH E2E
+name: CI
 on:
   push:
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
+  runtime:
+    name: Runtime checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Rust toolchain
+        run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
+      - run: npm ci
+      - run: cargo +1.85.1 fmt --all --check
+      - run: cargo +1.85.1 clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo +1.85.1 build --locked --workspace --bins
+      - run: cargo +1.85.1 test --locked --workspace
+      - run: npm run check
+      - run: npm test
   ssh:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    name: DSH compatibility and Web / SSH E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +52,11 @@ jobs:
           git -C "$RUNNER_TEMP/dsh-source" checkout --detach FETCH_HEAD
       - name: Build and check patched host
         run: node integrations/dsh/scripts/check-patched-host.mjs "$RUNNER_TEMP/dsh-source"
+      - name: Check unchanged-source compatibility and package declarations
+        run: |
+          node integrations/dsh/scripts/check-composition.mjs "$RUNNER_TEMP/dsh-source"
+          node integrations/dsh/scripts/pack-plugin.mjs "$RUNNER_TEMP/dsh-source"
+          node integrations/dsh/scripts/check-plugin.mjs "$RUNNER_TEMP/dsh-source"
       - name: Two Linux Worlds over real SSH
         run: node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
       - name: Build the patched Web host and plugins
@@ -39,10 +67,13 @@ jobs:
         run: node integrations/dsh/scripts/check-web-plugin.mjs
       - name: Browser over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
-      - name: Browser screenshots
+      - name: Browser acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dsh-browser-screenshots
-          path: target/web-*.png
+          name: dsh-browser-acceptance
+          path: |
+            target/web-*.png
+            target/web-acceptance/result.json
           if-no-files-found: ignore
+          retention-days: 7
