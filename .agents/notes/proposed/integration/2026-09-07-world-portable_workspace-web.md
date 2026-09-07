@@ -8,7 +8,7 @@ Status: proposed
 
 ## Proposal
 
-交付本地 DSH Web 中可选择 World×workspace 的项目，保留原生 Agent、Session 与对话，所有受支持的 workspace IO/进程在绑定 World 中执行。固定当前 DSH revision，维护窄补丁和显式 profile；不等待上游 PR，不使用 Fake Project，不改 Session JSONL schema。
+交付本地 DSH Web 中可选择 World×workspace 的项目，保留原生 Agent、Session 与对话，所有受支持的 workspace IO/进程在绑定 World 中执行。固定当前 DSH revision，维护窄补丁和显式 profile；不等待上游 PR，不使用 Fake portable_workspace，不改 Session JSONL schema。
 
 Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 为空，不得把包级审计写成已实现补丁。
 
@@ -19,7 +19,7 @@ Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状
 | M0 结构维护（已完成） | runtime/{helper,client,ssh}/、integrations/dsh/；精简 docs；notes lifecycle；迁移 imports/build/package 声明 | 根 Cargo/npm、DSH 类型检查、bundle/package consumer 和文档链接通过；原始 JSON 保真 |
 | M1 执行边界准入 | 按 consumer 清单确定 local control / explicit local connector / remote workspace；定界 skill 指令、脚本、依赖和 transfer | 不依靠名称黑白名单或提示词猜执行环境；每个启用 consumer 有 Agent/World 选择依据；缺失本地脚本不会被偷偷本地运行 |
 | M2 Host admission 补丁 | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
-| M3 Project 插件与 Web | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
+| M3 portable_workspace 插件与 Web | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
 | M4 远程编码消费者 | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
 | M5 可维护开发者发行 | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
 
@@ -31,12 +31,12 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 新 patch 必须记录包/源文件、准入输入、失败行为、local profile 回归和专门测试；只能在通过 patched-host gate 后进入 series.json。保持 unchanged-source 验收独立，不能删除脚本中的 dirty/revision guard 伪装兼容。
 
-新增 Project 插件落在 integrations/dsh/plugins/，不把未产品化 registry 留在 experiments 充当发行入口。experiment 在迁移前保留为负例和证据，成熟行为迁移后删除重复实现或保留明确小型 seam fixture。
+新增 portable_workspace 插件落在 integrations/dsh/plugins/，不把未产品化 registry 留在 experiments 充当发行入口。experiment 在迁移前保留为负例和证据，成熟行为迁移后删除重复实现或保留明确小型 seam fixture。
 
 ## Execution decisions to close
 
 1. 非 tools/execute 阶段以 Agent/owner 显式选择具体 provider，不依赖一个默认 World。列清 pre-step、skill catalog、file-reference、terminal 初始化、job 回调和 disposal 的传播点。
-2. 本地 user/bundled skill 与远程 project skill 各自发现；内容的来源不会赋予本地 Shell 权。定义可支持的能力要求和不兼容报告；第一版不实现任意本地 CLI skill 自动执行。
+2. 本地 user/bundled skill 与远程 portable_workspace skill 各自发现；内容的来源不会赋予本地 Shell 权。定义可支持的能力要求和不兼容报告；第一版不实现任意本地 CLI skill 自动执行。
 3. 本地网络连接器保持本地独立 service/tool，远端 workspace Shell 保持远端。当前没有 web search 安装或验收证据，M1 必须选择并验证实际需要的连接器才可宣称支持。
 4. 若某 skill 需要本地脚本处理远端文件，第一版应明确不支持或采用专门 API + 显式 transfer；不可自动上传任意路径、同步凭据或改写 shell 文本。
 5. bootstrap 本地控制命令不是模型可调用的 host-shell。保持 SSH 验证、目标账号权限和不复制本地 env 的机制。
@@ -45,10 +45,10 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 | 反例 | 预期 |
 | --- | --- |
-| 两 World 相同 cwd、不同文件与指令 | Project/Session、工具输出、AGENTS 和 skill 结果不混淆 |
+| 两 World 相同 cwd、不同文件与指令 | portable_workspace/Session、工具输出、AGENTS 和 skill 结果不混淆 |
 | 本地同名目录或 symlink | 不能成为远程 path resolution、policy root 或失败回退的来源 |
 | cold deep link、history follower、upload-first | 保存绑定驱动准备；先准备再执行，UI 活动顺序不改变 World |
-| 不同 Project 并发请求相同 Session ID | 精确冲突，catch/race 不接管错误 World |
+| 不同 portable_workspace 并发请求相同 Session ID | 精确冲突，catch/race 不接管错误 World |
 | Web fork、子 Agent、子 Agent continuation | 对应 lineage 和 binding 正确，过滤/取消由 DSH 原生机制保留 |
 | 本地 skill 写绝对本地脚本路径 | 明确不可用；不改向 host、不自动复制/解释本地路径 |
 | 本地连接器需要远端文件 | 传递的是明确选择的数据，执行地点与副作用清晰 |
@@ -79,7 +79,7 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 **纯外部插件且不改 DSH。** 原生 Web 创建和冷恢复绕过准备，已被实验复现；不继续用 CLI 降级代替用户选择的完整 Web 方向。
 
-**Fake Project。** 占位 cwd 会引入两种路径语义并影响指令、shell 和本地消费者；不作为本阶段身份方案。
+**Fake portable_workspace。** 占位 cwd 会引入两种路径语义并影响指令、shell 和本地消费者；不作为本阶段身份方案。
 
 **自建或迁移 Harness。** 现有原生 Agent/Session 接口足以继续做局部补丁验证，暂不承担替换模型循环和对话引擎的成本。
 
@@ -95,5 +95,5 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 - [包级审计](2026-09-07-patch-surface.md)
 - [执行边界](../../../../docs/execution-boundaries.md)
-- [原始 Project 验收](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)
+- [原始 portable_workspace 验收](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)
 - [原始 session-routing 验收](../../archived/2026-09-initial-integration/evidence/binding-acceptance-results.json)

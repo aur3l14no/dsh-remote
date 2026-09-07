@@ -26,7 +26,7 @@ README 和 docs/ 描述当前架构、执行边界和使用契约；proposed 中
 
 在临时完整副本中验证：cargo fmt --all --check、cargo clippy --locked --workspace --all-targets -- -D warnings、cargo build --locked、npm run check 均通过。npm test 为 25 passed / 2 environment-selected skipped；初次因 helper 尚未完成构建、随后因沙箱禁止 Unix socket 而失败，构建完成并授予本地 socket 权限后通过。
 
-固定上游的 check-composition、session-routing 与 project-worlds 构建/原生运行通过；Project fixture 仍按预期复现未修复的两个 Web GAP。pack-plugin 产生 35 文件 tarball，check-plugin 声明与 export 检查通过；DSH_TEST_PACKAGED=1 的解包后 Loader 运行通过。打包验证发现并修复迁移脚本误改的一处上游 package.json 相对路径。
+固定上游的 check-composition、session-routing 与 portable_workspace 构建/原生运行通过；portable_workspace fixture 仍按预期复现未修复的两个 Web GAP。pack-plugin 产生 35 文件 tarball，check-plugin 声明与 export 检查通过；DSH_TEST_PACKAGED=1 的解包后 Loader 运行通过。打包验证发现并修复迁移脚本误改的一处上游 package.json 相对路径。
 
 所有文档相对链接和静态 import 路径检查通过；10 份原始验收 JSON、Cargo.lock、package-lock.json 字节不变。完整 patched Web、真实浏览器/模型和 SSH/Linux 重新验收不属于本次结构变更完成声明。
 
@@ -35,7 +35,7 @@ README 和 docs/ 描述当前架构、执行边界和使用契约；proposed 中
 把 helper/、packages/client/、packages/ssh/ 分别迁入 runtime/helper/、runtime/client/、runtime/ssh/。两个私有 npm 包名称不变；npm workspace 显式列出两个 TypeScript 包，lockfile 只更新 workspace 位置；Cargo.lock 保持不变。通用测试与产物脚本归入 runtime/tests/ 与 runtime/scripts/，根命令保留为开发入口，DSH 专用装配和发行保持在 integrations/dsh/。新增 Web Search 的重点验收计划不表示已经装配或测试通过。
 
 
-归并后的验证已完成：Rust fmt/Clippy/build 与 TypeScript check 在上轮通过；恢复执行环境后，npm test 为 25 passed / 2 environment-selected skipped。固定未修改上游的 check-composition、session-routing/project-worlds 构建与原生运行、pack-plugin、check-plugin 和解包后 Loader 运行均通过。Project fixture 仍明确报告预期的本地 mkdir 与冷恢复两个 Web GAP。
+归并后的验证已完成：Rust fmt/Clippy/build 与 TypeScript check 在上轮通过；恢复执行环境后，npm test 为 25 passed / 2 environment-selected skipped。固定未修改上游的 check-composition、session-routing/portable_workspace 构建与原生运行、pack-plugin、check-plugin 和解包后 Loader 运行均通过。portable_workspace fixture 仍明确报告预期的本地 mkdir 与冷恢复两个 Web GAP。
 
 34 份 Markdown 的本地链接与 TypeScript 相对导入检查通过；Cargo.lock 和 10 份原始验收 JSON 未变，package-lock.json 的语义差异仅为 workspace 路径。工具通道的 Too many open files 已恢复，未通过跳过检查来完成迁移。本次未执行 Linux/SSH、真实模型、浏览器或 Web Search 服务验收。
 
@@ -44,4 +44,13 @@ README 和 docs/ 描述当前架构、执行边界和使用契约；proposed 中
 
 根目录只保留项目入口与 workspace 配置。通用测试和产物脚本移入 runtime/tests/、runtime/scripts/，同步 npm scripts、tsconfig、DSH fixture 和验收脚本引用。本地私有 justfile 移入忽略提交的 .local/justfile，根 justfile 仍可选导入；内容保持原字节，不执行私有同步命令。无当前引用的 23 份 VS Code 上游研究副本已按用户要求删除，不建立隐藏归档。target/ 和 node_modules/ 继续使用工具链的根目录约定。
 
-验证：TypeScript check、npm test（25 passed / 2 environment-selected skipped）、固定上游 composition 类型检查与构建、插件声明检查通过。session-routing、project-worlds 与解包后 Loader 原生运行通过；Project fixture 保留两个预期 Web GAP。相对 import、Python 脚本语法、just 可选导入和私有文件忽略规则通过。Rust 源码、Cargo 配置与依赖未变，不重复其已通过检查；原始验收 JSON 保留历史路径与内容。
+验证：TypeScript check、npm test（25 passed / 2 environment-selected skipped）、固定上游 composition 类型检查与构建、插件声明检查通过。session-routing、portable_workspace 与解包后 Loader 原生运行通过；portable_workspace fixture 保留两个预期 Web GAP。相对 import、Python 脚本语法、just 可选导入和私有文件忽略规则通过。Rust 源码、Cargo 配置与依赖未变，不重复其已通过检查；原始验收 JSON 保留历史路径与内容。
+
+
+## portable_workspace terminology
+
+World × canonical workspace 的领域概念统一为 portable_workspace。TypeScript 使用 PortableWorkspace / portableWorkspace；服务为 worldPortableWorkspaces，实验、集成 suite 和 SSH runner 文件名使用 portable_workspace。包名 dsh-remote 与远端仓库名称保持不变。错误码和测试环境变量同步改名。
+
+原始历史文本和验收 JSON 保持历史名称，仅修复指向当前文件的链接。上游接口、第三方依赖名不改；registry.ts 中三个 v1 存储字符串保持兼容，避免重命名导致历史 metadata 和不可变 Session binding 失联。这些属于明确的搜索例外，不宣称全仓任意子串零匹配。
+
+验证：TypeScript 和固定上游 composition 检查、重命名 suite 原生运行、插件打包/声明与解包后 Loader 通过。另用改名前代码创建数据、改名后代码恢复，验证持久化 domain 内容、Session JSONL 和 bindings 无需迁移。跨版本 fixture 只调整测试驱动自身的目录和 bookkeeping 字段，未改实际存储记录。完整浏览器/SSH 与 Web Search 仍未验收。

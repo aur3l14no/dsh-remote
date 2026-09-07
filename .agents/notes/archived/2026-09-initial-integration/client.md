@@ -1,6 +1,6 @@
 # TypeScript client and external composition milestone
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 The client and supplied-runtime SSH transport work against helper 0.1.1/API 1. A source-based external Cordis Loader fixture verifies minimal DSH filesystem/subprocess providers and the real DSH `runRipgrep` consumer. It uses DSH revision `d347e703908d0406b7a7ef80e3a0e594d86b2215` without core edits. The matching `0.1.3-alpha.1` subprocess package was unavailable from npm during this work; a source composition does not establish independently installed package compatibility.
 

@@ -6,7 +6,7 @@ import { mkdir, access, realpath, copyFile } from 'node:fs/promises';
 
 const source = process.argv[2];
 const suite = process.argv[3] ?? 'composition';
-if (!['composition', 'agents', 'terminal', 'session-routing', 'project-worlds'].includes(suite)) throw new Error('Unknown composition suite');
+if (!['composition', 'agents', 'terminal', 'session-routing', 'portable_workspace'].includes(suite)) throw new Error('Unknown composition suite');
 if (!source) throw new Error('Usage: node integrations/dsh/scripts/build-composition.mjs DSH_SOURCE_CHECKOUT');
 const root = resolve(source);
 assertUnchangedSource(root);

@@ -1,4 +1,4 @@
-/** Source-only Project seam experiment; not part of the SSH plugin distribution. */
+/** Source-only PortableWorkspace seam experiment; not part of the SSH plugin distribution. */
 import { Service, type Context } from '@deepseek-ai/cordis';
 import { WorkspaceRegistry, WorkspaceId, type Workspace } from '@deepseek-ai/dsh-workspace';
 import { defineDomain, type DomainGlobal } from '@deepseek-ai/dsh-storage-domain';
@@ -22,18 +22,23 @@ const recordSchema = z.object({
   path: z.string(), title: z.string(), createdAt: z.string(), updatedAt: z.string(), sessionIds: z.array(z.string()),
 }).strict();
 type Record = z.infer<typeof recordSchema>;
-const stateSchema = z.object({ projects: z.array(recordSchema) }).strict();
+// Persisted v1 names are frozen so existing metadata and immutable Session bindings still resolve.
+// These three strings are storage compatibility, not public service or domain terminology.
+const recordsKey = 'projects';
+const domainName = 'remote_project_experiment';
+const bindingPrefix = 'project-';
+const stateSchema = z.object({ [recordsKey]: z.array(recordSchema) }).strict();
 type State = z.infer<typeof stateSchema>;
-const spec = defineDomain({ name: 'remote_project_experiment', version: 1,
-  global: { schema: stateSchema, initial: { projects: [] } }, tables: {} });
+const spec = defineDomain({ name: domainName, version: 1,
+  global: { schema: stateSchema, initial: { [recordsKey]: [] } }, tables: {} });
 
-declare module '@deepseek-ai/cordis' { interface Context { worldProjects: WorldProjectRegistry } }
+declare module '@deepseek-ai/cordis' { interface Context { worldPortableWorkspaces: WorldPortableWorkspaceRegistry } }
 
 /** Replaces only the Workspace service. No local workspace lookup or Session storage. */
-export default class WorldProjectRegistry extends WorkspaceRegistry {
+export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   static inject = ['storageDomain', 'sessionPersistence', 'sessions', 'executionWorlds'];
-  private projectGlobal?: DomainGlobal<State>;
-  private projectTail: Promise<unknown> = Promise.resolve();
+  private portableWorkspaceGlobal?: DomainGlobal<State>;
+  private portableWorkspaceTail: Promise<unknown> = Promise.resolve();
   private catalog = new Map<string, { name: string; environment: WorldDefinition }>();
 
   constructor(ctx: Context, config: Config) {
@@ -42,43 +47,43 @@ export default class WorldProjectRegistry extends WorkspaceRegistry {
       if (this.catalog.has(world.id)) throw new Error('Duplicate catalog World');
       this.catalog.set(world.id, { name: world.name, environment: worldDefinition({ ...world.target, id: world.id, cwd: '/' }) });
     }
-    ctx.provide('worldProjects', this);
+    ctx.provide('worldPortableWorkspaces', this);
   }
 
   protected override async [Service.init](): Promise<void> {
     // Deliberately do not initialize the built-in local Workspace domain/indexer.
     const domain = await this.ctx.storageDomain.open(spec);
     this.ctx.effect(() => () => domain.close());
-    this.projectGlobal = domain.global;
+    this.portableWorkspaceGlobal = domain.global;
     const rows = this.records();
     if (new Set(rows.map(row => row.id)).size !== rows.length
         || new Set(rows.map(row => JSON.stringify([row.worldId, row.path]))).size !== rows.length) {
-      throw new Error('Duplicate Project identity');
+      throw new Error('Duplicate PortableWorkspace identity');
     }
   }
 
   private records(): Record[] {
-    if (!this.projectGlobal) throw new Error('Project registry is not ready');
-    return this.projectGlobal.get().projects;
+    if (!this.portableWorkspaceGlobal) throw new Error('PortableWorkspace registry is not ready');
+    return this.portableWorkspaceGlobal.get()[recordsKey];
   }
   private row(id: WorkspaceId): Record {
     const row = this.records().find(row => row.id === id);
-    if (!row) throw new RemoteError('PROJECT_NOT_FOUND', 'Unknown Project');
+    if (!row) throw new RemoteError('PORTABLE_WORKSPACE_NOT_FOUND', 'Unknown PortableWorkspace');
     return row;
   }
   private mutate(operation: (rows: Record[]) => Promise<Record[]>): Promise<void> {
-    const pending = this.projectTail.then(async () => {
-      const projects = await operation(this.records());
-      await this.projectGlobal!.set({ projects });
+    const pending = this.portableWorkspaceTail.then(async () => {
+      const portableWorkspaces = await operation(this.records());
+      await this.portableWorkspaceGlobal!.set({ [recordsKey]: portableWorkspaces });
     });
-    this.projectTail = pending.catch(() => {});
+    this.portableWorkspaceTail = pending.catch(() => {});
     return pending;
   }
   private environment(id: string, saved?: WorldDefinition) {
     const world = this.catalog.get(id);
-    if (!world) throw new RemoteError('WORLD_REQUIRED', 'Project World is absent from the catalog');
+    if (!world) throw new RemoteError('WORLD_REQUIRED', 'PortableWorkspace World is absent from the catalog');
     if (saved && JSON.stringify(saved) !== JSON.stringify(world.environment)) {
-      throw new RemoteError('WORLD_MISMATCH', 'Project connection changed; select a new World identity explicitly');
+      throw new RemoteError('WORLD_MISMATCH', 'PortableWorkspace connection changed; select a new World identity explicitly');
     }
     return world;
   }
@@ -107,7 +112,7 @@ export default class WorldProjectRegistry extends WorkspaceRegistry {
     const row = this.row(id);
     this.environment(row.worldId, row.environment);
     // Old v1 bindings keep their meaning. Catalog IDs and concrete workspace IDs are distinct.
-    return worldDefinition({ ...row.environment, id: `project-${row.id}`, cwd: row.path });
+    return worldDefinition({ ...row.environment, id: `${bindingPrefix}${row.id}`, cwd: row.path });
   }
   async validate(id: WorkspaceId): Promise<void> {
     const definition = this.definition(id);
@@ -149,12 +154,12 @@ export default class WorldProjectRegistry extends WorkspaceRegistry {
     };
   }
   override list(): Workspace[] { return this.records().map(row => this.get(WorkspaceId(row.id))!); }
-  override async create(_path: string): Promise<Workspace> { throw new RemoteError('WORLD_REQUIRED', 'Project creation requires World + workspace'); }
-  override async resolveByPath(_path: string): Promise<Workspace | undefined> { throw new RemoteError('WORLD_REQUIRED', 'A path alone cannot identify a Project'); }
+  override async create(_path: string): Promise<Workspace> { throw new RemoteError('WORLD_REQUIRED', 'PortableWorkspace creation requires World + workspace'); }
+  override async resolveByPath(_path: string): Promise<Workspace | undefined> { throw new RemoteError('WORLD_REQUIRED', 'A path alone cannot identify a PortableWorkspace'); }
   override async delete(): Promise<boolean> { return unsupported(); }
   override async insertBefore(): Promise<readonly WorkspaceId[]> { return unsupported(); }
   override get archivedSessionIds(): readonly SessionId[] { return []; }
   override async archiveSession(): Promise<void> { return unsupported(); }
 }
 
-function unsupported(): never { throw new RemoteError('EXPERIMENT_UNSUPPORTED', 'Project mutation is outside this seam experiment'); }
+function unsupported(): never { throw new RemoteError('EXPERIMENT_UNSUPPORTED', 'PortableWorkspace mutation is outside this seam experiment'); }

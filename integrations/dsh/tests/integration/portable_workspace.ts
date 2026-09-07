@@ -1,4 +1,4 @@
-/** Real Project service replacement + native Web activation witnesses; no browser/UI claim. */
+/** Real PortableWorkspace service replacement + native Web activation witnesses; no browser/UI claim. */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, realpath, rm, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -32,19 +32,19 @@ import { installModelSelectionProjection } from '@dsh-test/web-model-selection-p
 import { BindingStore } from '../../plugins/ssh-world/src/bindings.ts';
 import ExecutionWorlds, { executionWorldsPlugin } from '../../plugins/ssh-world/src/worlds.ts';
 import * as Routing from '../../plugins/ssh-world/src/routing.ts';
-import Projects, { type CatalogWorld } from '../../experiments/project-worlds/registry.ts';
-import { startProjectSession, openProjectSession } from '../../experiments/project-worlds/entry.ts';
+import PortableWorkspaces, { type CatalogWorld } from '../../experiments/portable_workspace/registry.ts';
+import { startPortableWorkspaceSession, openPortableWorkspaceSession } from '../../experiments/portable_workspace/entry.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 
 const phase = process.argv[2];
-const ssh = !!process.env.DSH_TEST_PROJECT_CONFIG;
+const ssh = !!process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG;
 interface Selection { worlds: CatalogWorld[]; path: string }
-interface Saved { projectIds: string[]; sessionIds: string[]; runtimeIds: string[] }
+interface Saved { portableWorkspaceIds: string[]; sessionIds: string[]; runtimeIds: string[] }
 if (!phase) {
-  const base = await mkdtemp('/tmp/dsh-project-experiment.');
+  const base = await mkdtemp('/tmp/dsh-portable_workspace-experiment.');
   try {
     let selection: Selection;
-    if (ssh) selection = JSON.parse(await readFile(process.env.DSH_TEST_PROJECT_CONFIG!, 'utf8'));
+    if (ssh) selection = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG!, 'utf8'));
     else {
       await mkdir(`${base}/workspace`);
       selection = { worlds: ['a', 'b'].map(id => ({ id, name: `World ${id}`, target: { kind: 'ssh', host: 'native-acceptance.invalid' } })),
@@ -58,10 +58,10 @@ if (!phase) {
         { stdio: 'inherit', signal: AbortSignal.timeout(180000) });
       await new Promise<void>((accept, reject) => {
         child.once('error', reject);
-        child.once('exit', code => code === 0 ? accept() : reject(new Error(`Project ${phase} phase exited ${code}`)));
+        child.once('exit', code => code === 0 ? accept() : reject(new Error(`PortableWorkspace ${phase} phase exited ${code}`)));
       });
     }
-    console.log('PASS Project metadata and native JSONL survive separate host processes; no helper runtime is restored');
+    console.log('PASS PortableWorkspace metadata and native JSONL survive separate host processes; no helper runtime is restored');
   } finally { await rm(base, { recursive: true, force: true }); }
 } else {
   const base = process.argv[3]!;
@@ -77,7 +77,7 @@ if (!phase) {
     for (const plugin of [LlmRuntime, SessionStore, SystemPrompt, AgentRegistry, SessionProjectionRegistry, Storage, TypertRegistry]) await ctx.plugin(plugin);
     await ctx.plugin(JsonlPersistence, { root: `${base}/sessions`, compression: 'none' });
     await ctx.plugin(SessionQuery, { path: ':memory:', openAt: 'never' });
-    await ctx.plugin(JsonStorage, { root: `${base}/projects` });
+    await ctx.plugin(JsonStorage, { root: `${base}/portableWorkspaces` });
     await ctx.plugin(StorageDomain, { backend: 'json' });
     await ctx.plugin(ToolRuntime, { mode: 'native' });
     await ctx.plugin(AgentDefaultModel, { provider: 'test', model: 'test' });
@@ -101,65 +101,65 @@ if (!phase) {
     const configured = structuredClone(selection.worlds);
     if (phase === 'missing') configured.splice(0, 1);
     if (phase === 'changed') configured[0]!.target = { ...configured[0]!.target, host: 'changed-acceptance.invalid' };
-    await ctx.plugin(Projects, { worlds: configured });
-    assert.ok(ctx.workspaceRegistry instanceof Projects, 'The local Workspace registry must be replaced');
-    const projects = ctx.worldProjects;
+    await ctx.plugin(PortableWorkspaces, { worlds: configured });
+    assert.ok(ctx.workspaceRegistry instanceof PortableWorkspaces, 'The local Workspace registry must be replaced');
+    const portableWorkspaces = ctx.worldPortableWorkspaces;
     // These are the unchanged controllers used inside DSH's Web Session facade.
     const apiAgents = new ApiSessionAgentController(ctx);
     const apiCommands = new SessionCommandController(ctx, apiAgents, base);
     const readMarker = async (sessionId: SessionId, marker: string) => {
       const result = await ctx.tools.execute({ agent: ctx.agents.get(sessionId), name: 'read',
-        arguments: { file_path: 'project-marker.txt' }, callId: ToolCallId(`project-${sessionId}`), signal: AbortSignal.timeout(10000) });
+        arguments: { file_path: 'portable_workspace-marker.txt' }, callId: ToolCallId(`portable_workspace-${sessionId}`), signal: AbortSignal.timeout(10000) });
       assert.equal(result.isError, false, JSON.stringify(result));
       assert.ok(JSON.stringify(result).includes(marker));
     };
     if (phase === 'create') {
-      const a = await projects.createInWorld(selection.worlds[0]!.id, selection.path);
-      const b = await projects.createInWorld(selection.worlds[1]!.id, selection.path);
+      const a = await portableWorkspaces.createInWorld(selection.worlds[0]!.id, selection.path);
+      const b = await portableWorkspaces.createInWorld(selection.worlds[1]!.id, selection.path);
       assert.equal(a.path, b.path); assert.notEqual(a.id, b.id);
-      assert.equal((await projects.createInWorld(selection.worlds[0]!.id, `${selection.path}/.`)).id, a.id);
-      await assert.rejects(projects.create(selection.path), { code: 'WORLD_REQUIRED' });
-      await assert.rejects(projects.resolveByPath(selection.path), { code: 'WORLD_REQUIRED' });
-      assert.equal(projects.list().length, 2);
-      console.log('PASS two catalog Worlds with the same canonical workspace remain distinct Projects');
-      const ids = await Promise.all([a, b].map(project => startProjectSession(ctx, project.id)));
-      for (const [index, project] of [a, b].entries()) {
+      assert.equal((await portableWorkspaces.createInWorld(selection.worlds[0]!.id, `${selection.path}/.`)).id, a.id);
+      await assert.rejects(portableWorkspaces.create(selection.path), { code: 'WORLD_REQUIRED' });
+      await assert.rejects(portableWorkspaces.resolveByPath(selection.path), { code: 'WORLD_REQUIRED' });
+      assert.equal(portableWorkspaces.list().length, 2);
+      console.log('PASS two catalog Worlds with the same canonical workspace remain distinct PortableWorkspaces');
+      const ids = await Promise.all([a, b].map(portableWorkspace => startPortableWorkspaceSession(ctx, portableWorkspace.id)));
+      for (const [index, portableWorkspace] of [a, b].entries()) {
         const id = ids[index]!;
-        const adopted = await apiCommands.create({ workspaceId: project.id, sessionId: id });
+        const adopted = await apiCommands.create({ workspaceId: portableWorkspace.id, sessionId: id });
         assert.equal(adopted.sessionId, id);
         const resolved = await apiAgents.resolveAgent(id);
         assert.ok('agent' in resolved); assert.equal(resolved.agent.id, id);
-        assert.deepEqual(project.sessionIds, [id]);
+        assert.deepEqual(portableWorkspace.sessionIds, [id]);
         const owner = ctx.executionWorlds.forAgent(ctx.agents.get(id));
         const marker = ssh ? `world-${index}` : 'native-shared-directory';
-        await owner.fs.writeText(await owner.fs.resolve('project-marker.txt'), marker);
+        await owner.fs.writeText(await owner.fs.resolve('portable_workspace-marker.txt'), marker);
       }
       for (const [index, id] of ids.entries()) await readMarker(id, ssh ? `world-${index}` : 'native-shared-directory');
       assert.equal(serviceForAgent(ctx, ctx.agents.get(ids[0]!)!, 'fs'), serviceForAgent(ctx, ctx.agents.get(ids[1]!)!, 'fs'));
       await assert.rejects(b.attachSession(ids[0]!), { code: 'WORLD_MISMATCH' });
-      console.log('PASS Project entry creates native bound Agents; unchanged Web activation adopts them under one shared preset');
+      console.log('PASS PortableWorkspace entry creates native bound Agents; unchanged Web activation adopts them under one shared preset');
 
       // Deliberately confined to the test-owned directory: witness the unprepared Web route's local mkdir.
       const localSideEffect = `${base}/unprepared-web-create`;
       await assert.rejects(apiCommands.create({ cwd: localSideEffect }));
       assert.ok((await stat(localSideEffect)).isDirectory());
       console.log('GAP native Web create makes a local directory before preset/binding admission');
-      const saved: Saved = { projectIds: [a.id, b.id], sessionIds: ids,
+      const saved: Saved = { portableWorkspaceIds: [a.id, b.id], sessionIds: ids,
         runtimeIds: ids.map(id => ctx.executionWorlds.forAgent(ctx.agents.get(id)).remoteWorld.client.info.runtime) };
       await writeFile(`${base}/saved.json`, JSON.stringify(saved), { mode: 0o600 });
       await ctx.sessionPersistence.flush();
     } else {
       const saved: Saved = JSON.parse(await readFile(`${base}/saved.json`, 'utf8'));
-      const projectId = WorkspaceId(saved.projectIds[0]!);
+      const portableWorkspaceId = WorkspaceId(saved.portableWorkspaceIds[0]!);
       const sessionId = SessionId(saved.sessionIds[0]!);
-      assert.equal(projects.list().length, 2);
-      assert.ok(projects.get(projectId)!.sessionIds.includes(sessionId));
+      assert.equal(portableWorkspaces.list().length, 2);
+      assert.ok(portableWorkspaces.get(portableWorkspaceId)!.sessionIds.includes(sessionId));
       if (phase === 'missing' || phase === 'changed') {
         const code = phase === 'missing' ? 'WORLD_REQUIRED' : 'WORLD_MISMATCH';
-        await assert.rejects(openProjectSession(ctx, projectId, sessionId), { code });
+        await assert.rejects(openPortableWorkspaceSession(ctx, portableWorkspaceId, sessionId), { code });
         assert.equal(ctx.agents.get(sessionId), undefined);
         assert.equal(connections, 0);
-        console.log(`PASS ${phase} catalog configuration cannot resume or redirect a saved Project`);
+        console.log(`PASS ${phase} catalog configuration cannot resume or redirect a saved PortableWorkspace`);
       } else {
         const cold = await apiAgents.resolveAgent(sessionId);
         assert.ok('error' in cold, 'Cold Web resume must not publish an unprepared Agent');
@@ -169,14 +169,14 @@ if (!phase) {
         assert.throws(() => ctx.typert.lookups.configure('agent', async () => { throw new Error('unused'); }), /already configured/);
         console.log('GAP cold Web activation has no async World preparation; the owned Agent lookup rejects a second resolver');
         for (const [index, id] of saved.sessionIds.entries()) {
-          const sessionId = SessionId(id), projectId = WorkspaceId(saved.projectIds[index]!);
-          await openProjectSession(ctx, projectId, sessionId);
-          const adopted = await apiCommands.create({ workspaceId: projectId, sessionId });
+          const sessionId = SessionId(id), portableWorkspaceId = WorkspaceId(saved.portableWorkspaceIds[index]!);
+          await openPortableWorkspaceSession(ctx, portableWorkspaceId, sessionId);
+          const adopted = await apiCommands.create({ workspaceId: portableWorkspaceId, sessionId });
           assert.equal(adopted.sessionId, id);
           assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorld.client.info.runtime, saved.runtimeIds[index]);
           await readMarker(sessionId, ssh ? `world-${index}` : 'native-shared-directory');
         }
-        console.log('PASS Project entry prepares the saved World and native JSONL resume is adopted by unchanged Web activation');
+        console.log('PASS PortableWorkspace entry prepares the saved World and native JSONL resume is adopted by unchanged Web activation');
       }
     }
   } finally { await ctx.fiber.dispose(); }

@@ -1,6 +1,6 @@
 # SSH bootstrap and artifact installation
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 The SSH package now provisions a World from a caller-trusted manifest and a local artifact cache. It probes the selected host, checks the platform/ABI, installs helper and ripgrep, starts a private runtime, negotiates the helper and validates managed ripgrep through that runtime before returning readiness. Workspace operations continue through the protocol client. A failed SSH target never selects a native runtime.
 

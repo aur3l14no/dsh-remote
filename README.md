@@ -15,17 +15,17 @@ integrations/dsh/
   plugins/ssh-world/             DSH World owner、FS/subprocess providers、路由
   patches/                      固定上游基线及补丁序列
   profiles/                     DSH 应用装配约定
-  experiments/project-worlds/    尚未产品化的 Project 实验
+  experiments/portable_workspace/    尚未产品化的 portable_workspace 实验
   tests/                        DSH binding 与集成验证
   scripts/                      DSH 类型检查、构建、打包及验收入口
   packaging/                    SSH plugin 发行清单
 ```
 
-DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/解析接口，插件实现 World、Project 和远程能力。DSH 保留 Agent、Session、工具过滤、委派和通用对话。具体对应见 [架构与 DSH 关系](docs/architecture.md)。
+DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/解析接口，插件实现 World、portable_workspace 和远程能力。DSH 保留 Agent、Session、工具过滤、委派和通用对话。具体对应见 [架构与 DSH 关系](docs/architecture.md)。
 
 ## 当前可用范围
 
-Rust helper 0.1.1、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现和验收记录。SSH 后可选进入一个已有 Podman 容器。Project 选择与显式创建/恢复仍是源码实验；完整 Web profile 和下游补丁尚未实现，补丁序列为空。不能直接把默认 DSH Web 全量工具装配视为远程兼容。
+Rust helper 0.1.1、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现和验收记录。SSH 后可选进入一个已有 Podman 容器。portable_workspace 选择与显式创建/恢复仍是源码实验；完整 Web profile 和下游补丁尚未实现，补丁序列为空。不能直接把默认 DSH Web 全量工具装配视为远程兼容。
 
 这不是一个把所有工具都搬到远程的系统。本地连接器与远程项目工具需要不同能力入口；本地 skill 的脚本不会自动同步，也不会自动在本地执行。详见 [执行边界与 edge cases](docs/execution-boundaries.md)。
 
@@ -42,5 +42,5 @@ Cargo workspace 保留根目录构建命令和 `target/` 产物路径。环境�
 - [架构与 DSH 对应](docs/architecture.md)：稳定的责任和接口边界。
 - [执行边界](docs/execution-boundaries.md)：本地/远端、skills、凭据和未支持能力。
 - [helper 协议](docs/reference/helper-api.md)、[bootstrap](docs/reference/bootstrap.md)、[Session bindings](docs/reference/session-bindings.md)：实现契约。
-- [当前阶段计划](.agents/notes/proposed/integration/2026-09-07-world-project-web.md)：顺序、未决项和验收门槛。
+- [当前阶段计划](.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)：顺序、未决项和验收门槛。
 - [Agent Notes](.agents/notes/README.md)：决策、实验和历史证据；不作为已交付功能说明。

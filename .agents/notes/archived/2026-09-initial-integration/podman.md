@@ -1,6 +1,6 @@
 # SSH → Podman exec transport
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 An optional Podman entry runs the same helper in a running container without installing an SSH server there. System OpenSSH enters the Linux host; `podman exec -i` supplies the final environment's control and protocol streams. Platform probing, helper/ripgrep upload, installation, runtime start, reconnect and cleanup all use that same entry. Neither transport allocates a TTY; the helper allocates requested process PTYs inside the container.
 

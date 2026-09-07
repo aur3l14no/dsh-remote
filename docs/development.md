@@ -41,18 +41,18 @@ node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-s
 node integrations/dsh/scripts/check-composition.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" session-routing
 DSH_TEST_RG="$LOCAL_RG" node target/composition/session-routing.mjs
-node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" project-worlds
-DSH_TEST_RG="$LOCAL_RG" node target/composition/project-worlds.mjs
+node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" portable_workspace
+DSH_TEST_RG="$LOCAL_RG" node target/composition/portable_workspace.mjs
 node integrations/dsh/scripts/pack-plugin.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/check-plugin.mjs "$DSH_SOURCE"
 DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node target/package-check/accept.mjs
 ```
 
-`project-worlds` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
+`portable_workspace` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
 
 下游补丁实施时增加独立的 patched-host gate：固定基线、依次检查并应用补丁、编译受影响包及 Remote 图，再运行真实 profile/browser。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。完整 profile 验证前，不发布虚假的运行配置。
 
-SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-project-worlds.mjs`，参数通过显式环境输入；只允许针对已选目标操作测试资源。宿主名、SSH 配置、token 不写入公共文档和报告。helper 与 ripgrep 必须使用目标平台产物。
+SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-portable_workspace.mjs`，参数通过显式环境输入；只允许针对已选目标操作测试资源。宿主名、SSH 配置、token 不写入公共文档和报告。helper 与 ripgrep 必须使用目标平台产物。
 
 ## 文档与证据
 

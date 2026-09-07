@@ -11,7 +11,7 @@ archived/                   被替代的历史记录与原始验收证据
 
 文件名为 `yyyy-mm-dd-topic.md`。活跃 note 包含标题、`Status: proposed|implemented|rejected`、问题、方案/决定、真实替代方案、验收/后果。proposed 表示尚未完成，不表示用户尚未同意方向。按阶段更新当前计划，不叠加多个互相矛盾的 next-stage 文件。
 
-- [当前阶段计划](proposed/integration/2026-09-07-world-project-web.md) 是执行顺序和未决项的唯一入口。
+- [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 是执行顺序和未决项的唯一入口。
 - [补丁审计](proposed/integration/2026-09-07-patch-surface.md) 是静态范围证据，不是实现保证。
 - [结构维护](implemented/architecture/2026-09-07-repository-layout.md) 记录本次已落地整理及验证。
 - archived/2026-09-initial-integration 保存此前分散文档及 evidence/。旧 no-patch、延期 Web 等决策已被当前方向替代，不能覆盖用户新指令。

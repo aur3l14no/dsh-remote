@@ -1,6 +1,6 @@
 # Repository maintenance
 
-Read README.md, docs/architecture.md and docs/execution-boundaries.md before changing execution or DSH integration. The active implementation plan is .agents/notes/proposed/integration/2026-09-07-world-project-web.md.
+Read README.md, docs/architecture.md and docs/execution-boundaries.md before changing execution or DSH integration. The active implementation plan is .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
 - Keep runtime/helper/ independent of DSH. runtime/client and runtime/ssh must not import DSH APIs. DSH-specific plugins, patches, profiles, tests and packaging belong under integrations/dsh/.
 - Keep Cargo.lock at the workspace root; root Cargo commands emit to target/. Update imports, manifests, scripts and reproducible checks when moving code.

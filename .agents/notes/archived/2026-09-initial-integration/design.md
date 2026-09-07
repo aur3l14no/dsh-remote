@@ -1,6 +1,6 @@
 # SSH Execution World: constraints and staged delivery
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 Status: approved design baseline, 2026-09-05. The [helper API and wire contract](../../../../docs/reference/helper-api.md) are implemented. See [platform acceptance](helper-acceptance.md) for measured results; external DSH composition remains a later milestone.
 

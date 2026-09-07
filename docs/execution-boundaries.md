@@ -47,7 +47,7 @@ DSH tools.execute(exec.agent)
 
 “所有 workspace 操作走远端”是受支持装配必须满足的契约，不是当前对任意 DSH 插件都已强制成立的保证。
 
-Web Search 是执行边界的重点验收对象：必须同时证明本地连接器的网络请求和凭据留在本地、同一 Session 的 Shell 网络命令仍在绑定 World 执行，且连接器失败不会改变执行地点。具体测试及证据门槛见[阶段计划中的 Web Search 验收](../.agents/notes/proposed/integration/2026-09-07-world-project-web.md#web-search-重点验收)。这些测试尚未实现，不能用现有远程文件搜索测试代替。
+Web Search 是执行边界的重点验收对象：必须同时证明本地连接器的网络请求和凭据留在本地、同一 Session 的 Shell 网络命令仍在绑定 World 执行，且连接器失败不会改变执行地点。具体测试及证据门槛见[阶段计划中的 Web Search 验收](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#web-search-重点验收)。这些测试尚未实现，不能用现有远程文件搜索测试代替。
 
 ## Skill 的位置不等于命令的位置
 
@@ -80,7 +80,7 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 
 | 情形 | 行为与实现状态 |
 | --- | --- |
-| 两个 World 的路径相同 | 身份依赖 World + canonical cwd；不能用 cwd 猜测 World。Project 实验已覆盖，Web 全流程未交付 |
+| 两个 World 的路径相同 | 身份依赖 World + canonical cwd；不能用 cwd 猜测 World。portable_workspace 实验已覆盖，Web 全流程未交付 |
 | World 缺失、配置变更、断线 | 显式失败，绝不回退本地或另一容器。不要把本地同名目录当作备用 |
 | 宿主重启或 helper 替换 | 用持久 binding 准备新 runtime；历史保留，旧进程和命令不自动恢复/重放 |
 | 活跃 runtime 连接中断 | 仅有限宽限期内恢复相同 runtime/请求身份；超期失效，不使用新请求 ID 重放不确定命令 |
@@ -93,4 +93,4 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | 同名 Session 引用 | 原生 session-reference 的 sameWorkspace 只比较 cwd，适配前关闭或明确不支持 |
 | 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。审批上下文与强制执行能力必须分开说明 |
 
-下一阶段按这些反例验收，而不按“工具名字看起来是远端”验收。详见 [阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-project-web.md)。
+下一阶段按这些反例验收，而不按“工具名字看起来是远端”验收。详见 [阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)。

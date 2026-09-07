@@ -20,8 +20,8 @@ assert.equal(manifest.bundles[0].target.os, 'linux');
 const cacheDir = resolve(required('DSH_TEST_ARTIFACT_CACHE'));
 const rg = resolve(required('DSH_TEST_RG'));
 const host = sshControl(target);
-const temporary = await mkdtemp('/tmp/dsh-project-catalog.');
-const root = `/tmp/dsh-project-${randomUUID()}`;
+const temporary = await mkdtemp('/tmp/dsh-portable_workspace-catalog.');
+const root = `/tmp/dsh-portable_workspace-${randomUUID()}`;
 const path = `${root}/workspace`;
 const containers = [];
 const checks = [];
@@ -47,8 +47,8 @@ try {
   await host(['sh', '-c', 'test ! -e "$1"', 'acceptance', root]);
   const configFile = `${temporary}/catalog.json`;
   await writeFile(configFile, JSON.stringify({ worlds, path }), { mode: 0o600 });
-  const child = spawn(process.execPath, ['target/composition/project-worlds.mjs'], { stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, DSH_TEST_PROJECT_CONFIG: configFile, DSH_TEST_BOOTSTRAP_MANIFEST: manifestFile,
+  const child = spawn(process.execPath, ['target/composition/portable_workspace.mjs'], { stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, DSH_TEST_PORTABLE_WORKSPACE_CONFIG: configFile, DSH_TEST_BOOTSTRAP_MANIFEST: manifestFile,
       DSH_TEST_ARTIFACT_CACHE: cacheDir, DSH_TEST_RG: rg }, signal: AbortSignal.timeout(600000) });
   let output = '', bytes = 0;
   await new Promise((accept, reject) => {
@@ -59,7 +59,7 @@ try {
     };
     child.stdout.on('data', receive); child.stderr.on('data', receive);
     child.once('error', reject);
-    child.once('close', code => code === 0 ? accept() : reject(new Error(`Project composition failed: ${code}`)));
+    child.once('close', code => code === 0 ? accept() : reject(new Error(`PortableWorkspace composition failed: ${code}`)));
   });
   checks.push(...output.split('\n').filter(line => line.startsWith('PASS ') || line.startsWith('GAP ')));
   await assert.rejects(access(root), { code: 'ENOENT' });
@@ -77,11 +77,11 @@ finally {
 }
 if (failure) throw failure;
 await mkdir('target', { recursive: true });
-await writeFile('target/project-worlds-acceptance.json', JSON.stringify({ schema: 1, started, completed: new Date().toISOString(),
+await writeFile('target/portable_workspace-acceptance.json', JSON.stringify({ schema: 1, started, completed: new Date().toISOString(),
   dsh: baselineRevision, platform: manifest.bundles[0].target,
   transport: 'system-ssh/podman-exec', containers: 2, containerNetwork: 'none', sshServerInContainer: false,
   containersRemoved: true, checks,
   limits: ['Source composition with unchanged Web activation controllers; no browser or complete Web profile',
-    'Known unprepared Web create and cold-resume gaps prevent shipping the Project experiment as a Web integration'],
+    'Known unprepared Web create and cold-resume gaps prevent shipping the PortableWorkspace experiment as a Web integration'],
 }, null, 2) + '\n');
-console.log('PASS two-container Project acceptance; both containers removed');
+console.log('PASS two-container PortableWorkspace acceptance; both containers removed');

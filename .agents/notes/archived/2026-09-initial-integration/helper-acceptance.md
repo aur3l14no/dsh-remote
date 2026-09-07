@@ -1,6 +1,6 @@
 # Helper implementation and platform acceptance plan
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 Status: helper 0.1.0 baseline and helper 0.1.1 client milestone accepted on 2026-09-05. Both versions passed all 13 executable behavior groups on each of the three specified platforms (39 platform-group passes per version). The Linux runs used system SSH and checksum-verified uploaded artifacts. The additional 0.1.1 client/DSH evidence is recorded in [client.md](client.md) and [milestone results](evidence/client-acceptance-results.json).
 

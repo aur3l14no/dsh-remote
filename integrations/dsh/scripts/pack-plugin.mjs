@@ -11,7 +11,7 @@ if (!process.argv[2]) throw new Error('Usage: node integrations/dsh/scripts/pack
 assertUnchangedSource(root);
 const source = resolve('.');
 const sourceRoots = ['runtime/client', 'runtime/ssh', 'integrations/dsh/plugins/ssh-world'].map(path => resolve(path) + '/');
-const isProjectSource = file => sourceRoots.some(root => resolve(file).startsWith(root));
+const isRepositorySource = file => sourceRoots.some(root => resolve(file).startsWith(root));
 const output = resolve('target/plugin');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -19,15 +19,15 @@ const manifest = JSON.parse(readFileSync('integrations/dsh/packaging/plugin.pack
 writeFileSync(join(output, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
 await cp('integrations/dsh/packaging/README.md', join(output, 'README.md'));
 await cp('LICENSE', join(output, 'LICENSE'));
-// Bundle only this project's implementation. DSH/Cordis retain their host-owned identity.
+// Bundle only this repository's implementation. DSH/Cordis retain their host-owned identity.
 const result = await build({
   entryPoints: { ...Object.fromEntries(Object.entries({ worlds: 'worlds', routing: 'routing', fs: 'routed-fs', subprocess: 'routed-subprocess', bindings: 'bindings' })
     .map(([entry, file]) => [entry, join(source, 'integrations/dsh/plugins/ssh-world/src', `${file}.ts`)])), client: join(source, 'runtime/client/src/index.ts') },
   outdir: join(output, 'lib'), bundle: true, splitting: true, format: 'esm', platform: 'node', target: 'node24',
   packages: 'external', metafile: true,
 });
-if (Object.keys(result.metafile.inputs).some(file => file.includes('node_modules') || !isProjectSource(file))) {
-  throw new Error('Plugin bundle contains code outside this project');
+if (Object.keys(result.metafile.inputs).some(file => file.includes('node_modules') || !isRepositorySource(file))) {
+  throw new Error('Plugin bundle contains code outside this repository');
 }
 const upstream = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(upstream).map(([name, values]) => [name, values.map(value => {
@@ -40,12 +40,12 @@ const program = ts.createProgram(own, {
   strict: true, skipLibCheck: true, declaration: true, emitDeclarationOnly: true, allowImportingTsExtensions: true,
   paths, types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
-const errors = ts.getPreEmitDiagnostics(program).filter(d => !d.file || isProjectSource(d.file.fileName));
+const errors = ts.getPreEmitDiagnostics(program).filter(d => !d.file || isRepositorySource(d.file.fileName));
 if (errors.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(errors, {
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: name => name, getNewLine: () => '\n',
 }));
-// Emit public declarations plus this project's relative type dependencies, never upstream declarations.
-for (const file of program.getSourceFiles().filter(file => isProjectSource(file.fileName))) {
+// Emit public declarations plus this repository's relative type dependencies, never upstream declarations.
+for (const file of program.getSourceFiles().filter(file => isRepositorySource(file.fileName))) {
   program.emit(file, (_name, content) => {
     const target = join(output, 'types', relative(source, file.fileName).replace(/\.ts$/, '.d.ts'));
     mkdirSync(dirname(target), { recursive: true }); writeFileSync(target, content);

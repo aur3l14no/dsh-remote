@@ -1,6 +1,6 @@
 # External plugin package
 
-> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-project-web.md).
+> Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
 `@dsh-remote/ssh-world@0.1.0-alpha.2` is a private development tarball. It contains this project's compiled implementation, type declarations and Loader entry points. DSH/Cordis remain external dependencies. Helper and ripgrep binaries are supplied through the existing trusted manifest/cache workflow. Alpha.2 adds the optional pinned [Podman entry](podman.md).
 
