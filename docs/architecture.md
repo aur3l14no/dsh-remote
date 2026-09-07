@@ -20,10 +20,10 @@ DSH 是本地 Agent 宿主；dsh-remote 是它的远程执行与项目集成层�
 | Service Provider / runtime owner | ExecutionWorlds 管理 World 连接，FS 与 subprocess 共享同一 runtime | [plugins/ssh-world](../integrations/dsh/plugins/ssh-world/)，已有 |
 | FileSystem provider | resolve/stat/read/write/edit/stream，远程目标带 World 与 runtime 身份 | ssh-world/src/fs.ts，已有 |
 | SubprocessRuntime provider | argv、cwd、env、pipe、信号、取消、PTY 与输出句柄 | ssh-world/src/subprocess.ts、terminal.ts，已有 |
-| Tool Consumer | 复用原生 read/write/edit/search 和适配过的 shell/terminal 消费者 | provider fixture 已验收；完整 profile 尚未交付 |
+| Tool Consumer | 复用原生 read/write/edit/search 和适配过的 shell/terminal 消费者 | remote Web preset 已装配文件/搜索/前台 Bash；PTY 仍为底层能力 |
 | Agent preset / realm | standing preset 的隔离组让 routers 与消费者看到同一服务实例；不是每个 Agent 重注册工具 | routing.ts 及集成测试，已有 |
 | Agent / Session | Session ID → binding → World；Agents 由 DSH 创建和恢复 | bindings.ts、worlds.ts，已有 |
-| Workspace / portable_workspace | portable_workspace 是 World × 远端 canonical workspace，成员关联到原生 Session | [portable_workspace 实验](../integrations/dsh/experiments/portable_workspace/)，待产品化 |
+| Workspace / portable_workspace | portable_workspace 是 World × 远端 canonical workspace，成员关联到原生 Session | [portable_workspace plugin](../integrations/dsh/plugins/portable_workspace/)，持久 registry 与 Web UI |
 | Tool allow/deny | 由 DSH 原生过滤决定可调用工具，不用于选择本地/远端 | 本项目验证继承，不复制过滤引擎 |
 | Jobs / terminal ownership | 原生 owner-aware 服务管理 Session 的任务；helper 管理底层进程句柄 | 集成 fixture；共享路由的非工具调用仍需验证 |
 | Approval | 外部审批能力使用 World、cwd、操作事实 | 已暴露执行上下文；完整审批策略不由 helper 实现 |
@@ -34,7 +34,7 @@ DSH 是本地 Agent 宿主；dsh-remote 是它的远程执行与项目集成层�
 
 ## 身份与生命周期
 
-World catalog 描述环境；portable_workspace 选择该环境中的目录。当前 v1 `WorldDefinition` 同时包含 SSH 坐标与 cwd，是具体执行绑定，不能直接当成不含 workspace 的 catalog 条目。现有 portable_workspace 实验为每个项目生成具体 binding ID，保留 v1 数据含义。
+World catalog 描述环境；portable_workspace 选择该环境中的目录。当前 v1 `WorldDefinition` 同时包含 SSH 坐标与 cwd，是具体执行绑定，不能直接当成不含 workspace 的 catalog 条目。portable_workspace registry 为每个组合生成具体 binding ID，保留 v1 数据含义。
 
 Session 的持久绑定不可改向。恢复以该绑定为权威，不以当前 UI 选择、同名路径或 SSH 连接是否存在为依据。子 Agent 默认继承；跨 World 使用独立 Session 和显式协作能力，不在现有 Agent 内偷偷切换环境。
 
@@ -42,28 +42,28 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 
 ## 补丁与新插件的分工
 
-**下表是已选择的维护边界，不是已应用的补丁清单。** 当前 [series.json](../integrations/dsh/patches/series.json) 固定基线并登记首个 Session 准入补丁；其余仍是规划，实际改动以该文件和对应验收为准。
+[series.json](../integrations/dsh/patches/series.json) 是固定上游 revision、已应用补丁及摘要的唯一来源。当前补丁涉及 **4 个原生包**；编译依赖闭包不等于修改这些依赖。
 
-| 原生包（省略 @deepseek-ai/） | 维护方式 | 职责 |
-| --- | --- | --- |
-| dsh-api-session-controller | 首个补丁已实现，源码 gate 通过 | 创建/接管/恢复/fork 的统一异步 World 准备，远程目录操作不落到本地 |
-| dsh-tool-fs | 补丁 | provider 负责远程路径解析，消除工具层本地 canonicalization |
-| dsh-sandbox-policy | 补丁候选 | 从已准备的 World 获取根目录；不伪装成本地 sandbox 的远程实现 |
-| dsh-agent-instructions | 补丁候选 | 非工具阶段按 Agent 取具体 FS，区分本地全局与远程项目指令 |
-| dsh-workspace | 新 portable_workspace registry 接替 | 环境限定的身份、成员、状态、恢复、归档和排序 |
-| dsh-api-workspace-controller | 新 portable_workspace API/feed 接替 | World-aware 创建与真实存储的增量投影 |
-| dsh-client-ui-workspace | 新 portable_workspace UI/navigation 接替 | World 选择、远程目录选择与显示，保留通用对话所需接口 |
-| dsh-skill-filesystem | 新项目 skill provider 接替远程部分 | 远程技能发现，保持有意配置的本地全局技能独立 |
-| dsh-file-reference-local | 新 remote file-reference provider 接替 | Agent 所属 World 中的文件补全 |
+| 原生包（省略 @deepseek-ai/） | 补丁职责 |
+| --- | --- |
+| dsh-api-session-controller | 创建/接管/恢复/fork 前等待异步准入；保留无适配器时的原生本地行为 |
+| dsh-api-workspace-controller | 接受可选 registry feed；继续复用原生 Remote、client store 与 rename/delete/archive/order 命令 |
+| dsh-tool-bash | 接受可选 workdir resolver；远端 profile 使用 Agent 所属 FS 解析，失败不回退宿主 |
+| dsh-tool-fs | 处理 parent traversal 前通过已注入 FS 解析 cwd；不使用宿主同名目录 |
 
-补丁提供通用宿主接口，不嵌入 SSH/helper 逻辑。新插件实现 World/portable_workspace 业务；profile 选择哪些 provider/consumer 被装配。编译更多包不等于 fork 更多包。9 个职责是规划范围，包含替换成本；附件跨环境传输、Session 引用、严格子 Agent 原子准入和 LSP 另行定界，见 [当前计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)。
+外部 `portable_workspace` plugin 替换原生 Workspace registry 与 UI/navigation，新增 World-explicit 创建 Remote 和持久状态 feed；`session-admission` 负责绑定校验与准备；`ssh-world` 负责具体能力和路由。它们复用 DSH 的 Agent/Session、对话、工具注册与执行，不复制模型循环。
 
+remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 preset 隔离域，只发布 `remote` preset。连接器和 Session/control state 留在宿主。feed 与 Remote namespace 有独立激活边界，必须先于依赖它们的 controller/UI 可见，不能依赖 Loader 的偶然启动顺序。
+
+当前 Web 插件由脚本输出到 `target/web-plugin`、`target/web-plugin-ui`，profile 的安装锚点位于 `target/web-profile`。宿主 DSH 依赖保留为外部包，浏览器使用上游 client module factory 协议。源码构建、包依赖装配与公开 npm 发行是不同验收层次。
+
+项目 instructions、项目 skill 和 remote file-reference 的适配仍在[阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)中；它们没有作为当前 profile 能力发布。
 ## 目录所有权
 
 - `runtime/`：DSH 无关的 Rust helper 与 TypeScript client/SSH 库；两个 npm workspace 使用显式路径，不把 Rust crate 当成 npm 包。
-- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 已打包，session-admission 仅用于 patched-host 源码装配，不为未实现能力创建空包。
+- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 有独立打包入口；session-admission 与 portable_workspace 用于固定 patched Web 源码装配。
 - `integrations/dsh/patches/`：上游基线与有序补丁；不存上游完整源码或 node_modules。
 - `integrations/dsh/profiles/`：宿主装配边界；仅在真实 Loader 验证后收录可运行 profile。
-- `integrations/dsh/experiments/`：不随插件发行的可执行实验；已有 portable_workspace 实验是迁移输入。
+- `integrations/dsh/experiments/`：不随插件发行的可执行实验；portable_workspace 实验复用维护中的 registry，保留原生宿主的缺口负例。
 - `integrations/dsh/tests/`、`scripts/`、`packaging/`：宿主兼容验证和发行适配；通用 client/SSH 测试归入 runtime/tests/。
 - `docs/`：稳定的用户/维护者说明；`.agents/notes/`：计划、取舍、实验和按时间记录的证据。

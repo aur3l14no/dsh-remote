@@ -10,7 +10,7 @@ Status: proposed
 
 交付本地 DSH Web 中可选择 World×workspace 的项目，保留原生 Agent、Session 与对话，所有受支持的 workspace IO/进程在绑定 World 中执行。固定当前 DSH revision，维护窄补丁和显式 profile；不等待上游 PR，不使用 Fake portable_workspace，不改 Session JSONL schema。
 
-Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 已登记第一个 Session 准入补丁；其余包级审计仍是规划，不等于已实现。
+Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 当前登记 4 个原生包的补丁：Session admission、Workspace feed、Bash workdir、FS cwd。其余包级审计仍是规划。
 
 ## Stages and dependencies
 
@@ -18,18 +18,22 @@ Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状
 | --- | --- | --- |
 | M0 结构维护（已完成） | runtime/{helper,client,ssh}/、integrations/dsh/；精简 docs；notes lifecycle；迁移 imports/build/package 声明 | 根 Cargo/npm、DSH 类型检查、bundle/package consumer 和文档链接通过；原始 JSON 保真 |
 | M1 执行边界准入（部分） | 按 consumer 清单确定 local control / explicit local connector / remote workspace；定界 skill 指令、脚本、依赖和 transfer | 不依靠名称黑白名单或提示词猜执行环境；每个启用 consumer 有 Agent/World 选择依据；缺失本地脚本不会被偷偷本地运行 |
-| M2 Host admission 补丁（首个源码切片已实现） | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
-| M3 portable_workspace 插件与 Web | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
-| M4 远程编码消费者 | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
+| M2 Host admission 补丁（源码与 browser/SSH 已验收） | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
+| M3 portable_workspace 插件与 Web（核心链路已验收） | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
+| M4 远程编码消费者（文件/搜索/前台 Bash 已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
 | M5 可维护开发者发行 | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
 
-已固定首个准入 fixture 的 consumer 范围，见 integrations/dsh/profiles/README.md；M1 的 Web Search 连接器验证和完整 consumer 准入未完成。M2 的独立源码 gate 已覆盖创建/接管、冷恢复、观察激活、Typert lookup 与 fork；完整 Web 宿主装配、传输层和 Linux/SSH 验证仍待完成。实现与证据见[首个 Session 准入切片](../../implemented/integration/2026-09-07-session-admission.md)。
+当前受限 remote profile 已通过真实 DSH Web + Chromium + 双 Linux/SSH World。覆盖显式 World/目录创建、同路径文件隔离、原生 fork、宿主冷启动 deep link 与新 runtime、取消后的远端进程退出、丢失 binding、停止容器与本地 Web Search 边界。完整记录见[Web/SSH 验收](../../implemented/integration/2026-09-07-web-ssh-acceptance.md)。
+
+M3 的管理命令已接入原生 rename/delete/reorder/archive API，浏览器目前提供选择、新建与 Session 导航；完整管理 UI 仍待补充。M4 尚缺项目 instructions/skills、file reference、子 Agent consumers、后台 jobs 和远程 policy。M5 已有可复现源码构建与 CI 定义，公开包安装、真实模型/真实外部搜索和 GitHub runner 运行记录仍未完成。不能把本轮通过改写成完整默认编码 profile 已交付。
 
 M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端；M4 是可用编码门槛，不可以“Web 打开了”替代。每完成阶段就改本 note 与相关 docs，只保留最新未决项。未实施步骤不创建空 plugin 或伪造可运行 profile。
 
 ## Patch / plugin ownership
 
-优先维护 4 个源码补丁候选：api-session-controller、tool-fs、sandbox-policy、agent-instructions。后三者的最终补丁/外部 provider 分工由 M1/M4 实验确认。5 个外部替代职责为 Workspace registry、Workspace API/feed、Workspace UI/navigation、远程项目 skill provider、file-reference provider。
+已实现 4 个包的窄补丁，以 series.json 为准。Workspace controller 保留原生 API/client，仅增加 registry-owned feed seam；World-aware 创建为外部 Remote。Bash workdir 通过可选 resolver 选定 Agent FS，tool-fs 在 parent traversal 前由 provider 解析 cwd。nativeOpen=false 同时禁止宿主桌面 handoff。
+
+sandbox-policy、agent-instructions 仍为候选；远程 skill/file-reference 仍为外部 provider 方向。portable_workspace registry 已迁入维护中的 plugin，原实验只保留 re-export 和 unchanged-source 负例，不维护第二份 registry。
 
 新 patch 必须记录包/源文件、准入输入、失败行为、local profile 回归和专门测试；只能在通过 patched-host gate 后进入 series.json。保持 unchanged-source 验收独立，不能删除脚本中的 dirty/revision guard 伪装兼容。
 
@@ -39,7 +43,7 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 1. 非 tools/execute 阶段以 Agent/owner 显式选择具体 provider，不依赖一个默认 World。列清 pre-step、skill catalog、file-reference、terminal 初始化、job 回调和 disposal 的传播点。
 2. 本地 user/bundled skill 与远程 portable_workspace skill 各自发现；内容的来源不会赋予本地 Shell 权。定义可支持的能力要求和不兼容报告；第一版不实现任意本地 CLI skill 自动执行。
-3. 本地网络连接器保持本地独立 service/tool，远端 workspace Shell 保持远端。当前没有 web search 安装或验收证据，M1 必须选择并验证实际需要的连接器才可宣称支持。
+3. 本地网络连接器保持本地独立 service/tool，远端 workspace Shell 保持远端。当前 profile 已装配原生 DeepSeek search provider，并通过受控宿主 HTTP 端点验证；外部服务可用性与连接器失败/取消仍待验收。
 4. 若某 skill 需要本地脚本处理远端文件，第一版应明确不支持或采用专门 API + 显式 transfer；不可自动上传任意路径、同步凭据或改写 shell 文本。
 5. bootstrap 本地控制命令不是模型可调用的 host-shell。保持 SSH 验证、目标账号权限和不复制本地 env 的机制。
 
@@ -60,7 +64,7 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 
 ## Web Search 重点验收
 
-优先级：作为 M1 的必选连接器边界验证，并在 M4 完整 consumer 装配和 M5 安装态验收中回归。状态：待选择实际连接器并实现测试；当前没有 Web Search 通过证据，不能用 grep/glob 文件搜索代替。
+优先级：作为 M1 的必选连接器边界验证，并在 M4 完整 consumer 装配和 M5 安装态验收中回归。状态：原生 Web Search provider + 受控宿主 HTTP 已通过浏览器验收；相同 Session 的远端 Bash 无法访问该 loopback 端点，且远端 env 中没有测试凭据。双 Session 并发、连接器失败/取消、技能组合与外部真实服务仍待覆盖。
 
 | 测试 | 必须观察到的行为 |
 | --- | --- |
@@ -108,6 +112,16 @@ M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端�
 **Fake portable_workspace。** 占位 cwd 会引入两种路径语义并影响指令、shell 和本地消费者；不作为本阶段身份方案。
 
 **自建或迁移 Harness。** 现有原生 Agent/Session 接口足以继续做局部补丁验证，暂不承担替换模型循环和对话引擎的成本。
+
+## 双 World E2E 与浏览器方法
+
+统一环境：本地 Mac/OrbStack 或 GitHub Ubuntu runner 为宿主，DSH、patch/plugin、Vitest 和 Playwright Chromium 都在宿主运行。两个 Docker 容器分别提供 sshd、Linux helper、独立 Git 仓库和同名 `/workspace`，不挂载宿主项目目录。入口为 `integrations/dsh/scripts/e2e.mjs -- COMMAND [ARGS...]`；配置接口和清理约定见 `integrations/dsh/tests/e2e/README.md`。
+
+沿用固定上游 `vitest.web.config.ts`、`apps/web/tests/scaffold.ts` 和 `workspace-management.e2e.ts` 的实践：构建真实 Web client，经 Loader 装配实际宿主，通过 Chromium 页面操作与真实 HTTP/WebSocket 触发行为；模型输出使用 keyless replay，远端 FS/process/SSH 不 mock。scaffold 已提供 `extraOverlayPath` / `extraInstallAnchors` 扩展点，后续 remote overlay 必须在 Agent 创建前替换本地 workspace consumers。
+
+准入 fixture 和受限 remote browser profile 均已接入真实双 SSH World；源码/controller gate 与浏览器 gate 独立。浏览器现已覆盖 World 选择、同路径隔离、新建/fork、冷启动深链接、缺失 binding、取消和停止 World。远端 worktree 仍按单独 edge case 延后。
+
+Web Search 延续 M1 必测要求：参考上游 `web-search-round.e2e.ts` 的真实 DeepSeek provider + 受控宿主 HTTP 服务 + 测试凭据，追加两个 World 的远端读写、请求执行地点和凭据不下发断言。不能用上游本地测试通过替代我们本地/远端边界的验收。
 
 ## Acceptance criteria
 

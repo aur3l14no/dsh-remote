@@ -1,0 +1,68 @@
+diff --git a/packages/fs/tool-fs/src/session-cwd.ts b/packages/fs/tool-fs/src/session-cwd.ts
+--- a/packages/fs/tool-fs/src/session-cwd.ts
++++ b/packages/fs/tool-fs/src/session-cwd.ts
+@@ -7,6 +7,7 @@
+  * @module @deepseek-ai/dsh-tool-fs/session-cwd
+  */
+ 
++import type { FileSystem } from '@deepseek-ai/dsh-fs'
+ import type { ToolExecution } from '@deepseek-ai/dsh-tools'
+ import { canonicalPath } from '@deepseek-ai/dsh-sandbox'
+ 
+@@ -32,12 +33,17 @@
+  * @param policyWorkspaceRoot - resolved per-call root, when a mutation carries sandbox policy.
+  * @returns provider resolution options for the current tool call.
+  */
+-export function sessionResolveOptions(
++export async function sessionResolveOptions(
+   exec: ToolExecution,
+   requestedPath: string,
+   policyWorkspaceRoot?: string,
+-): { cwd?: string; signal?: AbortSignal } {
+-  const cwd = policyWorkspaceRoot ?? sessionCwd(exec, requestedPath)
++  fileSystem?: FileSystem,
++): Promise<{ cwd?: string; signal?: AbortSignal }> {
++  const raw = exec.agent?.session.header.cwd
++  const needsIdentity = raw !== undefined && (PARENT_PATH_SEGMENT.test(raw) || PARENT_PATH_SEGMENT.test(requestedPath))
++  const cwd = policyWorkspaceRoot ?? (needsIdentity && fileSystem !== undefined
++    ? fileSystem.processPath(await fileSystem.resolve(raw, { signal: exec.signal }))
++    : sessionCwd(exec, requestedPath))
+   return {
+     ...cwd !== undefined ? { cwd } : {},
+     signal: exec.signal,
+diff --git a/packages/fs/tool-fs/src/read-target.ts b/packages/fs/tool-fs/src/read-target.ts
+--- a/packages/fs/tool-fs/src/read-target.ts
++++ b/packages/fs/tool-fs/src/read-target.ts
+@@ -21,7 +21,7 @@
+   exec: ToolExecution,
+   requestedPath: string,
+ ): Promise<{ target: FsTarget; info: FsInfo }> {
+-  const target = await ctx.fs.resolve(requestedPath, sessionResolveOptions(exec, requestedPath))
++  const target = await ctx.fs.resolve(requestedPath, await sessionResolveOptions(exec, requestedPath, undefined, ctx.fs))
+   const info = await ctx.fs.stat(target, exec.signal)
+   if (info === undefined) {
+     ctx.emit('fs/observed', target, { kind: 'absent' }, exec)
+diff --git a/packages/fs/tool-fs/src/write.ts b/packages/fs/tool-fs/src/write.ts
+--- a/packages/fs/tool-fs/src/write.ts
++++ b/packages/fs/tool-fs/src/write.ts
+@@ -104,7 +104,7 @@
+       // > backend default, plus the session cwd root) BEFORE anything executes;
+       // an escalating call throws its distinct text on any non-grant.
+       const sandboxPolicy = await sandbox.resolvePolicy('write', args, exec)
+-      const target = await ctx.fs.resolve(input.filePath, sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot))
++      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs))
+       // Single-slot decision: the policy plugin produces createIfAbsent/
+       // replaceIfVersion; the bare default is undefined (unconditional). No stat.
+       const intent = await ctx.waterfall('fs/write-intent', target, exec, () => undefined)
+diff --git a/packages/fs/tool-fs/src/edit.ts b/packages/fs/tool-fs/src/edit.ts
+--- a/packages/fs/tool-fs/src/edit.ts
++++ b/packages/fs/tool-fs/src/edit.ts
+@@ -113,7 +113,7 @@
+       // Resolve the per-call sandbox policy (approved mode > session override
+       // > backend default, plus the session cwd root) BEFORE anything executes.
+       const sandboxPolicy = await sandbox.resolvePolicy('edit', args, exec)
+-      const target = await ctx.fs.resolve(input.filePath, sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot))
++      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs))
+       // Single-slot decision: the policy plugin returns { version: vObserved } or
+       // throws FS_NOT_OBSERVED; the bare default is undefined (unconditional edit).
+       // No stat — the bare default never manufactures a version basis. The intent

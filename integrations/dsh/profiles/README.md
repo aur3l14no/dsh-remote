@@ -1,24 +1,21 @@
-# Remote profile composition
+# Remote Web composition
 
-No complete runnable remote Web profile is shipped yet. A composition fixture is not a profile installation.
+`remote/cordis.patch.yml` is the host overlay; `remote/agent.cordis.yml` is its standing Agent preset. Use them with the pinned patched source and the generated Web plugin packages. This is a source-composition entry, not a published Web npm distribution.
 
-The remote profile will select World-aware portable_workspace services, patched admission, a standing preset with remote providers and verified consumers, local model/history services, and explicit local connector capabilities. It must exclude unadapted local workspace discovery, file-reference/skill providers and local sandbox runners. Shell choice is based on the target environment, not process.platform of the local host.
-
-A local web-search API client may remain local; a curl command issued through remote Shell runs remotely. Do not route by tool names or silently enable a general local shell. Preserve DSH's native tool filtering and surface truthful World facts to approval.
-
-Add runnable config only after Loader + cold activation + browser acceptance. See [execution boundaries](../../../docs/execution-boundaries.md) and [phase plan](../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).
-
-## Initial admission fixture scope
-
-This is the implemented patched-host fixture's consumer scope, not a production profile:
-
-| Capability | Execution and current coverage |
+| Owner | Mounted behavior |
 | --- | --- |
-| Agent/Session/model selection | Local native services; real JSONL and preset mounting, no real model request |
-| portable_workspace selection | Explicit experimental registry; remote provider validates an existing canonical directory |
-| Workspace files | Bound World FS provider and native file tools; no local cwd fallback |
-| Lifecycle | Patched create/adopt/resume/observed activation/Typert lookups/fork, with explicit admission adapter |
-| Shell/search/PTY | Existing independent provider/consumer fixtures; not expanded into the admission fixture |
-| Web Search | Not mounted or verified yet; mandatory M1 connector boundary work remains |
-| Instructions/skills/file references | Full remote discovery and non-tool propagation pending M4; do not add native local workspace providers implicitly |
-| Upload/native desktop opener/worktree | Excluded from this fixture; a future remote profile must disable native workspace opening until adapted, and define explicit attachment transfer |
+| DSH host | Native model route, Agent/Session, JSONL, browser transport, tool registry/filtering and local Web connector |
+| portable_workspace plugin | World catalog, canonical remote directory registration, immutable membership, durable feed and browser selection/navigation |
+| session-admission plugin | Prepare and validate the saved binding before create/adopt/resume/fork |
+| remote preset | Isolated FS/subprocess/shell/workdir services; native read/write/edit, grep/glob, foreground Bash and Web tools |
+| Linux World | Workspace files, Git repository, commands and helper-owned process state |
+
+The overlay excludes native local Workspace discovery/navigation, directory picking, same-cwd Session references, local file references and local sandbox runners. It disables the native desktop path opener and discovery of unadapted presets. Bash requests a 16 MiB spill cap, matching the helper's advertised per-stream budget; unsupported resource requests still fail explicitly.
+
+Host configuration is supplied as `DSH_REMOTE_CONFIG`: `{worlds, bindingFile, bootstrap}`. `worlds` contains explicit catalog entries; `bindingFile` must be an initialized private local BindingStore; `bootstrap` supplies the trusted platform manifest and artifact cache. The E2E launcher creates these inputs without reading private developer targets.
+
+World registration accepts an existing absolute directory. Browser navigation preserves `?session=…`; cold activation uses the saved binding. A blank Session may be reused only within its registered portable_workspace. Fork copies the native conversation boundary and retains the same binding; it does not create a Git worktree.
+
+Project instructions/skills, file completion, subagent consumers, background jobs, attachment transfer and remote sandbox enforcement are outside this preset. Native attachment storage remains local. Do not add their default local consumers implicitly. A local skill's command still needs an explicitly supported capability; no general host shell or automatic script transfer is provided.
+
+See [E2E commands](../tests/e2e/README.md), [execution boundaries](../../../docs/execution-boundaries.md), and [remaining plan](../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).

@@ -1,0 +1,30 @@
+diff --git a/packages/shell/tool-bash/src/index.ts b/packages/shell/tool-bash/src/index.ts
+--- a/packages/shell/tool-bash/src/index.ts
++++ b/packages/shell/tool-bash/src/index.ts
+@@ -25,6 +25,14 @@
+ import type { ShellRunResult } from '@deepseek-ai/dsh-shell'
+ import { processOutcome } from './background.ts'
+ import { parseExitStatus, renderProcessRead, renderResult } from './render.ts'
++
++/** Optional execution-domain workdir resolver; failure never falls back to host paths. */
++export interface ToolBashWorkdir {
++  resolve(exec: ToolExecution, requested: string | undefined, policyRoot: string | undefined): Promise<string | undefined>
++}
++declare module '@deepseek-ai/cordis' {
++  interface Context { toolBashWorkdir: ToolBashWorkdir }
++}
+ 
+ export const name = 'tool-bash'
+ export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv']
+@@ -336,7 +344,10 @@
+       const policy = approvedMode === undefined
+         ? standingPolicy
+         : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
+-      const workdir = resolveWorkdir(args.workdir, exec, standingPolicy?.workspaceRoot)
++      const resolver = ctx.get('toolBashWorkdir')
++      const workdir = resolver === undefined
++        ? resolveWorkdir(args.workdir, exec, standingPolicy?.workspaceRoot)
++        : await resolver.resolve(exec, args.workdir, standingPolicy?.workspaceRoot)
+       const dshEnv = ctx.shellEnv.collect(exec)
+       const request = {
+         command: args.command,

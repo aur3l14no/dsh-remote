@@ -1,4 +1,4 @@
-/** Patched native Web admission, using real Agent/Session services and native helper fixtures. */
+/** Patched native Web admission, using real Agent/Session services and native or real SSH helper fixtures. */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, realpath, rm, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -30,25 +30,31 @@ import { ApiSessionAgentController } from '@dsh-test/web-agent';
 import { SessionCommandController } from '@dsh-test/web-commands';
 import { installModelSelectionProjection } from '@dsh-test/web-model-selection-projection';
 import { BindingStore } from '../../plugins/ssh-world/src/bindings.ts';
-import { executionWorldsPlugin } from '../../plugins/ssh-world/src/worlds.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../plugins/ssh-world/src/worlds.ts';
 import * as Routing from '../../plugins/ssh-world/src/routing.ts';
 import PortableWorkspaces, { type CatalogWorld } from '../../experiments/portable_workspace/registry.ts';
 import * as Admission from '../../plugins/session-admission/src/index.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 
 const phase = process.argv[2];
+const ssh = Boolean(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG);
+const markerFor = (index: number) => ssh ? `world-${index}` : 'native-shared-directory';
 interface Selection { worlds: CatalogWorld[]; path: string }
 interface Saved { portableWorkspaceIds: string[]; sessionIds: string[]; runtimeIds: string[] }
 if (!phase) {
   const base = await mkdtemp('/tmp/dsh-portable_workspace-experiment.');
   try {
     await mkdir(`${base}/workspace`);
-    const selection: Selection = { worlds: ['a', 'b'].map(id => ({ id, name: `World ${id}`, target: { kind: 'ssh', host: 'native-acceptance.invalid' } })),
+    const selection: Selection = ssh ? JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG!, 'utf8')) : { worlds: ['a', 'b'].map(id => ({ id, name: `World ${id}`, target: { kind: 'ssh', host: 'native-acceptance.invalid' } })),
       path: await realpath(`${base}/workspace`) };
     assert.equal(selection.worlds.length, 2, 'Acceptance requires two configured Worlds');
     await writeFile(`${base}/selection.json`, JSON.stringify(selection), { mode: 0o600 });
     BindingStore.create(`${base}/bindings.json`);
     for (const phase of ['create', 'resume', 'observed-resume', 'lookup-resume', 'missing', 'changed', 'unavailable', 'unbound', 'local-create', 'local-resume']) {
+      if (ssh && phase === 'unavailable') {
+        console.log('SKIP native transport fault injection; real SSH disconnection is not covered by this fixture');
+        continue;
+      }
       const child = spawn(process.execPath, [fileURLToPath(import.meta.url), phase, base],
         { stdio: 'inherit', signal: AbortSignal.timeout(180000) });
       await new Promise<void>((accept, reject) => {
@@ -63,7 +69,7 @@ if (!phase) {
   const selection: Selection = JSON.parse(await readFile(`${base}/selection.json`, 'utf8'));
   const ctx = new Context();
   let connections = 0;
-  const rg = resolve(process.env.DSH_TEST_RG!);
+  const rg = ssh ? '' : resolve(process.env.DSH_TEST_RG!);
   try {
     ctx.baseUrl = pathToFileURL(`${base}/`).href;
     await ctx.plugin(Loader);
@@ -77,14 +83,14 @@ if (!phase) {
     await ctx.plugin(ToolRuntime, { mode: 'native' });
     await ctx.plugin(AgentDefaultModel, { provider: 'test', model: 'test' });
     installModelSelectionProjection(ctx);
-    const provider = executionWorldsPlugin(async definition => {
+    const provider = ssh ? ExecutionWorlds : executionWorldsPlugin(async definition => {
       connections++;
       if (phase === 'unavailable') throw new Error('Selected World transport is unavailable');
       const r = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
       return { client: r.client, ripgrep: rg, close: () => r.close() };
     });
     await ctx.plugin(provider, { bindingFile: `${base}/bindings.json`, packagedRipgrep: await SearchTools.resolveRgPath(),
-      bootstrap: { manifest: {}, cacheDir: base, graceMs: 15000, leaseMs: 5000 } });
+      bootstrap: { manifest: ssh ? JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST!, 'utf8')) : {}, cacheDir: ssh ? process.env.DSH_TEST_ARTIFACT_CACHE! : base, graceMs: 15000, leaseMs: 5000 } });
     await ctx.plugin(AgentLoop, { agents: [] });
     await mkdir(`${base}/shared`, { recursive: true });
     await writeFile(`${base}/shared/agent.cordis.yml`, JSON.stringify(phase.startsWith('local-') ? [] : [
@@ -121,7 +127,7 @@ if (!phase) {
         assert.ok('agent' in result);
         assert.equal(result.agent.session.header.cwd, `${base}/local-session`);
       }
-      assert.equal(connections, 0);
+      if (!ssh) assert.equal(connections, 0);
       assert.equal(ctx.executionWorlds.bindings.get('local-regression'), undefined);
       console.log(`PASS unconfigured host preserves native ${phase} without remote binding`);
     } else if (phase === 'create') {
@@ -142,10 +148,10 @@ if (!phase) {
         assert.ok('agent' in resolved); assert.equal(resolved.agent.id, id);
         assert.deepEqual(portableWorkspace.sessionIds, [id]);
         const owner = ctx.executionWorlds.forAgent(ctx.agents.get(id));
-        const marker = 'native-shared-directory';
+        const marker = markerFor(index);
         await owner.fs.writeText(await owner.fs.resolve('portable_workspace-marker.txt'), marker);
       }
-      for (const [index, id] of ids.entries()) await readMarker(id, 'native-shared-directory');
+      for (const [index, id] of ids.entries()) await readMarker(id, markerFor(index));
       assert.equal(serviceForAgent(ctx, ctx.agents.get(ids[0]!)!, 'fs'), serviceForAgent(ctx, ctx.agents.get(ids[1]!)!, 'fs'));
       await assert.rejects(b.attachSession(ids[0]!), { code: 'WORLD_MISMATCH' });
       console.log('PASS patched Web creates and adopts bound Agents directly under one shared preset');
@@ -173,7 +179,7 @@ if (!phase) {
       const fork = await apiCommands.fork({ sessionId: ids[0]! });
       assert.deepEqual(ctx.executionWorlds.bindings.get(fork.sessionId), ctx.executionWorlds.bindings.get(ids[0]!));
       assert.ok(a.sessionIds.includes(fork.sessionId));
-      await readMarker(fork.sessionId, 'native-shared-directory');
+      await readMarker(fork.sessionId, markerFor(0));
       console.log('PASS native Web fork commits the source World binding before Agent execution');
       const admission = ctx.get('apiSessionAdmission')!;
       const originalPrepare = admission.prepare;
@@ -205,7 +211,7 @@ if (!phase) {
         assert.ok('error' in result);
         await assert.rejects(apiCommands.create({ workspaceId: portableWorkspaceId, sessionId }));
         assert.equal(ctx.agents.get(sessionId), undefined);
-        assert.equal(connections, phase === 'unavailable' ? 1 : 0);
+        if (!ssh) assert.equal(connections, phase === 'unavailable' ? 1 : 0);
         console.log(`PASS ${phase} World or binding prevents resume and explicit-id redirection`);
       } else {
         if (phase === 'observed-resume') {
@@ -239,7 +245,7 @@ if (!phase) {
           const adopted = await apiCommands.create({ workspaceId: portableWorkspaceId, sessionId });
           assert.equal(adopted.sessionId, id);
           assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorld.client.info.runtime, saved.runtimeIds[index]);
-          await readMarker(sessionId, 'native-shared-directory');
+          await readMarker(sessionId, markerFor(index));
         }
         console.log('PASS native Web resolves saved World and restores JSONL without an external preparation call');
       }

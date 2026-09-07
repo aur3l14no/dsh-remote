@@ -17,7 +17,8 @@ await rm(output, { recursive: true, force: true }); await mkdir(output, { recurs
 const plugin = join(output, 'node_modules/@dsh-remote/ssh-world');
 await mkdir(plugin, { recursive: true });
 execFileSync('tar', ['-xf', resolve('target/packages', buildRecord.package), '--strip-components=1', '-C', plugin]);
-writeFileSync(join(output, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
+// The bundled LLM attribution code resolves ../package.json from lib/.
+writeFileSync(join(output, 'package.json'), await readFile(join(root, 'packages/llm/llm/package.json')));
 const paths = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const consumer = join(output, 'consumer.ts');
 writeFileSync(consumer, `import WorldService, { type Config, type WorldConnector } from '@dsh-remote/ssh-world';
@@ -74,7 +75,7 @@ const remotes = new Map([
   [resolve('integrations/dsh/plugins/ssh-world/src/bindings.ts'), '@dsh-remote/ssh-world/bindings'],
   [resolve('runtime/client/src/index.ts'), '@dsh-remote/ssh-world/client'],
 ]);
-const result = await build({ entryPoints: ['integrations/dsh/tests/integration/session-routing.ts'], outfile: join(output, 'accept.mjs'),
+const result = await build({ entryPoints: ['integrations/dsh/tests/integration/session-routing.ts'], outfile: join(output, 'lib/accept.mjs'),
   bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', metafile: true,
   plugins: [{ name: 'installed-plugin', setup(builder) {
     builder.onResolve({ filter: /(?:ssh-world|client)\/src\// }, ({ path, resolveDir }) => {
@@ -87,4 +88,5 @@ const result = await build({ entryPoints: ['integrations/dsh/tests/integration/s
 if (Object.keys(result.metafile.inputs).some(file => file.includes('integrations/dsh/plugins/ssh-world/'))) throw new Error('Host fixture bundled plugin source');
 const external = new Set(Object.values(result.metafile.outputs).flatMap(output => output.imports.filter(i => i.external).map(i => i.path)));
 for (const name of remotes.values()) if (!external.has(name)) throw new Error(`Fixture did not consume package entry: ${name}`);
+writeFileSync(join(output, 'accept.mjs'), "import './lib/accept.mjs';\n");
 console.log(`Unpacked plugin and prepared pinned-source host: ${join(output, 'accept.mjs')}`);

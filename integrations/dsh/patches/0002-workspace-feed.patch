@@ -1,0 +1,33 @@
+diff --git a/packages/api/workspace-controller/src/index.ts b/packages/api/workspace-controller/src/index.ts
+--- a/packages/api/workspace-controller/src/index.ts
++++ b/packages/api/workspace-controller/src/index.ts
+@@ -27,7 +27,13 @@
+   interface Context {
+     /** Host Workspace business API and Remote namespace owner. */
+     workspaceController: WorkspaceController
++    /** Optional registry-owned feed; installed before the controller activates. */
++    workspaceFeed: WorkspaceFeedSource
+   }
++}
++
++export interface WorkspaceFeedSource {
++  follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame>
+ }
+ 
+ /** Host service backing the generated `ctx.remote.workspace` namespace. */
+@@ -35,13 +41,13 @@
+   static inject = ['typert', 'workspaceRegistry']
+ 
+   private readonly commands: WorkspaceCommands
+-  private readonly feed: WorkspaceFeed
++  private readonly feed: WorkspaceFeedSource
+ 
+   /** @param ctx - Host context containing the Workspace registry. */
+   constructor(ctx: Context) {
+     super(ctx, 'workspaceController', { namespace: 'workspace' })
+     this.commands = new WorkspaceCommands(ctx)
+-    this.feed = new WorkspaceFeed(ctx)
++    this.feed = ctx.get('workspaceFeed') ?? new WorkspaceFeed(ctx)
+     // This package is the Loader entry for both Remote owners it hosts: the
+     // directory-picking seam is abstract and never an entry itself. The child
+     // stays pending until a picking backend is composed, so a host without one

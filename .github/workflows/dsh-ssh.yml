@@ -1,0 +1,48 @@
+name: DSH Web and SSH E2E
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - run: npm ci
+      - name: Checkout pinned DSH source
+        shell: bash
+        run: |
+          revision=$(node -p "JSON.parse(require('fs').readFileSync('integrations/dsh/patches/series.json')).revision")
+          repository=$(node -p "JSON.parse(require('fs').readFileSync('integrations/dsh/patches/series.json')).repository")
+          git init "$RUNNER_TEMP/dsh-source"
+          git -C "$RUNNER_TEMP/dsh-source" fetch --depth=1 "$repository" "$revision"
+          git -C "$RUNNER_TEMP/dsh-source" checkout --detach FETCH_HEAD
+      - name: Build and check patched host
+        run: node integrations/dsh/scripts/check-patched-host.mjs "$RUNNER_TEMP/dsh-source"
+      - name: Two Linux Worlds over real SSH
+        run: node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
+      - name: Build the patched Web host and plugins
+        run: node integrations/dsh/scripts/prepare-web-host.mjs "$RUNNER_TEMP/dsh-source"
+      - name: Install Chromium system dependencies
+        run: pnpm --dir target/web-host --filter @deepseek-ai/dsh-web-frontend exec playwright install-deps chromium
+      - name: Check Web plugin source
+        run: node integrations/dsh/scripts/check-web-plugin.mjs
+      - name: Browser over two Linux Worlds
+        run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
+      - name: Browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-browser-screenshots
+          path: target/web-*.png
+          if-no-files-found: ignore

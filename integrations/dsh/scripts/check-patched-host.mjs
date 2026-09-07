@@ -12,7 +12,7 @@ if (!upstream) throw new Error('Usage: node integrations/dsh/scripts/check-patch
 assertUnchangedSource(upstream);
 const series = JSON.parse(readFileSync(new URL('../patches/series.json', import.meta.url), 'utf8'));
 const patches = [...series.patches];
-if (process.argv[3]) patches.push({ file: process.argv[3] });
+for (const file of process.argv.slice(3)) patches.push({ file });
 if (!patches.length) throw new Error('No patches selected');
 const output = resolve('target/patched-host');
 const root = join(output, 'source');
@@ -26,8 +26,8 @@ for (const patch of patches) {
   const file = resolve('integrations/dsh/patches', patch.file);
   const sha256 = createHash('sha256').update(readFileSync(file)).digest('hex');
   if (patch.sha256 && patch.sha256 !== sha256) throw new Error(`Patch checksum mismatch: ${patch.file}`);
-  execFileSync('git', ['apply', '--no-index', '--check', file], { cwd: root });
-  execFileSync('git', ['apply', '--no-index', file], { cwd: root });
+  execFileSync('git', ['apply', '--no-index', '--check', file], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
+  execFileSync('git', ['apply', '--no-index', file], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
   applied.push({ file: patch.file, sha256 });
 }
 const rawPaths = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
@@ -51,7 +51,7 @@ if (errors.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(error
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n',
 }));
 await copyFile(join(root, 'packages/llm/llm/package.json'), join(output, 'package.json'));
-await build({ entryPoints: [entry], outfile: join(output, 'admission.mjs'), bundle: true, platform: 'node', format: 'esm',
+await build({ entryPoints: [entry], outfile: join(output, 'lib/admission.mjs'), bundle: true, platform: 'node', format: 'esm',
   target: 'node24', sourcemap: true, packages: 'external', external: ['@vscode/ripgrep', 'node-addon-require-builtin'],
   plugins: [{ name: 'patched-host-source', setup(builder) {
     builder.onResolve({ filter: /^(@deepseek-ai\/|@dsh-test\/web-)/ }, async ({ path }) => {
@@ -64,5 +64,6 @@ await build({ entryPoints: [entry], outfile: join(output, 'admission.mjs'), bund
     });
   } }],
 });
+writeFileSync(join(output, 'admission.mjs'), "import './lib/admission.mjs';\n");
 writeFileSync(join(output, 'build.json'), JSON.stringify({ revision: baselineRevision, patches: applied, candidate: !!process.argv[3] }, null, 2) + '\n');
 console.log('PASS patched host applied, typechecked and bundled; run target/patched-host/admission.mjs for behavior acceptance');

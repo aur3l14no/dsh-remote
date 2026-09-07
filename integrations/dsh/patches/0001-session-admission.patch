@@ -1,34 +1,4 @@
---- /dev/null
-+++ b/packages/api/session-controller/src/admission.ts
-@@ -0,0 +1,28 @@
-+/** Optional host policy, awaited before ordinary Session activation or adoption. */
-+import type { SessionId } from '@deepseek-ai/dsh-session'
-+import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
-+
-+export interface ApiSessionAdmissionRequest {
-+  readonly operation: 'create' | 'resume' | 'adopt' | 'fork'
-+  readonly sessionId: SessionId
-+  readonly cwd?: string
-+  readonly workspaceId?: WorkspaceId
-+  readonly sourceSessionId?: SessionId
-+  readonly checkPersistedIdentity?: boolean
-+}
-+
-+export interface ApiSessionAdmission {
-+  /** Owns directory preparation when installed; rejection never falls back to local mkdir. */
-+  prepare(request: ApiSessionAdmissionRequest): Promise<void>
-+}
-+
-+declare module '@deepseek-ai/cordis' {
-+  interface Context { apiSessionAdmission: ApiSessionAdmission }
-+}
-+
-+/** Admission failure must not be bypassed by raced-Agent adoption. */
-+export class ApiSessionAdmissionError extends Error {
-+  constructor(cause: unknown) {
-+    super(`Session admission failed: ${String(cause)}`, { cause })
-+  }
-+}
+diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
 --- a/packages/api/session-controller/src/agent.ts
 +++ b/packages/api/session-controller/src/agent.ts
 @@ -15,6 +15,8 @@
@@ -157,6 +127,7 @@
      } catch (error: unknown) {
        throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
      }
+diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
 --- a/packages/api/session-controller/src/commands.ts
 +++ b/packages/api/session-controller/src/commands.ts
 @@ -97,6 +97,7 @@
@@ -177,6 +148,7 @@
      const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
      try {
        const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
+diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
 --- a/packages/api/session-controller/src/index.ts
 +++ b/packages/api/session-controller/src/index.ts
 @@ -54,6 +54,7 @@
@@ -187,3 +159,55 @@
  export { ApiSessionNotFound } from './agent.ts'
  export { SessionFileReferences } from './file-references.ts'
  export { SessionSkillCatalog } from './skill-catalog.ts'
+@@ -286,6 +287,7 @@
+       )
+     }
+     signal.throwIfAborted()
++    if (!this.canOpenPath()) throw new RemoteError('gateway/bad-request', 'Native workspace opening is disabled for this host', {})
+     try {
+       await this.openPath(request.path, signal)
+       return { opened: true }
+diff --git a/packages/api/session-controller/src/admission.ts b/packages/api/session-controller/src/admission.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/api/session-controller/src/admission.ts
+@@ -0,0 +1,28 @@
++/** Optional host policy, awaited before ordinary Session activation or adoption. */
++import type { SessionId } from '@deepseek-ai/dsh-session'
++import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
++
++export interface ApiSessionAdmissionRequest {
++  readonly operation: 'create' | 'resume' | 'adopt' | 'fork'
++  readonly sessionId: SessionId
++  readonly cwd?: string | undefined
++  readonly workspaceId?: WorkspaceId
++  readonly sourceSessionId?: SessionId
++  readonly checkPersistedIdentity?: boolean
++}
++
++export interface ApiSessionAdmission {
++  /** Owns directory preparation when installed; rejection never falls back to local mkdir. */
++  prepare(request: ApiSessionAdmissionRequest): Promise<void>
++}
++
++declare module '@deepseek-ai/cordis' {
++  interface Context { apiSessionAdmission: ApiSessionAdmission }
++}
++
++/** Admission failure must not be bypassed by raced-Agent adoption. */
++export class ApiSessionAdmissionError extends Error {
++  constructor(cause: unknown) {
++    super(`Session admission failed: ${String(cause)}`, { cause })
++  }
++}
+diff --git a/packages/api/session-controller/tsconfig.host.json b/packages/api/session-controller/tsconfig.host.json
+--- a/packages/api/session-controller/tsconfig.host.json
++++ b/packages/api/session-controller/tsconfig.host.json
+@@ -10,6 +10,7 @@
+     "src/types.ts",
+     "src/remote-events.ts",
+     "src/agent.ts",
++    "src/admission.ts",
+     "src/assistant-stream.ts",
+     "src/catalog.ts",
+     "src/commands.ts",

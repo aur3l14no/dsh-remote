@@ -13,10 +13,11 @@ runtime/                        与 DSH 无关的执行层
   scripts/                      runtime 产物准备与上传
 integrations/dsh/
   plugins/ssh-world/             DSH World owner、FS/subprocess providers、路由
-  plugins/session-admission/     patched host 的源码准入适配器
+  plugins/session-admission/     patched host 的 Session 准入适配器
+  plugins/portable_workspace/    持久 registry、Web API/feed 与浏览器导航
   patches/                      固定上游基线及补丁序列
   profiles/                     DSH 应用装配约定
-  experiments/portable_workspace/    尚未产品化的 portable_workspace 实验
+  experiments/portable_workspace/    unchanged-source 缺口与显式入口实验
   tests/                        DSH binding 与集成验证
   scripts/                      DSH 类型检查、构建、打包及验收入口
   packaging/                    SSH plugin 发行清单
@@ -26,7 +27,11 @@ DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/
 
 ## 当前可用范围
 
-Rust helper 0.1.1、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现和验收记录。SSH 后可选进入一个已有 Podman 容器。portable_workspace 选择与显式创建/恢复仍是源码实验；已有第一个 Session 准入补丁和独立 patched-host 验证，覆盖直接创建、冷恢复与绑定校验；完整 Web profile 尚未实现。不能直接把默认 DSH Web 全量工具装配视为远程兼容。
+Rust helper 0.1.1、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现。SSH 后可选进入已有 Podman 容器。
+
+受限的 remote Web profile 通过真实 DSH Web、Playwright Chromium 与两个 Linux/SSH World 验收：显式选择 World 和目录、Session 创建/fork、远端读写与命令、宿主冷启动恢复和取消。宿主 Web Search 使用原生 DeepSeek provider 接入受控 HTTP 服务验证执行边界；不代表外部搜索服务可用性或真实模型质量验收。
+
+目前是固定上游的源码装配入口，尚未作为独立 Web npm 发行包发布。remote preset 仅装配已验证的文件、搜索、前台 Bash 和 Web 工具；项目 instructions/skills、文件补全、后台 jobs 和完整远程 sandbox 尚未纳入。不能将默认 DSH Web 的工具全集视为远程兼容。
 
 这不是一个把所有工具都搬到远程的系统。本地连接器与远程项目工具需要不同能力入口；本地 skill 的脚本不会自动同步，也不会自动在本地执行。详见 [执行边界与 edge cases](docs/execution-boundaries.md)。
 

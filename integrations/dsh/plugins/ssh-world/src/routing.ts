@@ -47,9 +47,16 @@ export function executionWorldContext(ctx: Context, subject: Agent | ToolExecuti
 
 export const name = 'ssh-world-routing';
 export const inject = ['executionWorlds', 'tools', 'systemPrompt'];
-export function apply(ctx: Context): void {
+export interface Config { providerPaths?: boolean }
+export function apply(ctx: Context, config: Config = {}): void {
   if (scopeOf(ctx) === undefined) throw new RemoteError('WORLD_REQUIRED', 'World routing belongs in a DSH preset');
   const worlds = ctx.executionWorlds;
+  if (config.providerPaths) ctx.provide('toolBashWorkdir', { async resolve(exec: ToolExecution, requested: string | undefined, policyRoot: string | undefined) {
+    const owner = worlds.forAgent(exec.agent);
+    const cwd = policyRoot ?? exec.agent?.session.header.cwd;
+    if (cwd === undefined) throw new RemoteError('WORLD_REQUIRED', 'Remote shell requires a Session workspace');
+    return owner.fs.processPath(await owner.fs.resolve(requested ?? cwd, { cwd, signal: exec.signal }));
+  } });
   const pending = new WeakMap<Agent, WorldDefinition>();
   ctx.on('agent/created', ({ agent }) => {
     if (worlds.bindings.get(agent.session.header.id)) { worlds.adopt(agent); return; }
@@ -70,7 +77,7 @@ export function apply(ctx: Context): void {
   ctx.tools.guard(exec => {
     try { worlds.forAgent(exec.agent); } catch (error) { return String(error); }
     const args = exec.arguments as { file_path?: unknown } | null;
-    if (['read', 'write', 'edit'].includes(exec.name) && typeof args?.file_path === 'string'
+    if (!config.providerPaths && ['read', 'write', 'edit'].includes(exec.name) && typeof args?.file_path === 'string'
         && /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(args.file_path)) return 'Pinned DSH tool-fs resolves parent paths locally; this request requires an upstream World-aware fix';
     return undefined;
   });
@@ -78,4 +85,3 @@ export function apply(ctx: Context): void {
   ctx.systemPrompt.context({ name: 'execution-world', order: -1000,
     text: context => `Execution World (workspace operations execute here):\n${JSON.stringify(executionWorldContext(ctx, context.agent!))}` });
 }
-

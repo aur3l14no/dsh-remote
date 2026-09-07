@@ -1,0 +1,24 @@
+- id: remote-capabilities
+  name: '@deepseek-ai/cordis-plugin-group'
+  isolate:
+    fs: true
+    subprocess: true
+    shell: true
+    toolBashWorkdir: true
+  config:
+    - name: '@dsh-remote/web/fs'
+    - name: '@dsh-remote/web/subprocess'
+    - name: '@dsh-remote/web/routing'
+      config:
+        providerPaths: true
+    - name: '@deepseek-ai/dsh-bash-local'
+      config:
+        maxSpillBytes: 16777216
+    - name: '@deepseek-ai/dsh-tool-bash'
+      config:
+        enableRunInBackground: false
+    - name: '@deepseek-ai/dsh-tool-fs'
+    - name: '@deepseek-ai/dsh-tool-fs-search'
+      config:
+        sampleOverCapGlobResults: false
+    - name: '@deepseek-ai/dsh-tool-web'

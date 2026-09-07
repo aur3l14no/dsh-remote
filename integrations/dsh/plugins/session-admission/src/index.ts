@@ -3,7 +3,7 @@ import type { ApiSessionAdmissionRequest } from '@deepseek-ai/dsh-api-session-co
 import { RemoteError } from '../../../../../runtime/client/src/index.ts';
 import type { WorldDefinition } from '../../ssh-world/src/bindings.ts';
 import type {} from '../../ssh-world/src/worlds.ts';
-import type {} from '../../../experiments/portable_workspace/registry.ts';
+import type {} from '../../portable_workspace/src/registry.ts';
 
 export const name = 'remote-session-admission';
 export const inject = ['executionWorlds', 'worldPortableWorkspaces', 'sessionPersistence', 'sessions', 'agents'];
@@ -23,7 +23,7 @@ async function prepare(ctx: Context, request: ApiSessionAdmissionRequest): Promi
   if (request.workspaceId !== undefined && !workspace) {
     throw new RemoteError('PORTABLE_WORKSPACE_NOT_FOUND', 'Selected portable_workspace is absent');
   }
-  if (!workspace && saved) workspace = registry.list().find(row => row.sessionIds.some(id => id === sourceId));
+  if (!workspace && saved) workspace = registry.forSession(sourceId);
   if (!workspace) throw new RemoteError('WORLD_REQUIRED', 'Select a portable_workspace or restore its saved Session membership');
   const definition = registry.definition(workspace.id);
   if (request.cwd !== definition.cwd) throw new RemoteError('WORLD_MISMATCH', 'Session cwd differs from selected portable_workspace');
