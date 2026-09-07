@@ -15,7 +15,7 @@ Do not build a cross-root Agent registry, mailbox or delegation tools here, or m
 
 The [Project experiment](../experiments/project-worlds/README.md) now verifies that preparing a bound native Agent lets Web's activation controllers adopt its explicit ID without local mkdir. Explicit Project reopen also restores native JSONL Sessions. Direct cold Web activation still skips World preparation, and direct new-Session creation still makes a local directory. This is controller-level evidence, not a browser demo.
 
-For now, use an explicit acceptance command to exercise remote execution and produce measured results. A future one-page report can compare platform, final environment, file/search results, PTY, cancellation, reconnect and cleanup. Label it as acceptance evidence; it must not imply a coordinating model or cross-Session communication was exercised. The preferred application entry is now [World settings and project-level World + workspace selection](web-world-selection.md), with Session creation/resume inheriting the project selection.
+The [proposed delivery direction](delivery-plan.md) first verifies a usable explicit entry through a real DSH profile. [Web Project selection](web-world-selection.md) remains deferred. A subsequent one-page report can compare platform, final environment, file/search results, PTY, cancellation, reconnect and cleanup. Label it as acceptance evidence; it must not imply a coordinating model or cross-Session communication was exercised.
 
 Source anchors in the pinned upstream:
 

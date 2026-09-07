@@ -1,5 +1,7 @@
 # Next stage: Execution World integration
 
+See the [proposed delivery direction](delivery-plan.md) for the next bounded milestone: a real DSH profile with an explicit remote entry and one World/workspace per process, before further UI or presentation work. This is a proposal, not an implemented CLI or a completed product acceptance.
+
 DSH owns Agents, subagents, tool filtering, Session persistence and UI. The previous plan to implement child-tool restrictions and continuation composition in this project was incorrect and is withdrawn.
 
 ## Existing implementation
@@ -33,7 +35,7 @@ The proposed coordinating Web thread cannot use existing upstream messaging for 
 
 The desired [World settings → Create Project with World + workspace](web-world-selection.md) flow is deferred. The independent Project experiment successfully replaces the local registry and prepares native Session create/reopen, but direct Web creation and cold activation bypass preparation. Retain the source-only experiment and its acceptance evidence; stop work on its settings card, Project feed and browser flow. An upstream preparation hook is a description of the missing capability, not an action item or something this project waits for.
 
-Continue with helper/client correctness, the verified DSH provider and explicit binding paths, and reproducible platform acceptance. A standalone acceptance report can present these results without depending on Web integration or cross-Session orchestration.
+Prioritize an actual remote coding-task loop through a supported local entry. Keep helper/client fixes tied to that gate; additional helper features and presentation are secondary. After the entry passes, a standalone acceptance report can present measured results without depending on Web integration or cross-Session orchestration.
 
 Changing agent hosts, including building our own, is a future strategic option only if accumulated interface limitations materially undermine the core Execution World use case. It is not a current workstream; do not start a migration or a replacement harness for this isolated Web limitation.
 
