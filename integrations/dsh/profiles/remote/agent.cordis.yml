@@ -13,12 +13,17 @@
         providerPaths: true
     - name: '@deepseek-ai/dsh-bash-local'
       config:
-        maxSpillBytes: 16777216
+        maxSpillBytes: 4194304
     - name: '@deepseek-ai/dsh-tool-bash'
       config:
-        enableRunInBackground: false
+        enableRunInBackground: true
     - name: '@deepseek-ai/dsh-tool-fs'
     - name: '@deepseek-ai/dsh-tool-fs-search'
       config:
         sampleOverCapGlobResults: false
     - name: '@deepseek-ai/dsh-tool-web'
+    - name: '@deepseek-ai/dsh-agent-instructions'
+      config:
+        maxBytes: 32768
+    - name: '@deepseek-ai/dsh-tool-skill'
+    - name: '@deepseek-ai/dsh-tool-jobs'

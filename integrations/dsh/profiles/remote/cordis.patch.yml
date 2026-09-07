@@ -6,6 +6,11 @@
   config:
     includeShippedRoot: false
     includeUserRoot: false
+- id: skill
+  config:
+    cache: false
+- id: skill-filesystem
+  disabled: true
 - id: workspace
   disabled: true
 - id: ui-workspace

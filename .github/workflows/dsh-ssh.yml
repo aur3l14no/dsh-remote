@@ -61,10 +61,20 @@ jobs:
         run: node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
       - name: Build the patched Web host and plugins
         run: node integrations/dsh/scripts/prepare-web-host.mjs "$RUNNER_TEMP/dsh-source"
+      - name: Native context regressions on patched source
+        working-directory: target/web-host
+        run: >-
+          pnpm exec vitest run
+          packages/skill/skill/tests/skill.spec.ts
+          packages/skill/tool-skill/tests/tool-skill.spec.ts
+          packages/context/agent-instructions/tests/agent-instructions.spec.ts
+          packages/api/session-controller/tests/session-skills.host.spec.ts
       - name: Install Chromium system dependencies
         run: pnpm --dir target/web-host --filter @deepseek-ai/dsh-web-frontend exec playwright install-deps chromium
       - name: Check Web plugin source
         run: node integrations/dsh/scripts/check-web-plugin.mjs
+      - name: Skill deployment over two Linux Worlds
+        run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
       - name: Browser over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
       - name: Browser acceptance evidence

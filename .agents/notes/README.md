@@ -11,8 +11,10 @@ archived/                   被替代的历史记录与原始验收证据
 
 文件名为 `yyyy-mm-dd-topic.md`。活跃 note 包含标题、`Status: proposed|implemented|rejected`、问题、方案/决定、真实替代方案、验收/后果。proposed 表示尚未完成，不表示用户尚未同意方向。按阶段更新当前计划，不叠加多个互相矛盾的 next-stage 文件。
 
+- [验收一页纸](proposed/integration/2026-09-08-assumptions-and-workarounds.md) 集中维护重要假设、workaround 和 review 限制。
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 是执行顺序和未决项的唯一入口。
 - [补丁审计](proposed/integration/2026-09-07-patch-surface.md) 是静态范围证据，不是实现保证。
+- [Skills 与消费者验收](implemented/integration/2026-09-08-skills-consumers-acceptance.md) 记录本轮实现、测试及独立 review 的范围。
 - [Web/SSH 验收](implemented/integration/2026-09-07-web-ssh-acceptance.md) 记录受限 profile、4 包补丁、浏览器闭环与未覆盖范围。
 - [双 World E2E 环境](implemented/integration/2026-09-07-e2e-environment.md) 记录 Docker/SSH 验收及浏览器边界。
 - [Session 准入补丁](implemented/integration/2026-09-07-session-admission.md) 记录首个源码切片与验收边界。

@@ -10,7 +10,7 @@ Status: proposed
 
 交付本地 DSH Web 中可选择 World×workspace 的项目，保留原生 Agent、Session 与对话，所有受支持的 workspace IO/进程在绑定 World 中执行。固定当前 DSH revision，维护窄补丁和显式 profile；不等待上游 PR，不使用 Fake portable_workspace，不改 Session JSONL schema。
 
-Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 当前登记 4 个原生包的补丁：Session admission、Workspace feed、Bash workdir、FS cwd。其余包级审计仍是规划。
+Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 当前登记 5 个补丁、涉及 7 个原生包：Session admission、Workspace feed、Bash workdir、FS cwd、instruction/skill 的显式环境上下文。其余包级审计仍是规划。
 
 ## Stages and dependencies
 
@@ -20,20 +20,24 @@ Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状
 | M1 执行边界准入（部分） | 按 consumer 清单确定 local control / explicit local connector / remote workspace；定界 skill 指令、脚本、依赖和 transfer | 不依靠名称黑白名单或提示词猜执行环境；每个启用 consumer 有 Agent/World 选择依据；缺失本地脚本不会被偷偷本地运行 |
 | M2 Host admission 补丁（源码与 browser/SSH 已验收） | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
 | M3 portable_workspace 插件与 Web（核心链路已验收） | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
-| M4 远程编码消费者（文件/搜索/前台 Bash 已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
+| M4 远程编码消费者（文件/搜索/Bash/jobs/文件补全/instructions/skills 已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
 | M5 可维护开发者发行 | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
 
 当前受限 remote profile 已通过真实 DSH Web + Chromium + 双 Linux/SSH World。覆盖显式 World/目录创建、同路径文件隔离、原生 fork、宿主冷启动 deep link 与新 runtime、取消后的远端进程退出、丢失 binding、停止容器与本地 Web Search 边界。完整记录见[Web/SSH 验收](../../implemented/integration/2026-09-07-web-ssh-acceptance.md)。
 
-M3 的管理命令已接入原生 rename/delete/reorder/archive API，浏览器目前提供选择、新建与 Session 导航；完整管理 UI 仍待补充。M4 尚缺项目 instructions/skills、file reference、子 Agent consumers、后台 jobs 和远程 policy。M5 已有可复现源码构建与 CI 定义，公开包安装、真实模型/真实外部搜索和 GitHub runner 运行记录仍未完成。不能把本轮通过改写成完整默认编码 profile 已交付。
+M3 的管理 UI 已接入原生 rename/delete/reorder/archive API，并通过浏览器操作和登记恢复验收。M4 项目及嵌套 instructions、选定 skills 部署/发现/调用已通过浏览器验收；file reference 与后台 jobs 已通过双 World 浏览器验收；子 Agent consumers、terminal UI 和远程 policy 尚未装配。M5 已有可复现源码构建与 CI 定义，公开包安装、真实模型/真实外部搜索和 GitHub runner 运行记录仍未完成。不能把本轮通过改写成完整默认编码 profile 已交付。
+
+本轮按用户“高不确定性时停止”的条件收口：原生子 Agent 在 child-agent.ts 中声明固定委派权限，但当前 remote overlay 关闭本地 sandbox/policy，尚无远端强制执行对应；skills 的 Session 校验目前依赖顶层 registry membership，子 Agent 只有继承 binding，冷恢复与 catalog 还缺 lineage 准入设计。不能仅打开 tool-subagent 就声称安全继承。terminal 的 owner/provider 初始化、公开安装态及真实模型/外部搜索也未完成。后续先解决远端权限契约和子 Agent lineage，再扩展 profile；worktree 仍按此前要求延期。
+
+本轮实现与终审证据见 [Skills 与消费者验收](../../implemented/integration/2026-09-08-skills-consumers-acceptance.md)。
 
 M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端；M4 是可用编码门槛，不可以“Web 打开了”替代。每完成阶段就改本 note 与相关 docs，只保留最新未决项。未实施步骤不创建空 plugin 或伪造可运行 profile。
 
 ## Patch / plugin ownership
 
-已实现 4 个包的窄补丁，以 series.json 为准。Workspace controller 保留原生 API/client，仅增加 registry-owned feed seam；World-aware 创建为外部 Remote。Bash workdir 通过可选 resolver 选定 Agent FS，tool-fs 在 parent traversal 前由 provider 解析 cwd。nativeOpen=false 同时禁止宿主桌面 handoff。
+已实现 7 个包的窄补丁，以 series.json 为准。Workspace controller 保留原生 API/client，仅增加 registry-owned feed seam；World-aware 创建为外部 Remote。Bash workdir 通过可选 resolver 选定 Agent FS，tool-fs 在 parent traversal 前由 provider 解析 cwd。nativeOpen=false 同时禁止宿主桌面 handoff。
 
-sandbox-policy、agent-instructions 仍为候选；远程 skill/file-reference 仍为外部 provider 方向。portable_workspace registry 已迁入维护中的 plugin，原实验只保留 re-export 和 unchanged-source 负例，不维护第二份 registry。
+agent-instructions 已增加显式环境接口；skill 发现与部署为外部 provider。sandbox-policy 仍需定界；remote file-reference 已通过双 World 浏览器验收。portable_workspace registry 已迁入维护中的 plugin，原实验只保留 re-export 和 unchanged-source 负例，不维护第二份 registry。
 
 新 patch 必须记录包/源文件、准入输入、失败行为、local profile 回归和专门测试；只能在通过 patched-host gate 后进入 series.json。保持 unchanged-source 验收独立，不能删除脚本中的 dirty/revision guard 伪装兼容。
 
@@ -130,6 +134,11 @@ Web Search 延续 M1 必测要求：参考上游 `web-search-round.e2e.ts` 的�
 ## Risks
 
 上游预览 API 变化、WorkspaceFeed 存储耦合、跨 World 同路径缓存键、非工具路由、附件执行路径和 local policy canonicalization 是重点风险。9 个职责不是最终包数上限。补丁需带 local 行为回归；支持集合之外的可信插件仍能直接调用本地 Node API，这不是 sandbox。
+
+## 当前验收入口
+
+- [重要假设与 workaround 一页纸](2026-09-08-assumptions-and-workarounds.md)。
+- [Skills 部署与执行契约](../../../../docs/skills.md)。
 
 ## Evidence
 

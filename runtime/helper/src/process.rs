@@ -26,6 +26,7 @@ use tokio::{
 pub struct Process {
     pub id: String,
     pub pid: i32,
+    pub spill_reservation: u64,
     pub outputs: Vec<Arc<Output>>,
     pub state: Mutex<State>,
     input: Mutex<Option<ChildStdin>>,
@@ -171,6 +172,7 @@ pub async fn spawn(
     dir: &Path,
     cancel: &Cancel,
     budget: Arc<Budget>,
+    spill_reservation: u64,
 ) -> Result<Arc<Process>> {
     cancel.check()?;
     let args = p["argv"]
@@ -287,6 +289,7 @@ pub async fn spawn(
     }
     let proc = Arc::new(Process {
         id,
+        spill_reservation,
         pid,
         outputs,
         state: Mutex::new(State {

@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts integrations/dsh/tests/bindings/*.test.ts",
+    "test": "node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts integrations/dsh/tests/bindings/*.test.ts integrations/dsh/tests/skills/*.test.ts",
     "test:bootstrap": "node --test runtime/tests/bootstrap/*.test.ts"
   },
   "devDependencies": {

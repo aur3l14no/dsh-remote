@@ -29,6 +29,16 @@
       "packages": [
         "@deepseek-ai/dsh-tool-fs"
       ]
+    },
+    {
+      "file": "0005-context-environment.patch",
+      "sha256": "467093ea60eb2a9b36fd68531ac80dfb5676cd6f47c0a0927f947f794dc45bc8",
+      "packages": [
+        "@deepseek-ai/dsh-agent-instructions",
+        "@deepseek-ai/dsh-skill",
+        "@deepseek-ai/dsh-tool-skill",
+        "@deepseek-ai/dsh-api-session-controller"
+      ]
     }
   ]
 }

@@ -8,6 +8,7 @@ node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
 
 # Build the real patched Web host and browser plugins from the clean pinned source.
 node integrations/dsh/scripts/prepare-web-host.mjs "$DSH_SOURCE"
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 ```
 
@@ -38,7 +39,7 @@ The pinned upstream uses **Vitest + the `playwright` Chromium API**, not a separ
 
 Our browser scenarios belong here, use that same Vitest/Playwright approach, and run as the host command inside this wrapper. The remote overlay must replace local workspace consumers before the scaffold creates Agents. Use the patched checkout, never silently run a clean upstream host and label it patched acceptance. Chromium and the built Web client are host dependencies, not World image dependencies.
 
-Both controller/SSH and browser/SSH lanes are executable. `portable-workspace.e2e.ts` runs the actual product UI, real providers and native model replay. It checks two Worlds at the same path, remote file isolation, local search network/credential boundaries, native fork, cold deep-link recovery with a new runtime, remote process cancellation, missing bindings and a stopped World.
+Both controller/SSH and browser/SSH lanes are executable. `portable-workspace.e2e.ts` runs the actual product UI, real providers and native model replay. It checks two Worlds at the same path, remote file isolation, local search network/credential boundaries, native fork, cold deep-link recovery with a new runtime, remote process cancellation, missing bindings and a stopped World. It also covers workspace management, remote project/nested instructions, World-specific skill catalogs and updates, deployed skill script execution, remote file completion, and background job ownership/cancellation. The separate deployment lane checks repeated installation, content updates, empty directories, missing prerequisites and refusal to overwrite unmanaged entries.
 
 `scaffold.patch` only extends the upstream test scaffold with externally owned persistent host state and optional directory picking. It is not a runtime patch and is not in `series.json`. `vitest.config.ts` retains the upstream Vitest lane and maps downstream external DSH imports to the same source identities as the scaffold; mixing built/source scope singletons would invalidate routing tests.
 

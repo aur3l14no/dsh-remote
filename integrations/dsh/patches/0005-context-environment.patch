@@ -1,0 +1,205 @@
+diff --git a/packages/skill/skill/src/index.ts b/packages/skill/skill/src/index.ts
+--- a/packages/skill/skill/src/index.ts
++++ b/packages/skill/skill/src/index.ts
+@@ -103,6 +103,8 @@
+ 
+ /** Caller context used for cwd-sensitive and abortable provider work. */
+ export interface SkillLookupOptions {
++  /** Durable caller identity for environment-qualified providers and caches. */
++  readonly sessionId?: string | undefined
+   /** Workspace selector for the current lookup. */
+   readonly cwd?: string | undefined
+   /** Abort discovery or loading work for the current caller. */
+@@ -278,6 +280,8 @@
+ 
+ /** Skill registry configuration. */
+ export interface Config {
++  /** Disable completed-catalog caching for providers without change notifications. */
++  readonly cache?: boolean
+   /** Maximum number of completed cwd/provider catalogs kept in memory. */
+   readonly collectCacheMaxEntries?: number
+ }
+@@ -357,9 +361,11 @@
+  */
+ export class SkillRegistry extends Service {
+   static Config: Schema<Config> = z.object({
++    cache: z.boolean().default(true),
+     collectCacheMaxEntries: z.number().default(DEFAULT_COLLECT_CACHE_ENTRIES),
+   })
+ 
++  private readonly cacheEnabled: boolean
+   private readonly collectCacheMaxEntries: number
+   private readonly layers = new ScopedLayers<SkillLayer>(
+     scope => new SkillLayer(scope),
+@@ -374,6 +380,7 @@
+ 
+   constructor(ctx: Context, config: Config = {}) {
+     super(ctx, 'skills')
++    this.cacheEnabled = config.cache ?? true
+     this.collectCacheMaxEntries = config.collectCacheMaxEntries ?? DEFAULT_COLLECT_CACHE_ENTRIES
+     assertPositiveInteger('collectCacheMaxEntries', this.collectCacheMaxEntries)
+   }
+@@ -526,8 +533,8 @@
+       // The chain is part of the key rather than assumed stable: a blank-session
+       // recompose re-parents an existing scope without touching this registry,
+       // and only a chain-bearing key makes the next read see the new preset.
+-      const key = this.collectCacheKey(options.cwd, scopeChainOf(options.scope), revision)
+-      const cached = this.collectCache.get(key)
++      const key = this.collectCacheKey(options.cwd, scopeChainOf(options.scope), revision, options.sessionId)
++      const cached = this.cacheEnabled ? this.collectCache.get(key) : undefined
+       if (cached !== undefined) return { entries: cached, cacheable: true }
+ 
+       const result = await this.collectFresh(options)
+@@ -539,7 +546,7 @@
+         }
+         return { entries: result.entries, cacheable: false }
+       }
+-      if (result.cacheable) {
++      if (result.cacheable && this.cacheEnabled) {
+         this.collectCache.set(key, result.entries)
+         if (this.collectCache.size > this.collectCacheMaxEntries) {
+           const oldest = this.collectCache.keys().next() as IteratorYieldResult<string>
+@@ -642,8 +649,8 @@
+     return id
+   }
+ 
+-  private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number): string {
+-    return JSON.stringify({ cwd, scopes: chain.map(key => this.scopeId(key)), revision })
++  private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number, sessionId?: string): string {
++    return JSON.stringify({ cwd, sessionId, scopes: chain.map(key => this.scopeId(key)), revision })
+   }
+ 
+   /** Notify catalog observers without making their refresh work load-bearing. */
+diff --git a/packages/skill/tool-skill/src/index.ts b/packages/skill/tool-skill/src/index.ts
+--- a/packages/skill/tool-skill/src/index.ts
++++ b/packages/skill/tool-skill/src/index.ts
+@@ -130,7 +130,7 @@
+       }
+       // The agent is its own scope key, so the lookup resolves the layered
+       // registry exactly as this agent's composition sees it.
+-      const lookup = { cwd: exec.agent?.session.header.cwd, signal: exec.signal, scope: exec.agent }
++      const lookup = { sessionId: exec.agent?.session.header.id, cwd: exec.agent?.session.header.cwd, signal: exec.signal, scope: exec.agent }
+       const summary = (await ctx.skills.list(lookup)).find(skill => skill.name === args.name)
+       if (!summary) {
+         throw new Error(`skill "${args.name}" is unknown or no longer available`)
+@@ -183,7 +183,7 @@
+     const names = invokedSkillNames(messages)
+     if (names.length === 0) return decision
+     signal.throwIfAborted()
+-    const lookup = { cwd: agent.session.header.cwd, signal, scope: agent }
++    const lookup = { sessionId: agent.session.header.id, cwd: agent.session.header.cwd, signal, scope: agent }
+     const injections: UserMessage[] = []
+     for (const name of names) {
+       const skill = await ctx.skills.get(name, lookup)
+@@ -219,7 +219,7 @@
+     signal.throwIfAborted()
+     const toolVisible = ctx.tools.get(skillTool.name, agent) === skillTool
+     const snapshot = toolVisible
+-      ? await ctx.skills.snapshot({ cwd: agent.session.header.cwd, signal, scope: agent })
++      ? await ctx.skills.snapshot({ sessionId: agent.session.header.id, cwd: agent.session.header.cwd, signal, scope: agent })
+       : { skills: [], complete: true }
+     signal.throwIfAborted()
+     if (!snapshot.complete) return decision
+diff --git a/packages/api/session-controller/src/skill-catalog.ts b/packages/api/session-controller/src/skill-catalog.ts
+--- a/packages/api/session-controller/src/skill-catalog.ts
++++ b/packages/api/session-controller/src/skill-catalog.ts
+@@ -72,9 +72,11 @@
+       )
+     }
+ 
++    await this.ctx.get('apiSessionAdmission')?.prepare({ operation: 'resume', sessionId, cwd })
++    signal.throwIfAborted()
+     const scope = await this.scopeFor(sessionId, agentPreset)
+     try {
+-      const skills = (await skillRegistry.list({ cwd, scope })).filter(isUserInvocable)
++      const skills = (await skillRegistry.list({ sessionId, cwd, scope, signal })).filter(isUserInvocable)
+       return {
+         skills: skills.map(skill => ({
+           name: skill.name,
+diff --git a/packages/context/agent-instructions/src/index.ts b/packages/context/agent-instructions/src/index.ts
+--- a/packages/context/agent-instructions/src/index.ts
++++ b/packages/context/agent-instructions/src/index.ts
+@@ -10,6 +10,7 @@
+  */
+ 
+ import type { Context } from '@deepseek-ai/cordis'
++import type { FileSystem } from '@deepseek-ai/dsh-fs'
+ import { isDeepStrictEqual } from 'node:util'
+ import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
+ import { createUserMessage } from '@deepseek-ai/dsh-llm'
+@@ -29,6 +30,13 @@
+ } from './state.ts'
+ import type { AgentInstructionChange } from './render.ts'
+ 
++/** Optional environment lookup for non-tool instruction lifecycle work. */
++export interface AgentInstructionEnvironment {
++  resolve(agent: Agent, signal: AbortSignal): Promise<{ fs: FileSystem; dshHome: string }>
++}
++declare module '@deepseek-ai/cordis' {
++  interface Context { agentInstructionEnvironment: AgentInstructionEnvironment }
++}
+ export { Config, name }
+ /** Services required by workspace instruction projection. */
+ export const inject = ['sessionProjections']
+@@ -81,7 +89,7 @@
+ }
+ 
+ export function apply(ctx: Context, config: Config): void {
+-  const resolved: ResolvedConfig = resolveConfig(config)
++  const defaults: ResolvedConfig = resolveConfig(config)
+   const instructionVersions: InstructionVersionCache = new WeakMap()
+   const baselinePreparations = new WeakMap<Session, {
+     identity: string
+@@ -112,10 +120,12 @@
+     touchedPaths: readonly string[] = [],
+   ): Promise<UserMessage | undefined> => {
+     signal.throwIfAborted()
++    const environment = await ctx.get('agentInstructionEnvironment')?.resolve(agent, signal)
++    const resolved = environment === undefined ? defaults : { ...defaults, dshHome: environment.dshHome }
+     if (resolved.maxBytes <= 0 || !Number.isFinite(resolved.maxBytes)) {
+       return undefined
+     }
+-    const fileSystem = ctx.get('fs')
++    const fileSystem = environment?.fs ?? ctx.get('fs')
+     if (fileSystem === undefined) return undefined
+     if (touchedPaths.length === 0 && pending.length > 0) return pending[0]
+     const content: UserMessage['content'][number][] = []
+diff --git a/packages/api/session-controller/tests/session-skills.host.spec.ts b/packages/api/session-controller/tests/session-skills.host.spec.ts
+--- a/packages/api/session-controller/tests/session-skills.host.spec.ts
++++ b/packages/api/session-controller/tests/session-skills.host.spec.ts
+@@ -80,7 +80,7 @@
+     expect(dispose).toHaveBeenCalledOnce()
+     expect(resume).not.toHaveBeenCalled()
+     expect(ctx.agents.list()).toEqual([])
+-    expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope: undefined })
++    expect(list).toHaveBeenCalledWith({ sessionId, signal: expect.any(AbortSignal), cwd: '/cold/project', scope: undefined })
+   })
+ 
+   it('uses a live Agent to address a preset-owned registry', async () => {
+@@ -111,7 +111,7 @@
+         modelInvocable: false,
+       }],
+     })
+-    expect(scopedList).toHaveBeenCalledWith({ cwd: '/live/project', scope: agent })
++    expect(scopedList).toHaveBeenCalledWith({ sessionId, signal: expect.any(AbortSignal), cwd: '/live/project', scope: agent })
+     expect(standingKeyFor).not.toHaveBeenCalled()
+   })
+ 
+@@ -133,7 +133,7 @@
+ 
+     await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
+     expect(standingKeyFor).toHaveBeenCalledWith('minimal')
+-    expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope })
++    expect(list).toHaveBeenCalledWith({ sessionId, signal: expect.any(AbortSignal), cwd: '/cold/project', scope })
+     expect(ctx.agents.list()).toEqual([])
+   })
+ 
+@@ -154,7 +154,7 @@
+     const catalog = new SessionSkillCatalog(ctx)
+ 
+     await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
+-    expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope: undefined })
++    expect(list).toHaveBeenCalledWith({ sessionId, signal: expect.any(AbortSignal), cwd: '/cold/project', scope: undefined })
+   })
+ 
+   it.each([

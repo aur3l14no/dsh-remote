@@ -639,6 +639,7 @@ impl Runtime {
                     &self.dir,
                     cancel,
                     self.output_budget.clone(),
+                    reservation,
                 )
                 .await
                 {
@@ -729,7 +730,15 @@ impl Runtime {
                 for out in &proc.outputs {
                     self.streams.lock().await.remove(&out.id);
                 }
-                self.processes.lock().await.remove(&proc.id);
+                let mut retained = 0;
+                for out in &proc.outputs {
+                    retained += out.retained_spill_bytes().await;
+                }
+                // Completed files survive release. Refund only unused capacity, once.
+                if let Some(released) = self.processes.lock().await.remove(&proc.id) {
+                    self.spill_reserved
+                        .fetch_sub(released.spill_reservation - retained, Ordering::SeqCst);
+                }
                 Ok(json!({"released":true}))
             }
             "pty.resize" => {

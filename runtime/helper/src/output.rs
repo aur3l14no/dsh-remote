@@ -157,6 +157,16 @@ impl Output {
         drop(s);
         self.changed.notify_waiters();
     }
+    /// After EOF, an advertised spill contains the entire produced sequence.
+    pub async fn retained_spill_bytes(&self) -> u64 {
+        let state = self.state.lock().await;
+        debug_assert!(state.eof);
+        if state.spill_path.is_some() {
+            state.end
+        } else {
+            0
+        }
+    }
     pub async fn ack(&self, offset: u64) -> Result<Value> {
         if !self.raw {
             return Err(invalid("only raw streams use acknowledgements"));

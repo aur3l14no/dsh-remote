@@ -19,8 +19,8 @@ paths['@deepseek-ai/dsh-api-workspace-controller/types'] = [join(upstream, 'pack
 paths['@deepseek-ai/dsh-client-file-upload/types'] = [join(upstream, 'packages/client/file-upload/src/types.ts')];
 const format = { getCurrentDirectory: () => root, getCanonicalFileName: name => name, getNewLine: () => '\n' };
 let failures = 0;
-for (const face of ['index.ts', 'client/index.tsx']) {
-  const program = ts.createProgram([join(root, 'integrations/dsh/plugins/portable_workspace/src', face)], {
+for (const entry of ['portable_workspace/src/index.ts', 'portable_workspace/src/client/index.tsx', 'skills/src/deploy.ts']) {
+  const program = ts.createProgram([join(root, 'integrations/dsh/plugins', entry)], {
     target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, jsx: ts.JsxEmit.ReactJSX,
     strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,
     lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts', 'lib.dom.d.ts'],

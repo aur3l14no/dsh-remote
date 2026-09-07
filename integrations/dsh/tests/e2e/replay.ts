@@ -23,6 +23,11 @@ export async function prepareReplay(directory: string) {
     tool('edit', { file_path: '../workspace/coding-0.txt', old_string: 'before', new_string: 'after' }, 'remote_edit'),
     tool('grep', { pattern: 'after', path: '/workspace/coding-0.txt' }, 'remote_grep'),
     tool('glob', { pattern: 'coding-0.txt', path: '/workspace' }, 'remote_glob'),
+    tool('read', { file_path: '/workspace/nested/file.txt' }, 'remote_nested'),
+    tool('skill', { name: 'remote-proof' }, 'remote_skill'),
+    tool('bash', { description: 'Execute the deployed skill script in the bound workspace', command: 'sh "$HOME/.agents/skills/remote-proof/scripts/proof.sh"' }, 'remote_skill_exec'),
+    tool('bash', { description: 'Start a cancellable remote background task', run_in_background: true, command: 'echo $$ > background.pid; touch background.started; sleep 120; touch background.finished' }, 'remote_background'),
+    tool('job_list', {}, 'remote_jobs'),
     tool('web_search', { queries: ['portable workspace boundary'] }, 'local_search'),
     { kind: 'chunks', chunks: [
       { type: 'block-start', index: 0, blockType: 'text' },

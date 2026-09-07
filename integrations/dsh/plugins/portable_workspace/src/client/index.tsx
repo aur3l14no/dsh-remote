@@ -95,6 +95,8 @@ function installWorkspaceUi(ctx: Context) {
     const [path, setPath] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const [renaming, setRenaming] = useState<WorkspaceId>();
+    const [title, setTitle] = useState('');
     useEffect(() => {
       let active = true;
       void ctx.remote.portableWorkspace.worlds().then(result => {
@@ -126,6 +128,8 @@ function installWorkspaceUi(ctx: Context) {
         .portable-workspaces button:disabled { cursor: default; opacity: .5; }
         .portable-workspaces > section { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
         .portable-workspaces > section > div { opacity: .7; overflow-wrap: anywhere; }
+        .portable-workspaces summary { cursor: pointer; padding: 5px 0; }
+        .portable-workspaces .workspace-actions, .portable-workspaces form, .portable-workspaces .workspace-session { display: grid; gap: 5px; }
         .portable-workspaces [role=alert] { margin: 0; color: #ba3232; overflow-wrap: anywhere; }
       `}</style>
       <h3>Portable workspaces</h3>
@@ -143,15 +147,40 @@ function installWorkspaceUi(ctx: Context) {
       {navigation.unavailableSession && <p role="alert">The linked Session is unavailable.</p>}
       {error && <p role="alert">{error}</p>}
       {snapshot.error && <p role="alert">{snapshot.error.message}</p>}
-      {snapshot.items.map(row => <section key={row.workspaceId} aria-label={row.title}>
+      {snapshot.items.map((row, rowIndex) => <section key={row.workspaceId} aria-label={row.title}>
         <strong>{row.title}</strong><div>{row.path}</div>
+        <details>
+          <summary>Manage {row.title}</summary>
+          <div className="workspace-actions">
+            <button disabled={busy} onClick={() => { setRenaming(row.workspaceId); setTitle(row.title); }}>Rename {row.title}</button>
+            <button disabled={busy || rowIndex === 0} onClick={() => { void perform(() => ctx.workspaces.insertBefore(row.workspaceId, snapshot.items[rowIndex - 1]!.workspaceId)); }}>Move {row.title} up</button>
+            <button disabled={busy || rowIndex === snapshot.items.length - 1} onClick={() => { void perform(() => ctx.workspaces.insertBefore(row.workspaceId, snapshot.items[rowIndex + 2]?.workspaceId)); }}>Move {row.title} down</button>
+            <button disabled={busy} onClick={() => { void perform(async () => {
+              await ctx.workspaces.delete(row.workspaceId);
+              if (row.sessionIds.includes(sessions.current!)) sessionController.clear();
+            }); }}>Remove {row.title} from list</button>
+            <small>Removing a registration keeps remote files and conversation history. Add the same World and directory to restore it.</small>
+          </div>
+        </details>
+        {renaming === row.workspaceId && <form onSubmit={event => { event.preventDefault(); void perform(async () => {
+          await ctx.workspaces.rename(row.workspaceId, title); setRenaming(undefined);
+        }); }}>
+          <label>Workspace title<input aria-label="Workspace title" value={title} onChange={event => setTitle(event.target.value)} /></label>
+          <button disabled={busy || !title.trim()} type="submit">Save title</button>
+          <button type="button" onClick={() => setRenaming(undefined)}>Cancel rename</button>
+        </form>}
         <button disabled={busy} onClick={() => { void perform(async () => {
           sessionController.open(await navigation.connectWorkspace(row.workspaceId));
         }); }}>New session in {row.title}</button>
-        {row.sessionIds.filter(id => !snapshot.archivedSessionIds.includes(id)).map(id => <button key={id}
-          aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => sessionController.open(id)}>
-          {sessions.byId[id]?.title || id}
-        </button>)}
+        {row.sessionIds.filter(id => !snapshot.archivedSessionIds.includes(id)).map((id, index, visible) => <div className="workspace-session" key={id}>
+          <button disabled={busy} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => sessionController.open(id)}>
+            {sessions.byId[id]?.title || id}
+          </button>
+          <details><summary aria-label={`Manage session ${id}`}>Session actions</summary>
+            <button disabled={busy} onClick={() => { void perform(() => navigation.archiveSession(id)); }}>Archive session {id}</button>
+            <button disabled={busy || index === 0} onClick={() => { void perform(async () => { await ctx.workspaces.insertSessionBefore(row.workspaceId, id, visible[index - 1]); }); }}>Move session {id} up</button>
+          </details>
+        </div>)}
       </section>)}
     </section>;
   }

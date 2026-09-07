@@ -1,6 +1,6 @@
 # Helper API revision 1
 
-Wire revision 1, helper 0.1.1. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
+Wire revision 1, helper 0.1.2. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
 
 ## Design basis
 
@@ -121,7 +121,7 @@ Input writes and EOF for a process, and chunks/commit/abort for an upload, execu
 
 Raw buffers retain unacknowledged bytes up to their cap. Reading or receiving an event does not acknowledge them. At capacity the helper stops draining the OS endpoint, applying real backpressure to the child/file reader. Control traffic has separate admission capacity. On reconnect, events replay from the retained acknowledgement position with original offsets. Clients discard duplicated bytes they already hold and acknowledge only what they have consumed. Explicitly reading before the retained position reports a gap; a raw consumer must not pretend the missing prefix is available.
 
-Collect mode drains into a bounded byte tail. Events and RPC snapshots both carry at most 32 KiB of decoded bytes, including a final large retained tail; producers need not append again for delivery to continue. Slow consumers get coalesced updates and explicit gaps; no raw-protocol semantics are claimed. Tail boundaries may split UTF-8. Offsets beyond `produced` are invalid. Optional spills retain the full byte sequence through the advertised produced offset. Exceeding the spill cap removes the partial file and stops advertising a full copy; disk errors are explicit. A runtime reserves at most 64 MiB of spill capacity across its lifetime, including files kept after process release. Starting more spill-producing jobs can exhaust that reservation before disk bytes reach it.
+Collect mode drains into a bounded byte tail. Events and RPC snapshots both carry at most 32 KiB of decoded bytes, including a final large retained tail; producers need not append again for delivery to continue. Slow consumers get coalesced updates and explicit gaps; no raw-protocol semantics are claimed. Tail boundaries may split UTF-8. Offsets beyond `produced` are invalid. Optional spills retain the full byte sequence through the advertised produced offset. Exceeding the spill cap removes the partial file and stops advertising a full copy; disk errors are explicit. A runtime accounts for at most 64 MiB of spill capacity: active processes reserve their configured caps; process release returns unused capacity but keeps completed spill files charged at their produced byte length until runtime cleanup. Retained output can still exhaust this budget.
 
 Buffers survive a transport disconnect only within the live runtime/grace window and under the same caps. No extra unlimited reconnect buffer exists. The DSH adapter maintains a bounded local collection mirror for synchronous `readFrom`, and installs final output state before settling `done`; it cannot implement synchronous `readFrom` with an RPC. It tracks root exit and stream EOF independently because process-state and stream events have no cross-resource total ordering.
 

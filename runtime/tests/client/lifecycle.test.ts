@@ -90,3 +90,33 @@ test('real helper: idle connection heartbeats preserve the inbound lease', { tim
   try { await delay(800); assert.equal(r.client.state, 'ready'); await r.client.request('runtime.ping', {}); }
   finally { await r.close(); }
 });
+
+test('real helper: releasing processes returns unused spill reservation', { timeout: 20000 }, async () => {
+  const r = await runtime();
+  try {
+    for (let index = 0; index < 6; index++) {
+      const process = await RemoteProcess.spawn(r.client, { argv: [fixture, 'argv', String(index)], cwd: r.dir,
+        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 16 * 1024 * 1024 }, stderr: 'ignore' });
+      assert.equal((await process.done).rootExit?.code, 0);
+      await process.release();
+    }
+  } finally { await r.close(); }
+});
+
+
+test('real helper: released spill files remain available and charged to the runtime', { timeout: 30000 }, async () => {
+  const r = await runtime({ lease: 5000 });
+  try {
+    const size = 16 * 1024 * 1024;
+    for (let index = 0; index < 4; index++) {
+      const process = await RemoteProcess.spawn(r.client, { argv: [fixture, 'burst', String(size)], cwd: r.dir,
+        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: size }, stderr: 'ignore' });
+      assert.equal((await process.done).rootExit?.code, 0);
+      const snapshot = await r.client.request<{ spill: string }>('stream.read', { stream: process.outputs[0]!.stream, offset: 0 });
+      await process.release();
+      assert.equal((await localRead(snapshot.spill)).length, size);
+    }
+    await assert.rejects(RemoteProcess.spawn(r.client, { argv: [fixture, 'argv'], cwd: r.dir,
+      stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 1 }, stderr: 'ignore' }), { code: 'RESOURCE_LIMIT' });
+  } finally { await r.close(); }
+});

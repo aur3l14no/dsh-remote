@@ -16,7 +16,7 @@ npm run check
 npm test
 ```
 
-根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 和 target/ 保留在根目录。默认测试包含 client、bootstrap 的不需远端场景和 DSH bindings；显式 SSH/native-bootstrap 用例会按环境配置启用。
+根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 和 target/ 保留在根目录。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
 
 ```sh
 python3 runtime/helper/tests/acceptance.py --help
@@ -29,7 +29,7 @@ python3 runtime/helper/tests/acceptance.py --platform macos \
 ```sh
 sh runtime/helper/scripts/build-linux.sh aarch64-unknown-linux-musl
 node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-static \
-  --helper "$HELPER" --helper-version 0.1.1 --ripgrep "$RG" --ripgrep-version 15.2.0 \
+  --helper "$HELPER" --helper-version 0.1.2 --ripgrep "$RG" --ripgrep-version 15.2.0 \
   --cache "$CACHE" --out "$MANIFEST"
 ```
 
@@ -75,15 +75,23 @@ node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
 ```sh
 node integrations/dsh/scripts/prepare-web-host.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/check-web-plugin.mjs
+pnpm --dir target/web-host exec vitest run \
+  packages/skill/skill/tests/skill.spec.ts \
+  packages/skill/tool-skill/tests/tool-skill.spec.ts \
+  packages/context/agent-instructions/tests/agent-instructions.spec.ts \
+  packages/api/session-controller/tests/session-skills.host.spec.ts
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 ```
 
 需要 pnpm 与宿主 Chromium 系统依赖；首次构建会下载依赖和浏览器。`prepare-web-host` 只替换 `target/web-host`，不修改上游源码 checkout。GitHub Actions 的 `CI` workflow 在 push、pull request 和手动触发时运行两个独立的 Ubuntu 24.04 job：Runtime 执行固定 Rust 1.85.1 的格式、Clippy、构建、测试及 TypeScript 检查/测试；DSH 执行 unchanged-source 类型/打包检查、patched-host gate、双 World SSH 和完整 Web E2E。浏览器系统依赖显式安装，重复提交取消旧运行。只上传截图与脱敏验收结果，保留 7 天；临时状态、凭据和缓存不上传。具体远端运行状态以 GitHub Actions 为准。
 
-当前 browser/SSH 验收覆盖创建与同路径隔离、原生 fork、冷启动 deep link、新 runtime、远端进程取消、丢失 binding、停止 World 和宿主 Web Search 边界。它不代表默认工具全集、公开安装包、真实模型或外部搜索服务验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
+当前 browser/SSH 验收覆盖创建与同路径隔离、rename/order/archive/remove/恢复登记、原生 fork、冷启动 deep link、新 runtime、远端 AGENTS/skills 与部署脚本、文件补全、后台 jobs 及取消、丢失 binding、停止 World 和宿主 Web Search 边界。它不代表默认工具全集、公开安装包、真实模型或外部搜索服务验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
 
 ## 文档与证据
 
 `docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的结果先写 target/，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
 
 移动代码时验证相对 import、TS include、Cargo workspace、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
+
+Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/proposed/integration/2026-09-08-assumptions-and-workarounds.md)。

@@ -2,6 +2,18 @@
 
 `series.json` pins the upstream revision and ordered, SHA-256 checked patches. The first patch changes only `@deepseek-ai/dsh-api-session-controller`: three existing source files and one new contract module. It does not change Agent loop, Session JSONL, subprocess or filesystem packages.
 
+The current series contains five patches across seven native packages:
+
+| Patch | Native seam |
+| --- | --- |
+| 0001 | Session admission before create/resume/fork |
+| 0002 | Optional Workspace feed for an external registry |
+| 0003 | Optional Bash workdir resolver |
+| 0004 | Provider-based cwd resolution in file tools |
+| 0005 | Session-aware skill lookup/cache and Agent instruction environment |
+
+`0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the native context regression command in [development](../../../docs/development.md) alongside the browser gate.
+
 ## 0001: Session admission
 
 The original controller creates a local directory before preset setup and resumes cold Agents without preparing their execution environment. An external provider alone cannot intercept those steps. The patch adds an optional awaited `apiSessionAdmission.prepare` contract, exports its types, and passes explicit workspace/source identities through creation and fork.
