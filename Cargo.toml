@@ -1,17 +1,6 @@
-[package]
-name = "dsh-remote"
-version = "0.1.1"
-edition = "2021"
-rust-version = "1.85"
-license = "MIT"
-
-[dependencies]
-base64 = "0.22.1"
-libc = "0.2.180"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
-sha2 = "0.10.9"
-tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "net", "process", "io-util", "io-std", "fs", "sync", "time", "signal"] }
+[workspace]
+members = ["runtime/helper"]
+resolver = "2"
 
 [profile.release]
 lto = "thin"

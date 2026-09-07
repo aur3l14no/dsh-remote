@@ -1,0 +1,61 @@
+# 开发与验证
+
+所有命令从仓库根执行。Rust 1.85+、Node.js 24+；使用已有工具链与 lockfiles，不通过验证命令安装系统工具。项目依赖通过 `npm ci` 安装。
+
+根目录保留 workspace 配置、lockfiles、README/LICENSE/AGENTS 和 justfile。代码、测试与脚本按所属子系统收录：通用测试在 `runtime/tests/`，产物准备/上传脚本在 `runtime/scripts/`，DSH 专用入口在 `integrations/dsh/`。
+
+私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。`target/` 与 `node_modules/` 是忽略提交的构建产物和依赖目录。
+
+## 通用代码
+
+```sh
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo build --locked
+npm run check
+npm test
+```
+
+根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 和 target/ 保留在根目录。默认测试包含 client、bootstrap 的不需远端场景和 DSH bindings；显式 SSH/native-bootstrap 用例会按环境配置启用。
+
+```sh
+python3 runtime/helper/tests/acceptance.py --help
+python3 runtime/helper/tests/acceptance.py --platform macos \
+  --helper target/debug/dsh-remote --fixture target/debug/dsh-remote-fixture --rg "$LOCAL_RG"
+```
+
+原生 macOS 只证明原生 fixture 行为。Linux build/acceptance 在对应 Linux 目标运行，必要时使用已有私有远端配置；不能把本机编译当成目标平台证明。
+
+```sh
+sh runtime/helper/scripts/build-linux.sh aarch64-unknown-linux-musl
+node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-static \
+  --helper "$HELPER" --helper-version 0.1.1 --ripgrep "$RG" --ripgrep-version 15.2.0 \
+  --cache "$CACHE" --out "$MANIFEST"
+```
+
+## DSH 兼容与发行
+
+[patches/series.json](../integrations/dsh/patches/series.json) 是上游 revision 和补丁序列的唯一配置源。现有脚本使用同一 revision 并要求上游 checkout 干净；目前序列为空，它们只验证 unchanged-source composition。
+
+```sh
+node integrations/dsh/scripts/check-composition.mjs "$DSH_SOURCE"
+node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" session-routing
+DSH_TEST_RG="$LOCAL_RG" node target/composition/session-routing.mjs
+node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" project-worlds
+DSH_TEST_RG="$LOCAL_RG" node target/composition/project-worlds.mjs
+node integrations/dsh/scripts/pack-plugin.mjs "$DSH_SOURCE"
+node integrations/dsh/scripts/check-plugin.mjs "$DSH_SOURCE"
+DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node target/package-check/accept.mjs
+```
+
+`project-worlds` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
+
+下游补丁实施时增加独立的 patched-host gate：固定基线、依次检查并应用补丁、编译受影响包及 Remote 图，再运行真实 profile/browser。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。完整 profile 验证前，不发布虚假的运行配置。
+
+SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-project-worlds.mjs`，参数通过显式环境输入；只允许针对已选目标操作测试资源。宿主名、SSH 配置、token 不写入公共文档和报告。helper 与 ripgrep 必须使用目标平台产物。
+
+## 文档与证据
+
+`docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的结果先写 target/，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
+
+移动代码时验证相对 import、TS include、Cargo workspace、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。

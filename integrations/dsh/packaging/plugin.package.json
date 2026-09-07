@@ -1,0 +1,28 @@
+{
+  "name": "@dsh-remote/ssh-world",
+  "version": "0.1.0-alpha.2",
+  "private": true,
+  "description": "SSH Execution Worlds for DSH, with remote FS/subprocess providers and local Session bindings",
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "license": "MIT",
+  "exports": {
+    ".": { "types": "./types/integrations/dsh/plugins/ssh-world/src/worlds.d.ts", "default": "./lib/worlds.js" },
+    "./routing": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routing.d.ts", "default": "./lib/routing.js" },
+    "./fs": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routed-fs.d.ts", "default": "./lib/fs.js" },
+    "./subprocess": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routed-subprocess.d.ts", "default": "./lib/subprocess.js" },
+    "./bindings": { "types": "./types/integrations/dsh/plugins/ssh-world/src/bindings.d.ts", "default": "./lib/bindings.js" },
+    "./client": { "types": "./types/runtime/client/src/index.d.ts", "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "types", "README.md", "LICENSE"],
+  "dependencies": { "zod": "4.4.3" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-agent": "0.1.3-alpha.1",
+    "@deepseek-ai/dsh-fs": "0.1.3-alpha.1",
+    "@deepseek-ai/dsh-scope": "0.1.3-alpha.1",
+    "@deepseek-ai/dsh-subprocess": "0.1.3-alpha.1",
+    "@deepseek-ai/dsh-tools": "0.1.3-alpha.1"
+  }
+}

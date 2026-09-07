@@ -1,6 +1,5 @@
 /target/
-/.research-vscode/
-/justfile.local
+/.local/
 __pycache__/
 node_modules/
 *.tsbuildinfo

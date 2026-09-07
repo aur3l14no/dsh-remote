@@ -1,84 +1,46 @@
 # dsh-remote
 
-`dsh-remote` is developing an SSH Remote Execution World for DeepSeek Harness (DSH). Model calls, the Agent loop, Sessions, and the UI stay local; a Rust `dsh-remote` helper runs on the remote Linux host, where files, search, Shell/PTY, processes, background jobs, signals, cancellation, and output streams execute with no silent fallback to local execution.
+dsh-remote 为 DeepSeek Harness（DSH）提供 Execution World：模型调用、Agent 循环、对话历史和 Web 控制面留在本地，项目文件、搜索和进程在选定机器或容器中执行。项目身份是 **World × canonical workspace**，Session 固定绑定该项目；连接失败不会切回本地。
 
-Connections reuse system OpenSSH: SSH config, keys, ssh-agent, and ProxyJump. The SSH bootstrap installs, validates, starts and upgrades helper/ripgrep from a caller-trusted manifest and local artifact cache. An experimental external composition binds actual DSH Agents at creation/resume; production artifact distribution remains planned.
+## 架构
 
-## Goals
+```text
+runtime/                        与 DSH 无关的执行层
+  helper/                       Rust：远端文件、进程、PTY 与协议服务
+  client/                       TypeScript：本地协议客户端
+  ssh/                          TypeScript：本地 OpenSSH 连接与 bootstrap
+  tests/                        通用 client / SSH 验证
+  scripts/                      runtime 产物准备与上传
+integrations/dsh/
+  plugins/ssh-world/             DSH World owner、FS/subprocess providers、路由
+  patches/                      固定上游基线及补丁序列
+  profiles/                     DSH 应用装配约定
+  experiments/project-worlds/    尚未产品化的 Project 实验
+  tests/                        DSH binding 与集成验证
+  scripts/                      DSH 类型检查、构建、打包及验收入口
+  packaging/                    SSH plugin 发行清单
+```
 
-- Keep model calls, the Agent loop, Sessions, and the UI local.
-- Run files, search, Shell/PTY, processes, background jobs, signals, cancellation, and output streams remotely — never silently falling back to local execution.
-- Reuse the system OpenSSH client: SSH config, keys, ssh-agent, and ProxyJump.
-- Install, start, and upgrade the helper automatically; deploy target-platform ripgrep and negotiate version and capabilities.
-- Make the Execution World an explicit, Agent-visible context, bound at creation time; crossing Worlds goes through a new Agent or a handoff.
-- Cover plugin boundaries, lifecycle, task ownership, reconnection, and the security model.
+DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/解析接口，插件实现 World、Project 和远程能力。DSH 保留 Agent、Session、工具过滤、委派和通用对话。具体对应见 [架构与 DSH 关系](docs/architecture.md)。
 
-## Scope
+## 当前可用范围
 
-- V1: SSH entry. An experimental optional Podman exec step reaches an existing container on that host without container SSH.
-- Ship entirely as external DSH plugins and the Rust helper; no DSH core patch is assumed.
-- Develop incrementally, starting with the helper. A working helper is an intermediate milestone, not proof of DSH integration.
-- The helper API and behavior are approved; message revision 1 and the Rust helper are implemented. Native acceptance covers embedded Linux/musl, containerized Linux/glibc, and macOS, with explicit target selection.
-- V1 provides managed subprocesses and background execution during the live runtime, without helper-managed task persistence, detached task supervision, or cross-restart recovery. Agents may arrange persistence themselves using remote programs.
-- Future: a general composable resolver system enters SSH, Container, and other environments, starting the same helper in the final environment. The current container entry is limited to one Podman step after SSH.
+Rust helper 0.1.1、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现和验收记录。SSH 后可选进入一个已有 Podman 容器。Project 选择与显式创建/恢复仍是源码实验；完整 Web profile 和下游补丁尚未实现，补丁序列为空。不能直接把默认 DSH Web 全量工具装配视为远程兼容。
 
-## Agreed constraints
+这不是一个把所有工具都搬到远程的系统。本地连接器与远程项目工具需要不同能力入口；本地 skill 的脚本不会自动同步，也不会自动在本地执行。详见 [执行边界与 edge cases](docs/execution-boundaries.md)。
 
-- Follow the E2B provider-composition seam: one runtime owner, with filesystem and subprocess providers sharing its remote handle. Verify actual DSH contracts before fixing adapter or protocol details.
-- Keep World identity separate from SSH connection lifetime. A World records the target environment, workspace, and execution configuration; compatible connections/helpers may be shared. Bind Agents at creation, inherit the binding for child Agents by default, and require explicit creation or handoff for another World.
-- Route all workspace filesystem and process operations, including those initiated by plugins, through the bound World. Incompatible consumers must be adapted, excluded from the remote composition, or rejected explicitly.
-- Use the SSH account's existing permissions. The workspace is a working-directory convention, not a sandbox. Assume a separate Auto Approval plugin exists; this project supplies World-aware execution context to that approval boundary rather than implementing the approval policy.
-- Upload a compatible Linux ripgrep binary and run search through the remote subprocess provider. Bind DSH's known packaged ripgrep executable to that remote installation; prefer reusing the existing search tools over implementing a separate search engine.
-- Follow DSH's managed-process and job cleanup contracts. Within a bounded grace period, reconnection resumes the same live runtime and its handles/output. Same-session request retransmission is deduplicated; a new runtime never automatically re-executes old commands. Persistence beyond the managed runtime is left to Agent-selected remote programs.
-- Bootstrap without sudo: obtain the target helper and ripgrep locally and upload them through SSH, including when the remote host has no public internet access. Preserve OpenSSH authentication and host-verification behavior. Install versioned artifacts without replacing a running helper.
-
-## Architecture
-
-The repository is expected to contain:
-
-1. A runtime owner for SSH bootstrap, connection, helper lifecycle, version/capability negotiation, and the shared remote handle (the Execution World).
-2. A remote filesystem provider implementing DSH's filesystem contract, with search using uploaded ripgrep through the remote subprocess provider and an explicit managed-executable mapping.
-3. A remote subprocess provider implementing DSH's process and terminal contract: Shell/PTY, processes, background jobs, signals, cancellation, and output streams.
-4. A user-level Rust Linux server (the helper) exposing filesystem and process/PTY APIs, with search executed by the uploaded ripgrep.
-5. An SSH entry with an optional Podman step into an existing container, starting the same helper in the final environment. General resolver composition remains future work.
-
-See [design constraints, DSH seam findings, and development stages](docs/design.md). This distinguishes agreed requirements from proposed mechanisms and unverified compatibility.
-
-The [helper API contract](docs/helper-api.md) defines message framing, methods, lifetime, file publication, and output controls. The [platform acceptance plan](docs/helper-acceptance.md) specifies the implementation gates and shared tests without recording private connection targets.
-
-## References
-
-- DSH E2B
-- Zed Remote
-- VS Code nested ExecServer
-- Distant
-- Agent Host: future Remote Harness reference only
-
-## Status
-
-Helper 0.1.1, the TypeScript client, system OpenSSH bootstrap and external FS/subprocess/PTY providers are implemented. Target-native ripgrep executes search remotely; no workspace operation silently falls back to the client machine. See [bootstrap](docs/bootstrap.md), [client](docs/client.md) and [helper acceptance](docs/helper-acceptance.md).
-
-The [corrected DSH composition](docs/agents.md) uses standing presets and unchanged DSH Agent, tool and subagent services. World context follows the preset into children, and native tool filters work. The earlier custom Agent/ToolRuntime, handoff and SQLite Session implementation have been removed. Actual DSH terminal/jobs consumers remain [integration fixtures](docs/terminal.md), not a tool policy owned by this plugin.
-
-The [persistent Session-based router](docs/session-routing.md) supports multiple Worlds under one preset with a lightweight external JSON map and unchanged DSH Session storage. Restart reconstructs the bound World into a new helper without replaying tasks. A [private plugin tarball](docs/packaging.md) provides compiled Loader entries and declarations. Shared-router initialization/background integration and parent-path FS canonicalization remain [open](docs/upstream-seams.md). Public DSH release compatibility and distribution remain in the [next-stage plan](docs/next-stage.md).
-
-The experimental [SSH → Podman exec entry](docs/podman.md) uses the final container for bootstrap and runtime transport. A [Web demo assessment](docs/demo-assessment.md) records two upstream gaps: local directory creation before preset setup, and no existing cross-root messaging composition suitable for coordinating independent World Sessions. A complete Web demo is not yet implemented.
-
-A separate [Project experiment](experiments/project-worlds/README.md) supports World + workspace identity and explicit native Session creation/reopen. Full Web Project integration is deferred because direct Web creation and cold activation bypass World preparation. The experiment is retained as evidence and is not shipped as a Web plugin; the roadmap does not depend on upstream changes.
-
-## Build and exercise the helper
+## 开发与文档
 
 ```sh
 cargo build --locked
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
+npm run check
+npm test
 ```
 
-The helper and `dsh-remote-fixture` acceptance child are built separately as binaries. On a Linux build machine, `sh scripts/build-linux.sh aarch64-unknown-linux-musl` uses the installed Rust target and bundled linker for a static embedded Linux build. It does not install a compiler on the embedded target.
+Cargo workspace 保留根目录构建命令和 `target/` 产物路径。环境要求、DSH 基线检查、集成和打包命令见 [开发指南](docs/development.md)。
 
-```sh
-dsh-remote start --runtime-dir /tmp/example-dsh-runtime --cwd /tmp
-dsh-remote connect --socket /tmp/example-dsh-runtime/socket
-```
-
-The runtime directory must not already exist. `connect` speaks the framed protocol, not an interactive shell. Production callers launch it through system SSH. Use `python3 tests/acceptance.py --help` for the common platform suite and `python3 scripts/upload-artifacts.py --help` for checksum-verified SSH-stdio uploads into an existing dedicated acceptance directory. Connection targets are runtime inputs; repository artifacts identify platforms only.
+- [架构与 DSH 对应](docs/architecture.md)：稳定的责任和接口边界。
+- [执行边界](docs/execution-boundaries.md)：本地/远端、skills、凭据和未支持能力。
+- [helper 协议](docs/reference/helper-api.md)、[bootstrap](docs/reference/bootstrap.md)、[Session bindings](docs/reference/session-bindings.md)：实现契约。
+- [当前阶段计划](.agents/notes/proposed/integration/2026-09-07-world-project-web.md)：顺序、未决项和验收门槛。
+- [Agent Notes](.agents/notes/README.md)：决策、实验和历史证据；不作为已交付功能说明。
