@@ -42,11 +42,11 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 
 ## 补丁与新插件的分工
 
-**下表是已选择的维护边界，不是已应用的补丁清单。** 当前 [series.json](../integrations/dsh/patches/series.json) 固定基线、序列为空；实际改动以该文件和对应验收为准。
+**下表是已选择的维护边界，不是已应用的补丁清单。** 当前 [series.json](../integrations/dsh/patches/series.json) 固定基线并登记首个 Session 准入补丁；其余仍是规划，实际改动以该文件和对应验收为准。
 
 | 原生包（省略 @deepseek-ai/） | 维护方式 | 职责 |
 | --- | --- | --- |
-| dsh-api-session-controller | 补丁 | 创建/接管/恢复/fork 的统一异步 World 准备，远程目录操作不落到本地 |
+| dsh-api-session-controller | 首个补丁已实现，源码 gate 通过 | 创建/接管/恢复/fork 的统一异步 World 准备，远程目录操作不落到本地 |
 | dsh-tool-fs | 补丁 | provider 负责远程路径解析，消除工具层本地 canonicalization |
 | dsh-sandbox-policy | 补丁候选 | 从已准备的 World 获取根目录；不伪装成本地 sandbox 的远程实现 |
 | dsh-agent-instructions | 补丁候选 | 非工具阶段按 Agent 取具体 FS，区分本地全局与远程项目指令 |
@@ -61,7 +61,7 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 ## 目录所有权
 
 - `runtime/`：DSH 无关的 Rust helper 与 TypeScript client/SSH 库；两个 npm workspace 使用显式路径，不把 Rust crate 当成 npm 包。
-- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；当前只有 ssh-world，不为未实现能力创建空包。
+- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 已打包，session-admission 仅用于 patched-host 源码装配，不为未实现能力创建空包。
 - `integrations/dsh/patches/`：上游基线与有序补丁；不存上游完整源码或 node_modules。
 - `integrations/dsh/profiles/`：宿主装配边界；仅在真实 Loader 验证后收录可运行 profile。
 - `integrations/dsh/experiments/`：不随插件发行的可执行实验；已有 portable_workspace 实验是迁移输入。

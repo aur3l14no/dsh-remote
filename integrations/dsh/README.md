@@ -1,9 +1,10 @@
 # DeepSeek Harness integration
 
-DSH-specific code lives here. Shared transport/protocol code stays in ../../packages; Rust stays in ../../helper.
+DSH-specific code lives here. Shared transport/protocol code and Rust stay in ../../runtime.
 
 - `plugins/ssh-world/`: implemented World owner, providers, binding store and routing; packaged as `@dsh-remote/ssh-world`.
-- `patches/`: pinned upstream revision and ordered downstream patches. The series is empty; no patched host is shipped yet.
+- `plugins/session-admission/`: source-only adapter for the patched host and experimental registry.
+- `patches/`: pinned upstream revision and ordered downstream patches. The first Session admission patch has a separate source-build/behavior gate; a complete patched Web distribution is not shipped.
 - `profiles/`: application composition policy; runnable remote Web profile is pending verification.
 - `experiments/portable_workspace/`: source-only portable_workspace registry/entry proof, excluded from distribution.
 - `tests/`: bindings and pinned-host integration fixtures.

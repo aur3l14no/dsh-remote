@@ -35,7 +35,7 @@ node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-s
 
 ## DSH 兼容与发行
 
-[patches/series.json](../integrations/dsh/patches/series.json) 是上游 revision 和补丁序列的唯一配置源。现有脚本使用同一 revision 并要求上游 checkout 干净；目前序列为空，它们只验证 unchanged-source composition。
+[patches/series.json](../integrations/dsh/patches/series.json) 是上游 revision 和补丁序列的唯一配置源。unchanged-source 脚本要求同一 revision 且 checkout 干净，始终只验证原生 composition；下游补丁走独立入口。
 
 ```sh
 node integrations/dsh/scripts/check-composition.mjs "$DSH_SOURCE"
@@ -50,7 +50,14 @@ DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node target/package-check/accept.mjs
 
 `portable_workspace` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
 
-下游补丁实施时增加独立的 patched-host gate：固定基线、依次检查并应用补丁、编译受影响包及 Remote 图，再运行真实 profile/browser。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。完整 profile 验证前，不发布虚假的运行配置。
+首个 Session 准入补丁有独立源码 gate：从干净基线导出隔离副本，校验补丁摘要并顺序应用，检查改动宿主包与集成的类型、构建行为 fixture。完整 Remote 图发行及 profile/browser 仍待后续验证。
+
+```sh
+node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
+DSH_TEST_RG="$LOCAL_RG" node target/patched-host/admission.mjs
+```
+
+输出在 target/patched-host/；build.json 记录基线和补丁摘要。开发新补丁可在命令末尾指定 patches/ 内的候选文件名，验证后再纳入 series.json。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。完整 profile 验证前，不发布虚假的运行配置。
 
 SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-portable_workspace.mjs`，参数通过显式环境输入；只允许针对已选目标操作测试资源。宿主名、SSH 配置、token 不写入公共文档和报告。helper 与 ripgrep 必须使用目标平台产物。
 

@@ -1,5 +1,13 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
   "revision": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
-  "patches": []
+  "patches": [
+    {
+      "file": "0001-session-admission.patch",
+      "sha256": "7f2cbf82355db205dcf995415ab5eac62dd8e8285af4feba713b8b3ffff957c5",
+      "packages": [
+        "@deepseek-ai/dsh-api-session-controller"
+      ]
+    }
+  ]
 }

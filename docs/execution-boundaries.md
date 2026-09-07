@@ -15,7 +15,7 @@ DSH tools.execute(exec.agent)
   → client RPC → SSH stdio → 远端 helper 执行
 ```
 
-[routing.ts](../integrations/dsh/plugins/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/plugins/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，但当前未自动覆盖全部模型 pre-step、初始化、上传和后台消费者。
+[routing.ts](../integrations/dsh/plugins/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/plugins/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。新增 session-admission 适配器通过宿主补丁在普通 Session 创建、恢复、接管和 fork 前执行准入；这条链路独立于工具调用的 ALS。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，但当前未自动覆盖全部模型 pre-step、初始化、上传和后台消费者。
 
 目前 **没有** 自动分类全部工具的黑白名单，也没有可用的通用 local-shell 工具。以下机制必须区分：
 
@@ -84,7 +84,8 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | World 缺失、配置变更、断线 | 显式失败，绝不回退本地或另一容器。不要把本地同名目录当作备用 |
 | 宿主重启或 helper 替换 | 用持久 binding 准备新 runtime；历史保留，旧进程和命令不自动恢复/重放 |
 | 活跃 runtime 连接中断 | 仅有限宽限期内恢复相同 runtime/请求身份；超期失效，不使用新请求 ID 重放不确定命令 |
-| 子 Agent / Web fork | 子 Agent 默认继承，已有 failed-commit 执行阻止；Web fork 需补准入。跨 World 是新 Session，不继承另一环境的临时句柄 |
+| 子 Agent / Web fork | 子 Agent 默认继承，已有 failed-commit 执行阻止；patched-host 已验证 Web fork 的启动前绑定；完整 Web profile 未交付。跨 World 是新 Session，不继承另一环境的临时句柄 |
+| 远端 Git worktree 与新 Agent | 尚无自动链路。子 Agent 继承父绑定与 cwd，Web fork 沿用源 cwd；新 worktree 需登记同一 World 下的新 portable_workspace，并在启动前建立新 Session 绑定 |
 | 非工具阶段读取、后台回调 | 必须以 Agent/owner 明确选择 World；缺少上下文不能假设默认 World。共享路由尚待全链验证 |
 | 本地与远端 symlink、`..` 不同 | 必须远端 canonicalize；tool-fs 和 policy 的本地解析是待修复缺口 |
 | 本地平台与目标平台不同 | 远端可执行文件、shell、路径规则由目标决定；不能根据本地 OS 选择目标 Bash/PowerShell |
@@ -94,3 +95,11 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。审批上下文与强制执行能力必须分开说明 |
 
 下一阶段按这些反例验收，而不按“工具名字看起来是远端”验收。详见 [阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)。
+
+## Git worktree：当前能力与缺口
+
+已绑定的 subprocess provider 可以在远端执行 Git 命令，前提是目标安装 Git、仓库可用且账号有权限；当前没有 worktree 专用编排或验收。执行 `git worktree add` 只产生 Git 工作目录，不会自动注册 portable_workspace 或创建 Agent。
+
+实验 registry 的 `createInWorld` 可以登记一个已存在的远端目录；`startPortableWorkspaceSession` 可为该目录建立新绑定并创建独立 Session。这些是显式源码 API，尚未组成模型工具或 Web 一键流程。普通子 Agent 的继承检查要求 cwd 和完整绑定与父级一致，不能仅传新 cwd 来实现 worktree 隔离。当前固定 DSH 基线的 Web fork 复制源 cwd；workflow 的 isolation 选项明确延期，也不能自动提供这项能力。
+
+预期语义是同一 World、不同 canonical workspace，对应两个 portable_workspace。新 Agent 的执行上下文应在启动前绑定新目录；它是否保留父子关系、复制哪些对话上下文，以及失败重试和清理规则，留待后续定界。详见[待处理的 worktree 边缘情况](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
