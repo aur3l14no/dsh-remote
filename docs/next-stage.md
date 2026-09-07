@@ -27,9 +27,15 @@ Report concrete seams to the user before expanding scope. Do not modify DSH core
 
 ## Work within this project's responsibility
 
+Upstream changes are outside our control and are not a delivery dependency. If a required capability cannot be implemented through supported existing interfaces within the agreed plugin boundary, leave that feature out and retain the evidence. Revisit only when a concrete compatible route is available; do not keep expanding the experiment to bypass the host.
+
 The proposed coordinating Web thread cannot use existing upstream messaging for independent World Sessions under the agreed same-World child rule. See [the assessment](demo-assessment.md). Defer that demo instead of implementing orchestration here. Web's local `mkdir(cwd)` during Session creation is a separate newly identified integration obstacle.
 
-The preferred entry is [World settings → Create Project with World + workspace](web-world-selection.md). The independent Project experiment successfully replaces the local registry and prepares native Session create/reopen. Direct Web creation and cold activation still bypass preparation; tests reproduce local `mkdir` and rejected cold resume. Report this entry boundary without replacing Session Controller internals. Next obtain a supported preparation hook, then add the settings card, Project feed and UI slots. Keep Project behavior outside the execution provider.
+The desired [World settings → Create Project with World + workspace](web-world-selection.md) flow is deferred. The independent Project experiment successfully replaces the local registry and prepares native Session create/reopen, but direct Web creation and cold activation bypass preparation. Retain the source-only experiment and its acceptance evidence; stop work on its settings card, Project feed and browser flow. An upstream preparation hook is a description of the missing capability, not an action item or something this project waits for.
+
+Continue with helper/client correctness, the verified DSH provider and explicit binding paths, and reproducible platform acceptance. A standalone acceptance report can present these results without depending on Web integration or cross-Session orchestration.
+
+Changing agent hosts, including building our own, is a future strategic option only if accumulated interface limitations materially undermine the core Execution World use case. It is not a current workstream; do not start a migration or a replacement harness for this isolated Web limitation.
 
 - Select an installable DSH baseline before public-release compatibility validation. The current source version is not available as the corresponding npm preset package.
 - Compare remote FS behavior with upstream rules; keep explicit listing/upload/output limits until bounded pagination/streaming is implemented and tested.

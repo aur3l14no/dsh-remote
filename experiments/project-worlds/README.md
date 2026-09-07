@@ -2,6 +2,8 @@
 
 Source-only, against unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. Not included in the SSH plugin tarball. This exercises the actual Workspace service contract, Agent registry/loop, standing presets, JSONL persistence and Web activation controllers. It is **not a browser test or a complete Web plugin**.
 
+Status: retained as an experiment; full Web integration is deferred. There is no plan to obtain or wait for upstream changes. Resume feature work only if a concrete route through supported existing interfaces is found within the agreed Project boundary.
+
 ## Implemented
 
 - Replace the local Workspace registry with a Project service. Its initialization never opens the built-in workspace domain or indexes remote Session paths locally.
@@ -23,7 +25,7 @@ The fixture also invokes the **unchanged** controllers behind Web Session creati
 
 These observations do not establish that all external integration strategies are impossible. They establish that replacing the Project registry/picker and adding a Project entry is insufficient for transparent Web integration. The Web history follower also promotes cold Sessions through its internal activation controller, so overriding only the public `resolveAgent()` method would not cover every entry.
 
-Stop at this seam: no Agent factory wrapper, replacement Session Controller, private-field access, filesystem monkey-patch, fake local workspace or eager resume of all stored Sessions. No Project settings card or chat UI has been shipped. A suitable upstream extension would await environment preparation before **every** create/resume path (including history promotion and upload resolution), permit World-owned directory validation, and propagate preparation failure before local directory mutation/publication.
+Stop at this seam: no Agent factory wrapper, replacement Session Controller, private-field access, filesystem monkey-patch, fake local workspace or eager resume of all stored Sessions. No Project settings card or chat UI has been shipped. The missing capability is awaited environment preparation before **every** create/resume path (including history promotion and upload resolution), with World-owned directory validation and failure propagation before local directory mutation/publication. This records the requirement; implementing an upstream extension is not this project's next task.
 
 ## Reproduce
 

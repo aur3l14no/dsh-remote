@@ -1,6 +1,6 @@
 # World selection in Web projects
 
-Product flow based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. A [source-only Project experiment](../experiments/project-worlds/README.md) now validates the service and entry wiring. Settings/UI and transparent Web activation are not implemented.
+Deferred product flow based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. A [source-only Project experiment](../experiments/project-worlds/README.md) validates the service and entry wiring. Settings/UI and transparent Web activation are not implemented, and their development is paused.
 
 ## User flow
 
@@ -46,9 +46,9 @@ The experiment establishes distinct same-path Projects and explicit Project crea
 
 It also reproduces the remaining entry gap: unprepared Web creation runs local `mkdir`; cold Web activation skips preparation and fails the World guard. The Session Controller owns its Typert lookup exclusively and promotes history followers through a private activation controller. A Project picker cannot cover those paths. No complete Web profile or browser flow is claimed.
 
-Next: obtain a supported asynchronous environment-preparation seam covering Web creation, cold resume and history promotion, with directory validation delegated to the World. Keep the experiment out of the distributed plugin until these entry paths are covered; then implement settings, the Project feed and the two UI slots.
+Decision: defer this Web flow and retain the experiment as evidence. Upstream changes are outside our control; obtaining a new preparation hook is not a next step. Reopen this work only with a concrete route through supported existing interfaces that covers these entry paths and keeps directory operations in the World. Keep the experiment out of the distributed plugin.
 
-Keep the replacement within Project responsibilities. If an inherited API requires changing the Agent registry, Session history or unsupported private internals, report that concrete gap. Upstream changes remain an option for improving the seam, not a prerequisite already established for every external-plugin approach.
+Keep any future replacement within Project responsibilities. If the inherited API cannot support the flow without changing Agent/Session ownership or relying on private internals, omit the feature. This limitation does not initiate migration to another agent host or a self-built harness.
 
 Source anchors in the pinned upstream:
 
