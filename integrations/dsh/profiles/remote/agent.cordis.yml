@@ -7,29 +7,29 @@
     toolBashWorkdir: true
     terminals: true
   config:
-    - name: '@dsh-remote/web/fs'
-    - name: '@dsh-remote/web/subprocess'
-    - name: '@dsh-remote/web/routing'
+    - name: '../../plugins/web/lib/fs.js'
+    - name: '../../plugins/web/lib/subprocess.js'
+    - name: '../../plugins/web/lib/routing.js'
       config:
         providerPaths: true
     - name: '@deepseek-ai/dsh-bash-local'
       config:
         maxSpillBytes: 4194304
-    - name: '@deepseek-ai/dsh-tool-bash'
+    - name: '../../compat/@deepseek-ai/dsh-tool-bash/lib/index.js'
       config:
         enableRunInBackground: true
-    - name: '@deepseek-ai/dsh-tool-fs'
+    - name: '../../compat/@deepseek-ai/dsh-tool-fs/lib/index.js'
     - name: '@deepseek-ai/dsh-tool-fs-search'
       config:
         sampleOverCapGlobResults: false
     - name: '@deepseek-ai/dsh-tool-web'
-    - name: '@deepseek-ai/dsh-agent-instructions'
+    - name: '../../compat/@deepseek-ai/dsh-agent-instructions/lib/index.js'
       config:
         maxBytes: 32768
-    - name: '@deepseek-ai/dsh-tool-skill'
+    - name: '../../compat/@deepseek-ai/dsh-tool-skill/lib/index.js'
     - name: '@deepseek-ai/dsh-tool-jobs'
     - name: '@deepseek-ai/dsh-terminal'
-    - name: '@dsh-remote/web/terminal'
+    - name: '../../plugins/web/lib/terminal.js'
     - name: '@deepseek-ai/dsh-tool-terminal'
     - name: '@deepseek-ai/dsh-tool-subagent'
       config:

@@ -35,9 +35,9 @@ Rust helper 0.1.2、协议客户端、SSH bootstrap、FS/subprocess/PTY provider
 
 受限的 remote Web profile 通过真实 DSH Web、Playwright Chromium 与两个 Linux/SSH World 验收：显式选择 World 和目录、Session 创建/fork、远端读写与命令、宿主冷启动恢复和取消。宿主 Web Search 同时通过受控端点边界测试和真实 DeepSeek 模型/外部搜索验收；真实模型完成远端代码编写、测试及部署 skill 执行。
 
-通过[源码安装与启动入口](docs/source-install.md)使用，尚未作为独立 Web npm 发行包发布。remote preset 装配文件、搜索、前台/后台 Bash、jobs、文件补全、Web 工具以及远端项目 instructions/skills；原生子 Agent（含重启后 continuation）和终端工具已接入；独立终端面板与完整远程 sandbox 尚未提供。不能将默认 DSH Web 的工具全集视为远程兼容。
+通过[扩展安装与启动入口](docs/install.md)使用，安装官方 DSH 与预构建扩展 tarball；尚未发布到公共 npm registry。remote preset 装配文件、搜索、前台/后台 Bash、jobs、文件补全、Web 工具以及远端项目 instructions/skills；原生子 Agent（含重启后 continuation）和终端工具已接入；独立终端面板与完整远程 sandbox 尚未提供。不能将默认 DSH Web 的工具全集视为远程兼容。
 
-这不是一个把所有工具都搬到远程的系统。本地连接器与远程项目工具需要不同能力入口；选定的本地 skill 可显式部署到远端 home 并链接到 `.agents/skills`，脚本依赖不会自动安装，也不会回退本地执行。见 [Skills 与项目指令](docs/skills.md)。详见 [执行边界与 edge cases](docs/execution-boundaries.md)。
+这不是一个把所有工具都搬到远程的系统。本地连接器与远程项目工具需要不同能力入口；选定的本地 skill 在新 helper 连接前自动同步到远端 home 并链接到 `.agents/skills`，连接中可手动同步。脚本依赖不会自动安装，也不会回退本地执行。见 [Skills 与项目指令](docs/skills.md)。详见 [执行边界与 edge cases](docs/execution-boundaries.md)。
 
 ## 开发与文档
 

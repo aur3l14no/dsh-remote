@@ -72,12 +72,29 @@ printf browser-proof > browser-proof.txt` }, 'remote_bash');
   ];
   await writeFile(childFile, [
     { type: 'session', version: 2, id: 'remote-child-fixture', createdAt: 1, cwd: '/workspace', isSeeded: false, origin: 'subagent', parentSession: 'remote-parent-fixture', delegationDepth: 1 },
-    ...childEntries.map((entry, index) => ({ type: 'assistant/message', surfaceOp: 'append', data: {
-      turn: 1, step: index + 1, usage: { inputTokens: 10, outputTokens: 5 },
-      message: { role: 'assistant', id: `child-message-${index}`, source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-        content: entry.chunks.filter((chunk: { type: string }) => chunk.type === 'block-end').map((chunk: { block: unknown }) => chunk.block) },
-      stream: entry.chunks.map((chunk: unknown) => ({ type: 'chunk', time: 1, chunk })),
-    } })),
+    { type: 'turn/start', data: { turn: 1 } },
+    ...childEntries.flatMap((entry, index) => {
+      const step = index + 1;
+      const content = entry.chunks.filter((chunk: { type: string }) => chunk.type === 'block-end').map((chunk: { block: unknown }) => chunk.block);
+      const calls = content.filter((block: { type: string }) => block.type === 'tool-call');
+      return [
+        { type: 'step/start', data: { turn: 1, step } },
+        { type: 'assistant/message', surfaceOp: 'append', data: {
+          turn: 1, step, usage: { inputTokens: 10, outputTokens: 5 },
+          message: { role: 'assistant', id: `child-message-${index}`, source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' }, content },
+          stream: entry.chunks.map((chunk: unknown) => ({ type: 'chunk', time: 1, chunk })),
+        } },
+        ...calls.flatMap((call: { id: string; name: string; arguments: string }) => [
+          { type: 'tool/call', data: { turn: 1, step, callId: call.id, name: call.name, arguments: call.arguments } },
+          { type: 'tool/result', surfaceOp: 'append', data: { turn: 1, step, message: {
+            role: 'user', id: `child-result-${index}`, source: { kind: 'tool', callId: call.id },
+            content: [{ type: 'tool-result', toolCallId: call.id, content: [{ type: 'text', text: 'fixture' }], isError: false }],
+          } } },
+        ]),
+        { type: 'step/end', data: { turn: 1, step } },
+      ];
+    }),
+    { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
   ].map(row => JSON.stringify(row)).join('\n') + '\n');
   let childFixtures = [childFile];
   await writeFile(override, JSON.stringify(entries));

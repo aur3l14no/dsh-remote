@@ -1,35 +1,47 @@
 import assert from 'node:assert/strict';
 import { createWriteStream } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, rm, cp } from 'node:fs/promises';
 import yaml from 'js-yaml';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const root = resolve('.');
-const build = JSON.parse(await readFile('target/web-host/remote-build.json', 'utf8'));
-assert.equal(build.scaffold, false, 'Build with --production before CLI acceptance');
+const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');
+const archive = resolve('target/packages/dsh-remote-extension-0.2.0.tgz');
+const build = JSON.parse(await readFile('target/packages/extension-build.json', 'utf8'));
+assert.equal(build.dshVersion, '0.1.3-alpha.2');
 const credentialHome = process.argv[2];
 const videoDirectory = process.env.DSH_E2E_VIDEO_DIR && resolve(process.env.DSH_E2E_VIDEO_DIR);
 await mkdir('target/web-acceptance', { recursive: true });
-const resultFile = resolve(`target/web-acceptance/source-install${credentialHome ? '-live' : ''}.json`);
+const resultFile = resolve(`target/web-acceptance/extension-install${credentialHome ? '-live' : ''}.json`);
 await rm(resultFile, { force: true });
-const { chromium } = createRequire(resolve('target/web-host/apps/web/package.json'))('playwright');
-const state = await mkdtemp(resolve('target/e2e/source-install-'));
+const { chromium } = createRequire(import.meta.url)('playwright');
+const state = await mkdtemp(join(tmpdir(), 'dsh-extension-install-'));
 const home = `${state}/home`;
-const launcher = resolve('integrations/dsh/scripts/start-web.mjs');
+const launcher = `${installation}/node_modules/@deepseek-ai/dsh/lib/bin.js`;
+const environment = { ...process.env, DSH_HOME: home };
+const plugin = (...args) => execFileSync(process.execPath, ['--expose-internals', launcher, 'plugin', '--profile', 'web', ...args], { env: environment, stdio: 'pipe' });
 let child;
 let browser;
 let page;
 try {
   const selection = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, 'utf8'));
-  const config = { worlds: selection.worlds, bootstrap: {
+  const skillSource = `${state}/remote-proof`;
+  await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof'), skillSource, { recursive: true });
+  await writeFile(`${skillSource}/sync-proof.txt`, 'automatic');
+  const config = { worlds: selection.worlds.map(world => ({ ...world,
+    skills: [{ name: 'remote-proof', source: skillSource }],
+  })), bootstrap: {
     manifest: JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST, 'utf8')),
     cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE, graceMs: 15000, leaseMs: 5000,
   } };
   await writeFile(`${state}/config.json`, JSON.stringify(config), { mode: 0o600 });
-  execFileSync(process.execPath, [launcher, 'init', home, `${state}/config.json`], { stdio: 'pipe' });
+  await mkdir(home, { mode: 0o700 });
+  plugin('add', archive);
+  plugin('exec', 'dsh-remote-config', 'init', `${state}/config.json`);
   if (credentialHome) {
     const credentials = yaml.load(await readFile(resolve(credentialHome, '.credentials.yaml'), 'utf8'));
     const key = credentials?.refs?.DEEPSEEK_API_KEY;
@@ -37,9 +49,9 @@ try {
     await writeFile(`${home}/.credentials.yaml`, yaml.dump({ version: credentials.version, refs: { DEEPSEEK_API_KEY: key } }), { mode: 0o600 });
     await writeFile(`${home}/settings.yaml`, yaml.dump({ 'agent-default-model': { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }), { mode: 0o600 });
   }
-  assert.throws(() => execFileSync(process.execPath, [launcher, 'init', home, `${state}/config.json`], { stdio: 'pipe' }));
-  child = spawn(process.execPath, [launcher, 'start', home, '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  const log = createWriteStream(resolve('target/web-acceptance/source-cli.private.log'), { mode: 0o600 });
+  assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/config.json`));
+  child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const log = createWriteStream(resolve('target/web-acceptance/extension-cli.private.log'), { mode: 0o600 });
   child.stdout.pipe(log, { end: false });
   child.stderr.pipe(log, { end: false });
   child.once('close', () => log.end());
@@ -66,12 +78,33 @@ try {
   await page.getByLabel('World', { exact: true }).selectOption('a');
   await page.getByLabel('Remote directory', { exact: true }).click();
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
+  await rm(`${skillSource}/SKILL.md`);
+  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
+  assert.equal(JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8')).sessions.length, 0);
+  await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof/SKILL.md'), `${skillSource}/SKILL.md`);
   await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
   await page.locator('[data-composer-input][contenteditable=true]').first().waitFor({ timeout: 30000 });
-  const bindings = JSON.parse(await readFile(`${home}/bindings.json`, 'utf8'));
+  const bindings = JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8'));
   assert.equal(bindings.sessions.length, 1);
   assert.equal(bindings.worlds.length, 1);
   assert.equal(bindings.worlds[0].cwd, '/workspace');
+  const control = sshControl(selection.worlds.find(world => world.id === 'a').target);
+  const readSynced = () => control(['sh', '-c', 'cat "$HOME/.agents/skills/remote-proof/sync-proof.txt"']);
+  assert.equal(await readSynced(), 'automatic');
+  const helperPids = () => control(['sh', '-c', 'pgrep -x dsh-remote | sort -n']);
+  const beforeSync = await helperPids();
+  assert.ok(beforeSync.trim(), 'Expected a running helper');
+  await writeFile(`${skillSource}/sync-proof.txt`, 'manual');
+  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'Synced 1 skills' }).waitFor();
+  assert.equal(await readSynced(), 'manual');
+  assert.equal(await helperPids(), beforeSync, 'Skill sync must preserve helper processes');
+  await rm(`${skillSource}/SKILL.md`);
+  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
+  assert.equal(await readSynced(), 'manual', 'Failed sync must preserve the deployed skill');
+  await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof/SKILL.md'), `${skillSource}/SKILL.md`);
   if (credentialHome) {
     const input = page.locator('[data-composer-input][contenteditable=true]').first();
     await input.fill('Without delegation, use bash to write a shell script cli-proof.sh in the current workspace that checks 2 + 3 = 5, checks DEEPSEEK_API_KEY is unset without printing it, and writes CLI_TOOL_PASSED into cli-proof.txt. Execute the script. Then finish.');
@@ -90,10 +123,10 @@ try {
     await controlB(['test', '!', '-e', '/workspace/cli-proof.txt']);
   }
   await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
-    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer',
+    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer', 'failed preconnect sync blocks binding and allows retry', 'automatic skill sync', 'manual skill sync without helper restart', 'failed sync preserves deployed skill',
       ...(credentialHome ? ['real-model remote script execution', 'independent remote test rerun', 'remote credential absent', 'other World unchanged'] : [])],
   }, null, 2) + '\n');
-  console.log('PASS source-install CLI and Playwright remote workspace creation');
+  console.log('PASS extension-install CLI and Playwright remote workspace creation');
   if (videoDirectory) {
     await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor({ state: 'hidden', timeout: 120000 });
     await page.waitForTimeout(5000);
@@ -101,9 +134,9 @@ try {
 } catch (error) {
   if (page) {
     console.log('CLI workspace diagnostic:', await page.locator('.portable-workspaces').innerText().catch(() => 'unavailable'));
-    await page.screenshot({ path: resolve('target/web-source-install.png') }).catch(() => {});
+    await page.screenshot({ path: resolve('target/web-extension-install.png') }).catch(() => {});
   }
-  throw error;
+  throw new Error(String(error).replace(/https?:\/\/[^\s]+/g, '[URL]'));
 } finally {
   await browser?.close();
   if (videoDirectory && page?.video()) console.log(`Browser recording: ${await page.video().path()}`);

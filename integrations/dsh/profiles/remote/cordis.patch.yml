@@ -1,4 +1,4 @@
-# Host-only configuration is supplied explicitly by the launcher.
+# Native bundle overlay; inserted paths are anchored beside this file by DSH.
 - id: session-controller
   config:
     nativeOpen: false
@@ -39,7 +39,43 @@
   disabled: true
 - insert:
     - id: remote-workspaces
-      name: '@dsh-remote/web'
-      config: !!js JSON.parse(process.env.DSH_REMOTE_CONFIG)
+      name: './plugins/web/lib/index.js'
+      inject: [remoteSetup]
+      config: !!js ctx.remoteSetup.config
     - id: remote-workspace-ui
-      name: '@dsh-remote/web-ui'
+      name: './plugins/web-ui/lib/index.js'
+      inject: [remoteSetup]
+- id: open-in-app
+  disabled: true
+- id: ui-open-in-app
+  disabled: true
+
+- id: session-controller
+  disabled: true
+- id: workspace-controller
+  disabled: true
+- id: skill
+  disabled: true
+- insert:
+    - id: remote-setup
+      name: './setup.mjs'
+    - id: remote-session-controller
+      name: './compat/@deepseek-ai/dsh-api-session-controller/lib/index.js'
+      inject: [remoteSetup]
+      config:
+        nativeOpen: false
+    - id: remote-workspace-controller
+      name: './compat/@deepseek-ai/dsh-api-workspace-controller/lib/index.js'
+      inject: [remoteSetup]
+    - id: remote-skill
+      name: './compat/@deepseek-ai/dsh-skill/lib/index.js'
+      inject: [remoteSetup]
+      config:
+        cache: false
+- id: agent-presets
+  inject: [remoteSetup]
+  config:
+    default: remote
+    includeShippedRoot: false
+    includeUserRoot: false
+    roots: !!js ctx.remoteSetup.roots

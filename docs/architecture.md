@@ -57,7 +57,9 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 
 remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 preset 隔离域，只发布 `remote` preset。连接器和 Session/control state 留在宿主。feed 与 Remote namespace 有独立激活边界，必须先于依赖它们的 controller/UI 可见，不能依赖 Loader 的偶然启动顺序。
 
-当前 Web 插件由脚本输出到 `target/web-plugin`、`target/web-plugin-ui`，profile 的安装锚点位于 `target/web-profile`。宿主 DSH 依赖保留为外部包，浏览器使用上游 client module factory 协议。源码构建、包依赖装配与公开 npm 发行是不同验收层次。
+交付为官方 DSH 加标准 bundle，开发者和用户共用 `dsh plugin add` 与官方启动命令。构建时仅编译 7 个兼容包与我们的插件；bundle overlay 禁用原生控制器／skill registry，按包内相对路径插入兼容实现，远端工具在 agent preset 内加载。兼容包间的运行时引用在构建期指向同一份包内文件；其余服务与 Web 前端使用官方 npm 产物。
+
+兼容目录保留原生 package、client factory 和 Typert 身份，DSH 按插件文件的最近 package.json 发现浏览器模块及 inventory。普通依赖由官方 profile fallback 解析，不使用 Node 解析 hook、不改写官方安装。配置插件在兼容服务激活前校验已验收的 DSH 版本。具体见 [安装](install.md)。
 
 远端 instructions 和 skill provider 已接入，选择性部署及 exec 边界见 [Skills](skills.md)。`file-references` plugin 通过显式 Agent owner 扫描远端目录，提供原生文件引用候选；不读取宿主同名目录。
 ## 目录所有权

@@ -148,3 +148,13 @@ Web Search 延续 M1 必测要求：参考上游 `web-search-round.e2e.ts` 的�
 - [执行边界](../../../../docs/execution-boundaries.md)
 - [原始 portable_workspace 验收](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)
 - [原始 session-routing 验收](../../archived/2026-09-initial-integration/evidence/binding-acceptance-results.json)
+
+Follow-up: [Skill synchronization and review fixes](../../implemented/integration/2026-09-08-skill-sync-review-fixes.md) records automatic/manual synchronization and cancellation regressions.
+
+## 官方安装与扩展发行进展（2026-09-08）
+
+原生 bundle 迁移已通过本地验收，见[记录](../../implemented/integration/2026-09-08-native-bundle-delivery.md)。开发者、用户、CI 共用标准 `dsh plugin add` 和官方 CLI；源码仅是窄补丁构建输入，不再提供源码宿主构建或自定义启动器。固定官方 alpha.2，五个补丁涉及七包，包内相对插件路径保留原生浏览器身份。
+
+已验收安装、重复安装、版本拒绝、移除恢复、完整双 World browser/SSH 及最终 tarball 的真实模型远端执行。最终产物尚未发布 npm/公开 Release，GitHub CI 未推送运行；本地通过不代表这些交付已完成。
+
+后续保持用户已确定的边界：远端 worktree/新 portable_workspace、附件桥接和 OS sandbox 单独推进；Linux helper 平台矩阵、ripgrep 与可信发布清单继续按真实平台证据完成。不因打包迁移扩大远端或本地权限。

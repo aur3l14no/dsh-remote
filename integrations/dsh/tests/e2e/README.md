@@ -6,13 +6,18 @@ The host runs DSH, the selected patches/plugins, and the test driver. Docker run
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
 
-# Build the real patched Web host and browser plugins from the clean pinned source.
-node integrations/dsh/scripts/prepare-web-host.mjs "$DSH_SOURCE"
+# Install official DSH, build/install the extension, then prepare test fixtures.
+node integrations/dsh/scripts/prepare-official.mjs
+node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" target/official-install
+node integrations/dsh/scripts/prepare-test-profile.mjs
+node --test integrations/dsh/tests/packaging/installed.test.mjs
+node integrations/dsh/scripts/prepare-browser-fixtures.mjs
+npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 ```
 
-The browser build also requires pnpm (the upstream packageManager pins its version) and downloads Playwright Chromium. On Linux install Chromium system dependencies in the host environment before running the browser lane.
+The browser lane uses this repository's pinned Vitest/Playwright dependencies and the official prebuilt frontend. On Linux install Chromium system dependencies in the host environment before running the browser lane.
 
 Requires Node 24+, installed npm dependencies, Docker Compose, OpenSSH client and ssh-keygen. The first run downloads Debian/Rust images and Linux packages; subsequent builds reuse Docker's cache. The helper builds inside Linux with the committed Cargo.lock. No host repository, home or Docker socket is mounted into either World. The SSH account is unprivileged; sshd alone starts as root.
 
@@ -37,24 +42,22 @@ The pinned upstream uses **Vitest + the `playwright` Chromium API**, not a separ
 - `apps/web/tests/web-search-round.e2e.ts`: actual search provider wired to a controlled local HTTP endpoint; a useful reference for the mandatory local connector / remote workspace boundary case.
 - `apps/web/tests/support.ts`: English browser context and failure screenshots; scaffold supplies console tripwires and stable ARIA snapshots.
 
-Our browser scenarios belong here, use that same Vitest/Playwright approach, and run as the host command inside this wrapper. The remote overlay must replace local workspace consumers before the scaffold creates Agents. Use the patched checkout, never silently run a clean upstream host and label it patched acceptance. Chromium and the built Web client are host dependencies, not World image dependencies.
+Our browser scenarios belong here, use that same Vitest/Playwright approach, and run as the host command inside this wrapper. The remote overlay must replace local workspace consumers before the scaffold creates Agents. Use the installed extension and official packages; the native bundle overlay selects the compatibility implementations. Chromium and the built Web client are host dependencies, not World image dependencies.
 
 Both controller/SSH and browser/SSH lanes are executable. `portable-workspace.e2e.ts` runs the actual product UI, real providers and native model replay. It checks two Worlds at the same path, remote file isolation, local search network/credential boundaries, native fork, cold deep-link recovery with a new runtime, remote process cancellation, missing bindings and a stopped World. It also covers workspace management, remote project/nested instructions, World-specific skill catalogs and updates, deployed skill script execution, remote file completion, and background job ownership/cancellation. The separate deployment lane checks repeated installation, content updates, empty directories, missing prerequisites and refusal to overwrite unmanaged entries.
 
-`scaffold.patch` only extends the upstream test scaffold with externally owned persistent host state and optional directory picking. It is not a runtime patch and is not in `series.json`. `vitest.config.ts` retains the upstream Vitest lane and maps downstream external DSH imports to the same source identities as the scaffold; mixing built/source scope singletons would invalidate routing tests.
-
-Preparation exports a fresh disposable checkout to `target/web-host`, verifies and applies every series digest, installs the upstream lockfile, runs its full build, and installs Chromium. Git discovery is bounded so neither patch application nor upstream install hooks can act on the enclosing repository. Generated packages declare only their actual external/preset dependencies and use the upstream browser module protocol.
+`prepare-browser-fixtures.mjs` extracts only the pinned upstream test fixtures and adds persistent-state/directory-picker options. It points composition and frontend resolution at installed official packages. `installed.vitest.config.mjs` resolves test imports to installed official JavaScript. The product uses ordinary Node resolution and a native bundle overlay, without source aliases or a preload hook. These fixture adaptations are test-only.
 
 The browser runner keeps host control state under `target/web-acceptance/run-*` and removes it after the test. Screenshots are written to `target/web-*.png`. Never upload temporary state, bindings, SSH keys or artifact caches. Controlled model/search responses prove integration behavior, not external service availability or live model quality.
 
 Browser acceptance must cover two Worlds at the same path, selecting/creating Sessions, independent remote writes, page reload and cold host restart, binding errors, cancellation/disconnection, and local Web Search followed by remote file operations. Replay controls model output only; filesystem/process/SSH and browser transport remain real. Remote worktree orchestration remains deferred.
 
-## Native source installation and live checks
+## Installed official CLI and live checks
 
 `web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` keeps the real model and external DeepSeek search provider; its task data are generated in fresh Docker Worlds. Only `refs.DEEPSEEK_API_KEY` is read and injected into the host. This is a manual credentialed lane, separate from keyless CI.
 
-`source-install.mjs [PRIVATE_DEEPSEEK_HOME]` requires a `prepare-web-host.mjs --production` build (`scaffold: false`). It invokes the installed native CLI, follows the first-run welcome flow and creates a remote Session with Playwright. The optional credentialed variant also asks the real model to write/execute a remote test, independently reruns it and checks the other World remains unchanged. No fixture host or test-only Loader alias is used. CI runs the keyless variant after a production rebuild. Source-profile dependencies are explicitly linked at the native profile anchor.
+`extension-install.mjs [PRIVATE_DEEPSEEK_HOME]` invokes the npm-installed extension launcher and official DSH CLI. It follows first-run welcome, creates a remote Session, and verifies automatic/manual Skills sync and unchanged helper PIDs. The optional credentialed variant asks the real model to write/execute a remote test and checks the other World remains unchanged. This gate does not use a scaffold. Set `DSH_TEST_INSTALL` to validate an installation outside the repository.
 
-Sanitized results are `target/web-acceptance/live-result.json`, `source-install.json` and `source-install-live.json`. The private CLI diagnostic log may contain its process-token URL and is never an uploaded artifact. Temporary homes and Docker resources are removed after acceptance. Local success does not claim a GitHub runner result.
+Sanitized results are `target/web-acceptance/live-result.json`, `extension-install.json` and `extension-install-live.json`. The private CLI diagnostic log may contain its process-token URL and is never an uploaded artifact. Temporary homes and Docker resources are removed after acceptance. Local success does not claim a GitHub runner result.
 
-To record the native CLI browser flow, set `DSH_E2E_VIDEO_DIR` to an output directory when running `source-install.mjs`. Playwright saves a 1440×900 WebM and slows UI actions for readability; the default gate remains unrecorded. The recording captures browser content only, while SSH assertions and Docker cleanup remain in the test runner.
+To record the native CLI browser flow, set `DSH_E2E_VIDEO_DIR` to an output directory when running `extension-install.mjs`. Playwright saves a 1440×900 WebM and slows UI actions for readability; the default gate remains unrecorded. The recording captures browser content only, while SSH assertions and Docker cleanup remain in the test runner.

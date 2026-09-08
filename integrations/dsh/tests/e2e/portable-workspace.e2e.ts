@@ -21,12 +21,12 @@ afterAll(async () => { try { await browser?.close(); await scaffold?.close(); } 
 it('keeps portable workspaces isolated across the Web lifecycle and failures', async () => {
   replay = await prepareReplay(state);
   const key = credentialRef('DSH_REMOTE_SEARCH_TEST');
-  const launch = (providersOnly = false) => launchWebScaffold({ extraOverlayPath: `${root}/integrations/dsh/profiles/remote/cordis.patch.yml`,
-    extraInstallAnchors: [`${root}/target/web-profile/package.json`],
+  const launch = (providersOnly = false) => launchWebScaffold({ extraOverlayPath: `${process.env.DSH_TEST_EXTENSION}/cordis.patch.yml`,
+    extraInstallAnchors: [`${process.env.DSH_TEST_EXTENSION}/package.json`],
     compareReplaySession: false, ...(providersOnly ? {} : {
       replayFixture: new URL('../../../snapshots/web/web-search-round/session.v2.jsonl', import.meta.url).pathname, replayOverride: replay.override, replayChildFixtures: replay.childFixtures }), deepSeekSearch: { baseURL: replay.baseURL, apiKeyEnv: key },
     directoryPicking: false, persistentStateRoot: state, harnessHome: `${state}/home`,
-    agentPresets: { default: 'remote', roots: [{ path: `${root}/target/web-plugin/presets`, trust: 'system' }] }, toolsMode: 'native' });
+    agentPresets: { default: 'remote', roots: [{ path: `${process.env.DSH_TEST_EXTENSION}/presets`, trust: 'system' }] }, toolsMode: 'native' });
   scaffold = await launch();
   await expect(scaffold.ctx.get('sessionController').openWorkspacePath({ path: '/workspace' }, new AbortController().signal)).rejects.toThrow('Native workspace opening is disabled');
   await scaffold.ctx.credentials.set(key, 'local-connector-fixture');

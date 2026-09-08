@@ -2,7 +2,7 @@
 
 This private development package supplies World connections, persistent Session–World bindings, and shared FS/subprocess routing. DSH owns Agents, Session history, delegation and tool filtering. Model and UI work stay local; workspace operations use the selected remote helper.
 
-It targets DSH source revision `d347e703908d0406b7a7ef80e3a0e594d86b2215` and Node 24. Use a matching source-built host; public installed-package compatibility is not established. This package does not include DSH, helper binaries or ripgrep.
+This document describes the low-level `@dsh-remote/ssh-world` development fixture, pinned by `../patches/series.json`. It does not include the complete Web composition, helper binaries or ripgrep. User delivery is the native `@dsh-remote/extension` bundle; see [installation](../../../docs/install.md).
 
 Cordis Loader entry points:
 
@@ -44,4 +44,4 @@ The shared `agent.cordis.yml` contains:
 
 The host must supply DSH's normal core services and register `cordis:group` as usual. It resolves its own packaged ripgrep identity with `resolveRgPath()`; the World service maps that identity to each remote installation. This applies to both bundled-sidecar and ordinary npm-package resolution.
 
-Known limits: parent-path requests are refused due to upstream local realpath use; child binding commit failure can leave a published but execution-blocked Agent; interrupted mapping writes may need verified manual lock cleanup. Shared-router terminal/job initialization and release distribution remain separate work. OpenSSH retains its normal configuration, authentication and host verification behavior.
+Known limits: parent-path requests are refused due to upstream local realpath use; child binding commit failure can leave a published but execution-blocked Agent; interrupted mapping writes may need verified manual lock cleanup. The full extension separately covers shared-router terminal/jobs and native installed-package acceptance. OpenSSH retains its normal configuration, authentication and host verification behavior.

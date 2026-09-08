@@ -59,28 +59,35 @@ jobs:
           node integrations/dsh/scripts/check-plugin.mjs "$RUNNER_TEMP/dsh-source"
       - name: Two Linux Worlds over real SSH
         run: node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
-      - name: Build the patched Web host and plugins
-        run: node integrations/dsh/scripts/prepare-web-host.mjs "$RUNNER_TEMP/dsh-source"
-      - name: Native context regressions on patched source
-        working-directory: target/web-host
-        run: >-
-          pnpm exec vitest run
-          packages/skill/skill/tests/skill.spec.ts
-          packages/skill/tool-skill/tests/tool-skill.spec.ts
-          packages/context/agent-instructions/tests/agent-instructions.spec.ts
-          packages/api/session-controller/tests/session-skills.host.spec.ts
-      - name: Install Chromium system dependencies
-        run: pnpm --dir target/web-host --filter @deepseek-ai/dsh-web-frontend exec playwright install-deps chromium
-      - name: Check Web plugin source
-        run: node integrations/dsh/scripts/check-web-plugin.mjs
+      - name: Install locked official DSH packages
+        run: node integrations/dsh/scripts/prepare-official.mjs
+      - name: Build only the extension and compatibility packages
+        run: node integrations/dsh/scripts/build-extension.mjs "$RUNNER_TEMP/dsh-source" target/official-install
+      - name: Install the native bundle into a test profile
+        run: node integrations/dsh/scripts/prepare-test-profile.mjs
+      - name: Install Chromium
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Installed package identity and version guards
+        run: node --test integrations/dsh/tests/packaging/installed.test.mjs
+      - name: Native official CLI installation acceptance
+        run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
+      - name: Check Web plugin source and prepare test fixtures
+        run: |
+          node integrations/dsh/scripts/check-web-plugin.mjs
+          node integrations/dsh/scripts/prepare-browser-fixtures.mjs
       - name: Skill deployment over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
-      - name: Browser over two Linux Worlds
+      - name: Installed-package browser regressions over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
-      - name: Build source installation without test scaffold
-        run: node integrations/dsh/scripts/prepare-web-host.mjs "$RUNNER_TEMP/dsh-source" --production
-      - name: Native CLI browser installation acceptance
-        run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/source-install.mjs
+      - name: Extension prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-remote-extension-${{ github.sha }}
+          path: |
+            target/packages/dsh-remote-extension-0.2.0.tgz
+            target/packages/extension-build.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Browser acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +96,6 @@ jobs:
           path: |
             target/web-*.png
             target/web-acceptance/result.json
-            target/web-acceptance/source-install.json
+            target/web-acceptance/extension-install.json
           if-no-files-found: ignore
           retention-days: 7

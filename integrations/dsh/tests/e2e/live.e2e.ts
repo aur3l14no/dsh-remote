@@ -8,10 +8,10 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session';
 it('completes a real-model coding and external-search task in the selected World', async () => {
   const root = process.env.DSH_REMOTE_ROOT!;
   const state = process.env.DSH_REMOTE_STATE!;
-  const host = await launchWebScaffold({ extraOverlayPath: `${root}/integrations/dsh/profiles/remote/cordis.patch.yml`,
-    extraInstallAnchors: [`${root}/target/web-profile/package.json`], compareReplaySession: false,
+  const host = await launchWebScaffold({ extraOverlayPath: `${process.env.DSH_TEST_EXTENSION}/cordis.patch.yml`,
+    extraInstallAnchors: [`${process.env.DSH_TEST_EXTENSION}/package.json`], compareReplaySession: false,
     directoryPicking: false, persistentStateRoot: state, harnessHome: `${state}/home`,
-    agentPresets: { default: 'remote', roots: [{ path: `${root}/target/web-plugin/presets`, trust: 'system' }] }, toolsMode: 'native' });
+    agentPresets: { default: 'remote', roots: [{ path: `${process.env.DSH_TEST_EXTENSION}/presets`, trust: 'system' }] }, toolsMode: 'native' });
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await newEnglishPage(browser);

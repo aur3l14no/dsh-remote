@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
 
 const root = resolve('.');
-const upstream = resolve(process.argv[2] ?? 'target/web-host');
+const upstream = resolve(process.argv[2] ?? 'target/extension-source');
 const raw = ts.readConfigFile(join(upstream, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(raw).map(([name, values]) => [name, values.map(value => {
   const file = resolve(upstream, value);
@@ -13,8 +13,8 @@ const paths = Object.fromEntries(Object.entries(raw).map(([name, values]) => [na
 for (const name of ['ui-workspace', 'ui-sidebar']) {
   paths[`@deepseek-ai/dsh-client-${name}/client`] = [join(upstream, `packages/client/${name}/src/client/index.ts`)];
 }
-paths.react = [join(upstream, 'apps/web/node_modules/@types/react/index.d.ts')];
-paths['react/jsx-runtime'] = [join(upstream, 'apps/web/node_modules/@types/react/jsx-runtime.d.ts')];
+paths.react = [join(root, 'node_modules/@types/react/index.d.ts')];
+paths['react/jsx-runtime'] = [join(root, 'node_modules/@types/react/jsx-runtime.d.ts')];
 paths['@deepseek-ai/dsh-api-workspace-controller/types'] = [join(upstream, 'packages/api/workspace-controller/src/types.ts')];
 paths['@deepseek-ai/dsh-client-file-upload/types'] = [join(upstream, 'packages/client/file-upload/src/types.ts')];
 const format = { getCurrentDirectory: () => root, getCanonicalFileName: name => name, getNewLine: () => '\n' };

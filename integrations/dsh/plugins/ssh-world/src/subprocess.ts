@@ -128,7 +128,7 @@ export default class SshSubprocess extends SubprocessRuntime {
     const reader = (index: number) => ({ readFrom(offset: number) {
       return process?.collected[index]?.readFrom(offset) ?? { text: '', nextOffset: 0, lossy: false };
     } });
-    return { get pid() { return process?.pid ?? -1; }, stdin, stdout, stderr,
+    return { stdin, stdout, stderr,
       collected: { ...(typeof spec.stdio.stdout === 'object' ? { stdout: reader(0) } : {}), ...(typeof spec.stdio.stderr === 'object' ? { stderr: reader(1) } : {}) },
       done, terminate: abort,
       async waitForExit(signal) {

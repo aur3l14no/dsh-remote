@@ -1,14 +1,13 @@
 # DeepSeek Harness integration
 
-DSH-specific code lives here. Shared transport/protocol code and Rust stay in ../../runtime.
+DSH-specific code lives here; shared execution code and Rust stay in `../../runtime`.
 
-- `plugins/ssh-world/`: implemented World owner, providers, binding store and routing; packaged as `@dsh-remote/ssh-world`.
-- `plugins/session-admission/`: source-only adapter for the patched host and experimental registry.
-- `patches/`: pinned upstream revision and ordered downstream patches. The first Session admission patch has a separate source-build/behavior gate; a complete patched Web distribution is not shipped.
-- `profiles/`: application composition policy; runnable remote Web profile is pending verification.
-- `experiments/portable_workspace/`: source-only portable_workspace registry/entry proof, excluded from distribution.
-- `tests/`: bindings and pinned-host integration fixtures.
-- `scripts/`: check/build/package/acceptance commands, run from the repository root.
-- `packaging/`: plugin tarball manifest and consumer README.
+- `plugins/`: World providers, portable_workspace, admission, skills, account policy, file references and terminal integration.
+- `patches/`: five maintained patches across seven packages; `series.json` pins the official revision and npm release. Unchanged-source and patched-host gates remain separate.
+- `profiles/`: native bundle overlay and remote Agent preset templates. The build anchors their relative paths to installed artifacts.
+- `packaging/extension/`: native bundle configuration and initialization command. Users install through `dsh plugin add` and start the official CLI.
+- `packaging/official/`: locked official build/test inputs, not a user installer.
+- `tests/` and `scripts/`: subsystem checks, prebuilds and Playwright/SSH acceptance.
+- `experiments/portable_workspace/`: retained source-only proof of the original upstream gap.
 
-See [architecture](../../docs/architecture.md), [execution boundaries](../../docs/execution-boundaries.md) and the [active plan](../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).
+See [installation](../../docs/install.md), [architecture](../../docs/architecture.md), [execution boundaries](../../docs/execution-boundaries.md), and [development](../../docs/development.md).
