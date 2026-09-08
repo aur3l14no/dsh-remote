@@ -6,6 +6,7 @@ export interface PortableWorkspaceSelection { worldId: string; path: string }
 export interface PortableWorkspaceRemote {
   worlds(): Promise<RemoteResult<WorldView[]>>;
   create(request: PortableWorkspaceSelection): Promise<RemoteResult<{ workspaceId: WorkspaceId }>>;
+  syncSkills(request: { worldId: string }): Promise<RemoteResult<{ count: number }>>;
 }
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespaceMap { portableWorkspace: PortableWorkspaceRemote }

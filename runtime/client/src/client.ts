@@ -242,12 +242,16 @@ export class Client extends EventEmitter {
     this.#beginRecovery();
   }
 
-  async whenReady(): Promise<void> {
-    if (this.#state === 'reconnecting') await new Promise<void>(resolve => {
+  async whenReady(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) throw new RemoteError('CANCELLED', 'Readiness wait cancelled before admission');
+    if (this.#state === 'reconnecting') await new Promise<void>((resolve, reject) => {
+      const cleanup = () => { this.off('state', changed); signal?.removeEventListener('abort', abort); };
+      const abort = () => { cleanup(); reject(new RemoteError('CANCELLED', 'Readiness wait cancelled before admission')); };
       const changed = (state: ClientState) => {
-        if (state !== 'reconnecting') { this.off('state', changed); resolve(); }
+        if (state !== 'reconnecting') { cleanup(); resolve(); }
       };
       this.on('state', changed);
+      signal?.addEventListener('abort', abort, { once: true });
       changed(this.#state);
     });
     if (this.#state !== 'ready') throw this.#failure ?? new RemoteError('WORLD_NOT_READY', `World is ${this.#state}`);
@@ -255,11 +259,12 @@ export class Client extends EventEmitter {
 
   /** Bounded wait for local admission; remote errors/unknown outcomes are never retried with new IDs. */
   async requestWhenReady<T = unknown>(method: string, params: Params, signal?: AbortSignal): Promise<T> {
+    if (signal?.aborted) throw new RemoteError('CANCELLED', 'Request aborted before admission');
     if (this.#waiting >= (controls.has(method) ? 40 : 32)) throw new RemoteError('CLIENT_RESOURCE_LIMIT', 'Local admission wait capacity exhausted');
     this.#waiting++;
     try {
       while (true) {
-        await this.whenReady();
+        await this.whenReady(signal);
         try { return await this.request<T>(method, params, signal); }
         catch (error) {
           if (!(error instanceof AdmissionError) || !(error.code === 'CLIENT_RESOURCE_LIMIT' || (error.code === 'WORLD_NOT_READY' && this.#state === 'reconnecting'))) throw error;

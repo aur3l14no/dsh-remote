@@ -9,11 +9,13 @@ import { z } from 'zod';
 import { RemoteError } from '../../../../../runtime/client/src/index.ts';
 import { worldDefinition, type WorldDefinition } from '../../ssh-world/src/bindings.ts';
 import '../../ssh-world/src/worlds.ts';
+import type { SkillInstall } from '../../skills/src/deploy.ts';
 
 export interface CatalogWorld {
   id: string;
   name: string;
   target: Omit<WorldDefinition, 'id' | 'cwd'>;
+  skills?: SkillInstall[];
 }
 export interface Config { worlds: CatalogWorld[] }
 const targetSchema = z.unknown().transform(worldDefinition);

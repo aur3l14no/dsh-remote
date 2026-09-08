@@ -13,6 +13,12 @@ try {
     const first = await deploySkills(spec);
     assert.deepEqual(await deploySkills(spec), first);
     const control = sshControl(world.target);
+    const script = `${first[0].path}/scripts/proof.sh`;
+    const mode = (await control(['stat', '-c', '%a', script])).trim();
+    await control(['chmod', mode === '600' ? '644' : '600', script]);
+    await assert.rejects(deploySkills(spec));
+    await control(['chmod', mode, script]);
+    assert.deepEqual(await deploySkills(spec), first);
     assert.equal((await control(['sh', '-c', 'readlink "$HOME/.agents/skills/remote-proof"'])).trim(), first[0].path);
     await control(['sh', '-c', 'cd /workspace; sh "$HOME/.agents/skills/remote-proof/scripts/proof.sh"']);
     assert.equal((await control(['cat', '/workspace/skill-proof.txt'])).trim(), world.id);

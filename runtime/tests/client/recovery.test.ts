@@ -7,6 +7,31 @@ import { RemoteProcess, readFile, writeFile } from '../../client/src/index.ts';
 import type { TransportFactory } from '../../client/src/index.ts';
 import { runtime, fixture } from './support.ts';
 
+test('unadmitted reconnect waits cancel and release their listeners and capacity', { timeout: 5000 }, async () => {
+  let transport: Duplex | undefined;
+  const r = await runtime({ wrap: factory => async signal => {
+    if (!transport) return transport = await factory(signal);
+    return new Promise<Duplex>((_, reject) => {
+      const abort = () => reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      if (signal.aborted) abort();
+    });
+  } });
+  try {
+    r.client.reconnect();
+    const listeners = r.client.listenerCount('state');
+    for (let index = 0; index < 40; index++) {
+      await assert.rejects(r.client.requestWhenReady('fs.stat', { path: r.dir }, AbortSignal.abort()), { code: 'CANCELLED' });
+      const controller = new AbortController();
+      const waiting = r.client.requestWhenReady('fs.stat', { path: r.dir }, controller.signal);
+      controller.abort();
+      await assert.rejects(waiting, { code: 'CANCELLED' });
+    }
+    assert.equal(r.client.state, 'reconnecting');
+    assert.equal(r.client.listenerCount('state'), listeners);
+  } finally { r.client.dispose(); await r.close(); }
+});
+
 /** Discard one successful response after the real helper has executed the operation. */
 function fault(method: string, remoteCode?: string) {
   let target: number | undefined;

@@ -12,6 +12,7 @@ import SshSubprocess from './subprocess.ts';
 export interface WorldConnection { client: Client; ripgrep: string; close(): Promise<void> }
 export type WorldConnector = (world: WorldDefinition) => Promise<WorldConnection>;
 export interface Config {
+  beforeConnect?: (world: WorldDefinition) => Promise<void>;
   bindingFile: string;
   /** Exact identity returned by DSH's packaged ripgrep resolver. */
   packagedRipgrep: string;
@@ -28,12 +29,14 @@ export default class ExecutionWorlds extends Service {
   private live = new WeakMap<Agent, WorldDefinition>();
   private closed = false;
   private connect: WorldConnector;
+  private beforeConnect?: Config['beforeConnect'];
 
   constructor(ctx: Context, config: Config, connector?: WorldConnector) {
     super(ctx, 'executionWorlds');
     this.bindings = new BindingStore(config.bindingFile);
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
     this.connect = connector ?? (definition => bootstrapSshWorld({ ...config.bootstrap, ...definition, world: definition.id }));
+    this.beforeConnect = config.beforeConnect;
     ctx.effect(() => async () => {
       this.closed = true;
       const results = await Promise.allSettled([...this.opening.values()].map(async pending => {
@@ -60,6 +63,13 @@ export default class ExecutionWorlds extends Service {
     let pending = this.opening.get(definition.id);
     if (!pending) {
       pending = (async () => {
+        try { await Promise.resolve().then(() => this.beforeConnect?.(definition)); }
+        catch (error) {
+          // No runtime allocation was attempted; a corrected source may retry.
+          this.opening.delete(definition.id);
+          throw error;
+        }
+        this.assertOpen();
         const connection = await this.connect(definition);
         const owner = new Context();
         let mounted = false;

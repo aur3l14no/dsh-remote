@@ -52,3 +52,30 @@ test('control transport bounds output and honours cancellation and deadlines', a
   await assert.rejects(execute(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeoutMs: 30 }), { code: 'CONTROL_TIMEOUT' });
   await assert.rejects(execute(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { signal: AbortSignal.timeout(30) }), { code: 'CANCELLED' });
 });
+
+test('control termination escalates when the transport ignores SIGTERM', { timeout: 10000 }, async () => {
+  const directory = await mkdtemp('/tmp/dsh-control-test.');
+  try {
+    for (const reason of ['timeout', 'abort', 'output'] as const) {
+      const pidFile = `${directory}/${reason}.pid`;
+      const started = Date.now();
+      const controller = new AbortController();
+      const program = `process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],String(process.pid));${reason === 'output' ? 'process.stdout.write("x".repeat(100000));' : ''}setInterval(()=>{},1000);`;
+      const operation = execute(process.execPath, ['-e', program, pidFile], { timeoutMs: 1000, signal: controller.signal });
+      const rejection = assert.rejects(operation, { code: reason === 'timeout' ? 'CONTROL_TIMEOUT' : reason === 'abort' ? 'CANCELLED' : 'CONTROL_OUTPUT_LIMIT' });
+      let pid: number | undefined;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        try { pid = Number(await readFile(pidFile, 'utf8')); break; } catch { await new Promise(resolve => setTimeout(resolve, 10)); }
+      }
+      assert.ok(pid, 'transport installed its signal handler');
+      if (reason === 'abort') controller.abort();
+      const watchdog = setTimeout(() => { try { process.kill(pid!, 'SIGKILL'); } catch {} }, 3000);
+      try { await rejection; assert.ok(Date.now() - started < 2500, 'termination must not wait for the watchdog'); }
+      finally {
+        clearTimeout(watchdog);
+        // This also bounds leaked fixtures if the regression returns.
+        try { process.kill(pid, 'SIGKILL'); } catch (error) { assert.equal((error as NodeJS.ErrnoException).code, 'ESRCH'); }
+      }
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

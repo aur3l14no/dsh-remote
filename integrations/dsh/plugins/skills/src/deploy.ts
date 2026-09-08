@@ -1,4 +1,4 @@
-/** Explicit maintenance operation; never called by model tools or Session admission. */
+/** Host connection and maintenance operation; never called by model tools. */
 import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile, realpath, mkdtemp, mkdir, writeFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -36,6 +36,13 @@ mkdir -p "$root/$name"
 destination="$root/$name/$revision"
 if [ -e "$destination" ]; then
   diff -qr "$stage" "$destination" >/dev/null
+  find "$stage" -type f -exec sh -c '
+    stage=$1; destination=$2; shift 2
+    for file do
+      other="$destination/\${file#"$stage/"}"
+      test ! -L "$other" && test "$(stat -c %a "$file")" = "$(stat -c %a "$other")" || exit 1
+    done
+  ' sh "$stage" "$destination" {} +
 else
   mv "$stage" "$destination"
   stage=$(mktemp -d "$root/.stage.XXXXXXXX")
@@ -46,7 +53,8 @@ printf '%s\\n' "$destination"
 `;
 
 /** Materialize selected sources first, so invalid input cannot partially deploy. */
-export async function deploySkills(config: SkillDeployment): Promise<{ name: string; revision: string; path: string }[]> {
+export async function deploySkills(config: SkillDeployment, signal?: AbortSignal): Promise<{ name: string; revision: string; path: string }[]> {
+  signal?.throwIfAborted();
   const staging = await mkdtemp(join(tmpdir(), 'dsh-skills-'));
   try {
     const seen = new Set<string>();
@@ -62,6 +70,7 @@ export async function deploySkills(config: SkillDeployment): Promise<{ name: str
       let entries = 0;
       const hash = createHash('sha256');
       async function walk(relative: string): Promise<void> {
+        signal?.throwIfAborted();
         if (++entries > 8192 || relative.split('/').length > 64) throw new Error('Skill directory tree exceeds deployment limits');
         const info = await lstat(join(source, relative));
         if (info.isDirectory()) {
@@ -87,14 +96,14 @@ export async function deploySkills(config: SkillDeployment): Promise<{ name: str
     }
     const control = sshControl(config.target);
     for (const command of new Set(selected.flatMap(skill => skill.requires))) {
-      try { await control(['sh', '-c', 'command -v "$1" >/dev/null', 'dsh-skill-prerequisite', command]); }
+      try { await control(['sh', '-c', 'command -v "$1" >/dev/null', 'dsh-skill-prerequisite', command], { signal }); }
       catch (cause) { throw new Error(`Remote skill prerequisite unavailable: ${command}`, { cause }); }
     }
     const results = [];
     for (const skill of selected) {
       const archive = execFileSync('tar', ['-cf', '-', '-C', skill.directory, '.'], { maxBuffer: 40 * 1024 * 1024 });
       const path = (await control(['sh', '-c', install, 'dsh-skill-deploy', skill.name, skill.revision], {
-        input: Readable.from([archive]), timeoutMs: 120000,
+        input: Readable.from([archive]), timeoutMs: 120000, signal,
       })).trim();
       if (!path.startsWith('/') || path.includes('\n')) throw new Error('Invalid remote skill installation path');
       results.push({ name: skill.name, revision: skill.revision, path });

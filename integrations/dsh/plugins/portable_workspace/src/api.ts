@@ -5,16 +5,19 @@ import type { WorkspaceFollowFrame, WorkspaceView } from '@deepseek-ai/dsh-api-w
 import { contribution } from './wire.ts';
 import type { PortableWorkspaceSelection, WorldView } from './contracts.ts';
 import './registry.ts';
+import '../../skills/src/sync.ts';
 
 
 export class PortableWorkspaceApi extends TypertRemoteService {
-  static inject = ['typert', 'worldPortableWorkspaces'];
+  static inject = ['typert', 'worldPortableWorkspaces', 'worldSkillSync'];
   constructor(ctx: Context) {
     super(ctx, 'portableWorkspaceApi', { namespace: 'portableWorkspace' });
     ctx.effect(() => ctx.typert.register(contribution));
   }
   @Remote('worlds')
   worlds(): WorldView[] { return this.ctx.worldPortableWorkspaces.worlds(); }
+  @Remote('syncSkills')
+  syncSkills(request: { worldId: string }) { return this.ctx.worldSkillSync.sync(request.worldId); }
   @Remote('create')
   async create(request: PortableWorkspaceSelection) {
     const workspace = await this.ctx.worldPortableWorkspaces.createInWorld(request.worldId, request.path);

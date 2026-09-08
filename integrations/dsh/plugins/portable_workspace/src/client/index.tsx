@@ -94,6 +94,7 @@ function installWorkspaceUi(ctx: Context) {
     const [world, setWorld] = useState('');
     const [path, setPath] = useState('');
     const [error, setError] = useState('');
+    const [syncStatus, setSyncStatus] = useState('');
     const [busy, setBusy] = useState(false);
     const [renaming, setRenaming] = useState<WorkspaceId>();
     const [title, setTitle] = useState('');
@@ -137,6 +138,13 @@ function installWorkspaceUi(ctx: Context) {
         <option value="">Choose a World</option>
         {worlds.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
+      <button disabled={!world || busy} onClick={() => { void perform(async () => {
+        setSyncStatus('');
+        const result = await ctx.remote.portableWorkspace.syncSkills({ worldId: world });
+        if (!result.ok) throw new Error(result.error.message);
+        setSyncStatus(`Synced ${result.value.count} skills to ${worlds.find(item => item.id === world)?.name ?? world}`);
+      }); }}>Sync Skills</button>
+      {syncStatus && <p role="status">{syncStatus}</p>}
       <label>Remote directory<input aria-label="Remote directory" placeholder="/path/to/repository" value={path} onChange={event => setPath(event.target.value)} /></label>
       <button disabled={!world || !path.startsWith('/') || busy} onClick={() => { void perform(async () => {
         const result = await ctx.remote.portableWorkspace.create({ worldId: world, path });
