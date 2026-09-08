@@ -79,3 +79,34 @@ test('control termination escalates when the transport ignores SIGTERM', { timeo
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('control cancellation kills descendants after the transport closes its pipes', { timeout: 10000, skip: process.platform === 'win32' }, async () => {
+  const directory = await mkdtemp('/tmp/dsh-control-descendant.');
+  const heartbeat = `${directory}/heartbeat`;
+  const pidFile = `${directory}/pid`;
+  const controller = new AbortController();
+  const grandchild = `const fs=require('node:fs');process.on('SIGTERM',()=>{});fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>fs.writeFileSync(process.argv[2],String(Date.now())),20);`;
+  const parent = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(grandchild)},process.argv[1],process.argv[2]],{stdio:'ignore'});setInterval(()=>{},1000);`;
+  const rejection = assert.rejects(execute(process.execPath, ['-e', parent, pidFile, heartbeat], { signal: controller.signal, timeoutMs: 5000 }), { code: 'CANCELLED' });
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      try { await readFile(heartbeat); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 10)); }
+    }
+    assert.ok(ready, 'descendant installed its signal handler and started');
+    controller.abort();
+    await rejection;
+    // Allow the documented 500 ms escalation interval even if rejection came
+    // from the direct child's earlier close event. A survivor keeps writing.
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const stopped = await readFile(heartbeat, 'utf8');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(await readFile(heartbeat, 'utf8'), stopped, 'descendant must stop after group cleanup');
+  } finally {
+    controller.abort();
+    await rejection.catch(() => {});
+    try { process.kill(Number(await readFile(pidFile, 'utf8')), 'SIGKILL'); }
+    catch (error) { assert.ok(['ESRCH', 'ENOENT'].includes((error as NodeJS.ErrnoException).code!)); }
+    await rm(directory, { recursive: true, force: true });
+  }
+});

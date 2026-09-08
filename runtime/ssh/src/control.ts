@@ -47,7 +47,12 @@ export function execute(command: string, args: readonly string[], options: Contr
     child.on('error', () => { failure ??= new RemoteError('CONTROL_FAILED', 'Could not start control transport'); });
     const input = options.input ? pipeline(options.input, child.stdin).catch(stop) : Promise.resolve(child.stdin.end());
     child.on('close', (code, signal) => {
-      clearTimeout(timer); clearTimeout(forced); options.signal?.removeEventListener('abort', abort);
+      clearTimeout(timer); options.signal?.removeEventListener('abort', abort);
+      // A closed transport does not prove its process group is gone: a
+      // descendant may ignore SIGTERM and have already closed its stdio.
+      // Let the group escalation finish before reporting cancellation.
+      if (forced && grouped) return;
+      clearTimeout(forced);
       void input.then(() => {
         if (failure) { reject(failure); return; }
         if (code !== 0) { reject(new RemoteError('CONTROL_FAILED', 'Remote control command failed', { exitCode: code, signal })); return; }
