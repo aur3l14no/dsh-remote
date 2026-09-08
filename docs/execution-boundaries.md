@@ -38,8 +38,8 @@ DSH tools.execute(exec.agent)
 | OpenSSH、身份认证、host verification、ProxyJump | 本地 SSH 客户端建立连接 | 复用用户 SSH 配置，不默认上传本地凭据 |
 | 安装 helper/rg、启动和连接 runtime | 本地 orchestrator 通过 SSH 发控制命令到最终环境 | 属于 bootstrap，不是另一个 Agent shell |
 | workspace read/write/edit、grep/glob | 远端 FS/subprocess provider → helper；搜索使用目标平台 rg | patched profile 由目标 FS 解析 `..` |
-| workspace Shell、PTY、进程、信号与输出 | provider 传 argv/cwd/env 到远端 helper | 前台/后台 Bash、jobs 查询与取消已有浏览器验收；PTY UI 不在当前 preset 中 |
-| HTTPS web search / 连接器请求 | 若装配的是本地网络客户端，请求从本地发出 | remote preset 装配原生 Web 工具和宿主 DeepSeek search provider；受控端点已验收 |
+| workspace Shell、PTY、进程、信号与输出 | provider 传 argv/cwd/env 到远端 helper | 前台/后台 Bash、jobs 查询与取消已有浏览器验收；原生终端工具已装配，独立终端面板未提供 |
+| HTTPS web search / 连接器请求 | 若装配的是本地网络客户端，请求从本地发出 | remote preset 装配原生 Web 工具和宿主 DeepSeek search provider；受控端点和真实外部搜索已验收 |
 | Shell 中 `curl`/搜索 CLI | 远端 Shell | 即使目的也是网络搜索，也不会按关键词切成本地 |
 | 上传附件的持久存储 | 本地 DSH attachment store | 可留本地；远程工具读取需显式 transfer，尚未实现 |
 | 本地用户/内置 skill 内容 | 可以通过独立本地 provider 提供文本 | 不自动获得本地执行权；选定内容可显式部署到远端；未启用宿主默认 skill 扫描 |
@@ -47,7 +47,7 @@ DSH tools.execute(exec.agent)
 
 “所有 workspace 操作走远端”是受支持装配必须满足的契约，不是当前对任意 DSH 插件都已强制成立的保证。
 
-Web Search 是执行边界的重点验收对象：必须同时证明本地连接器的网络请求和凭据留在本地、同一 Session 的 Shell 网络命令仍在绑定 World 执行，且连接器失败不会改变执行地点。具体测试及证据门槛见[阶段计划中的 Web Search 验收](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#web-search-重点验收)。当前浏览器用例验证原生 provider 请求、测试凭据、远端 Shell 无法访问宿主 loopback 端点，以及远端 env 中没有连接器凭据；外部真实搜索服务、连接器故障/取消与双 Session 并发仍未验收。
+Web Search 是执行边界的重点验收对象：必须同时证明本地连接器的网络请求和凭据留在本地、同一 Session 的 Shell 网络命令仍在绑定 World 执行，且连接器失败不会改变执行地点。具体测试及证据门槛见[阶段计划中的 Web Search 验收](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#web-search-重点验收)。当前浏览器用例验证原生 provider 请求、测试凭据、远端 Shell 无法访问宿主 loopback 端点，以及远端 env 中没有连接器凭据；真实 DeepSeek 模型和外部搜索也已验收；连接器故障/取消与双 Session 并发仍未专项验收。
 
 ## Skill 的位置不等于命令的位置
 
@@ -84,15 +84,15 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | World 缺失、配置变更、断线 | 显式失败，绝不回退本地或另一容器。不要把本地同名目录当作备用 |
 | 宿主重启或 helper 替换 | 用持久 binding 准备新 runtime；历史保留，旧进程和命令不自动恢复/重放 |
 | 活跃 runtime 连接中断 | 仅有限宽限期内恢复相同 runtime/请求身份；超期失效，不使用新请求 ID 重放不确定命令 |
-| 子 Agent / Web fork | 子 Agent 默认继承，已有 failed-commit 执行阻止；浏览器已验证普通 Web fork 的启动前绑定；子 Agent consumer 不在当前 preset 中。跨 World 是新 Session，不继承另一环境的临时句柄 |
+| 子 Agent / Web fork | 子 Agent 默认继承，已有 failed-commit 执行阻止；浏览器已验证普通 Web fork 的启动前绑定；子 Agent 创建、继承指令/skill、宿主重启后的 continuation、工具过滤与损坏绑定拒绝均已验收。跨 World 是新 Session，不继承另一环境的临时句柄 |
 | 远端 Git worktree 与新 Agent | 尚无自动链路。子 Agent 继承父绑定与 cwd，Web fork 沿用源 cwd；新 worktree 需登记同一 World 下的新 portable_workspace，并在启动前建立新 Session 绑定 |
 | 非工具阶段读取、后台回调 | 必须以 Agent/owner 明确选择 World；缺少上下文不能假设默认 World。已验证 instruction、skill、文件补全和 jobs；未装配消费者仍需单独验证 |
-| 本地与远端 symlink、`..` 不同 | 必须远端 canonicalize；patched tool-fs 与 Bash 使用远端解析；本地 sandbox policy 未装配 |
+| 本地与远端 symlink、`..` 不同 | 必须远端 canonicalize；patched tool-fs 与 Bash 使用远端解析；account-policy 固定 SSH 账户权限，不声称路径 containment |
 | 本地平台与目标平台不同 | 远端可执行文件、shell、路径规则由目标决定；不能根据本地 OS 选择目标 Bash/PowerShell |
 | 远端 environment | 只传明确 spec.env，不复制 process.env；SSH 配置可能带用户显式配置的行为，应准确披露而非声称绝对禁止 forwarding |
 | tool output 文件/附件/file URL | World 路径不是本地 file URL；下载、预览、附件入远端需显式桥接，当前未提供通用桥接 |
 | 同名 Session 引用 | 原生 session-reference 的 sameWorkspace 只比较 cwd，适配前关闭或明确不支持 |
-| 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。审批上下文与强制执行能力必须分开说明 |
+| 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。只允许 danger-full-access，其他模式在写入前拒绝；原生工具名过滤不等于能力隔离（允许 Bash 就仍可执行命令）。审批上下文与强制执行能力必须分开说明 |
 
 新增消费者必须按这些反例验收。详见 [阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)。
 

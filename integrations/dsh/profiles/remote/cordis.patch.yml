@@ -33,6 +33,10 @@
   disabled: true
 - id: sandbox-policy
   disabled: true
+- id: permission
+  disabled: true
+- id: ui-permission
+  disabled: true
 - insert:
     - id: remote-workspaces
       name: '@dsh-remote/web'

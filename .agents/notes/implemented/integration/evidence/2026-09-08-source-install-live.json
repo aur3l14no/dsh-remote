@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "completedAt": "2026-09-08T03:46:55.856Z",
+  "revision": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
+  "patches": [
+    {
+      "file": "0001-session-admission.patch",
+      "sha256": "4ab345f172618a9ef6582f40df5904a035f7b2ed680b34cf8b74163c4001304d"
+    },
+    {
+      "file": "0002-workspace-feed.patch",
+      "sha256": "02d5b628d6d4624dcd68f7ebe7ed9a73e07d93d5a5f32587fc673ecafd110962"
+    },
+    {
+      "file": "0003-bash-workdir.patch",
+      "sha256": "0c3dfa2f1ba248ae42baad2f4526af7eb0818199529e37867807797829c6e990"
+    },
+    {
+      "file": "0004-fs-cwd.patch",
+      "sha256": "54260e9e770cd107b7bc243db6d8c11442aad1c2901ac3feb733be8229030364"
+    },
+    {
+      "file": "0005-context-environment.patch",
+      "sha256": "467093ea60eb2a9b36fd68531ac80dfb5676cd6f47c0a0927f947f794dc45bc8"
+    }
+  ],
+  "scaffold": false,
+  "host": "native DSH CLI, no scaffold",
+  "liveRemoteExecution": true,
+  "checks": [
+    "exclusive initialization",
+    "native first-run welcome",
+    "profile and browser module loading",
+    "remote workspace bootstrap",
+    "session binding before composer",
+    "real-model remote script execution",
+    "independent remote test rerun",
+    "remote credential absent",
+    "other World unchanged"
+  ]
+}

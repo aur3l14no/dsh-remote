@@ -7,6 +7,7 @@ import { ToolCallId } from '@deepseek-ai/dsh-llm';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
+import { checkChildLifecycle } from './remote-children.ts';
 import { prepareReplay } from './remote-replay.ts';
 import { newEnglishPage } from './support.ts';
 
@@ -23,7 +24,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   const launch = (providersOnly = false) => launchWebScaffold({ extraOverlayPath: `${root}/integrations/dsh/profiles/remote/cordis.patch.yml`,
     extraInstallAnchors: [`${root}/target/web-profile/package.json`],
     compareReplaySession: false, ...(providersOnly ? {} : {
-      replayFixture: new URL('../../../snapshots/web/web-search-round/session.v2.jsonl', import.meta.url).pathname, replayOverride: replay.override }), deepSeekSearch: { baseURL: replay.baseURL, apiKeyEnv: key },
+      replayFixture: new URL('../../../snapshots/web/web-search-round/session.v2.jsonl', import.meta.url).pathname, replayOverride: replay.override, replayChildFixtures: replay.childFixtures }), deepSeekSearch: { baseURL: replay.baseURL, apiKeyEnv: key },
     directoryPicking: false, persistentStateRoot: state, harnessHome: `${state}/home`,
     agentPresets: { default: 'remote', roots: [{ path: `${root}/target/web-plugin/presets`, trust: 'system' }] }, toolsMode: 'native' });
   scaffold = await launch();
@@ -48,7 +49,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   expect(catalogA.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
   expect(catalogB.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-b']);
   await page.getByRole('button', { name: `Open session ${first.session.header.id}`, exact: true }).click();
-  const settled = scaffold.whenTurnSettled();
+  const settled = waitForTurn(first.session.header.id);
   const input = page.locator('[data-composer-input][contenteditable=true]').first();
   await input.fill('@only-a');
   await page.getByRole('option', { name: /only-a\.txt/ }).click();
@@ -58,7 +59,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await input.fill('Exercise the remote workspace and the local search connector.');
   await input.press('Enter');
   await settled;
-  expect(results).toHaveLength(13);
+  expect(results).toHaveLength(17);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const history = JSON.stringify(first.session.surface.nodes.map(seq => first.session.eventAt(seq)));
   expect(history).toContain('WORLD_INSTRUCTIONS_A');
@@ -66,6 +67,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   expect(history).not.toContain('WORLD_INSTRUCTIONS_B');
   expect(history).toContain('skill-catalog');
   expect(history).toContain('skill-executed-in-a');
+  expect(history).toContain('REMOTE_CHILD_DONE');
   expect(replay.requests).toHaveLength(1);
   expect(replay.requests[0]).toMatchObject({ url: '/messages', key: 'local-connector-fixture' });
   const owner = scaffold.ctx.get('executionWorlds').forAgent(first);
@@ -76,6 +78,15 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   expect(await scaffold.ctx.get('fileReferences').list(second, 'only-', new AbortController().signal)).toEqual([{ path: 'only-b.txt', kind: 'file' }]);
   expect(scaffold.ctx.get('jobs').list(second)).toEqual([]);
   await stopBackground(first);
+  expect(await owner.fs.readText(await owner.fs.resolve('child-proof.txt'))).toBe('child-proof');
+  expect(await other.fs.stat(await other.fs.resolve('child-proof.txt'))).toBeUndefined();
+  await checkTerminal(first, second);
+  const childHeader = (await scaffold.ctx.sessionPersistence.list()).find(row => row.header.origin === 'subagent' && row.header.parentSession === first.session.header.id)!.header;
+  expect(scaffold.ctx.get('worldPortableWorkspaces').forSession(childHeader.id)).toBeUndefined();
+  const childCatalog = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: childHeader.id }, new AbortController().signal);
+  expect(childCatalog.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
+  expect(() => first.session.append('sandbox/mode', { mode: 'read-only' })).toThrow('remote sandbox modes are not available');
+  expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: first.session }).mode).toBe('danger-full-access');
   expect(await other.fs.stat(await other.fs.resolve('browser-proof.txt'))).toBeUndefined();
   expect(await other.fs.stat(await other.fs.resolve('coding-0.txt'))).toBeUndefined();
   await other.fs.writeText(await other.fs.resolve('.agents/skills/world-skill/SKILL.md'), '---\nname: world-b\ndescription: Updated remote catalog.\n---\nUpdated');
@@ -124,15 +135,16 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.goto(scaffold.authenticatedUrl);
   await page.goto(new URL(deepLink.pathname + deepLink.search + deepLink.hash, scaffold.baseUrl).href);
   await expect.poll(() => page.getByRole('button', { name: /New session in World/ }).count(), { timeout: 15000 }).toBe(2);
-  const coldSettled = scaffold.whenTurnSettled();
+  const coldSettled = waitForTurn(sessionId);
   results.length = 0;
   scaffold.ctx.on('session/event', (_session, event) => { if (event.type === 'tool/result') results.push(event); });
   await page.locator('[data-composer-input][contenteditable=true]').first().fill('Continue in the saved World.');
   await page.locator('[data-composer-input][contenteditable=true]').first().press('Enter');
   expect(await coldSettled).toBe(sessionId);
-  expect(results).toHaveLength(13);
+  expect(results).toHaveLength(17);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const resumed = scaffold.ctx.agents.get(sessionId)!;
+  expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: resumed.session }).mode).toBe('danger-full-access');
   const resumedOwner = scaffold.ctx.get('executionWorlds').forAgent(resumed);
   expect(resumedOwner.remoteWorld.client.info.runtime).not.toBe(oldRuntime);
   expect(await resumedOwner.fs.readText(await resumedOwner.fs.resolve('world.txt'))).toBe('a\n');
@@ -145,7 +157,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   page = await openPage(browser);
   await page.goto(scaffold.authenticatedUrl);
   await page.goto(new URL(deepLink.pathname + deepLink.search + deepLink.hash, scaffold.baseUrl).href);
-  const canceled = scaffold.whenTurnSettled();
+  const canceled = waitForTurn(sessionId);
   await page.locator('[data-composer-input][contenteditable=true]').first().fill('Start the cancellable remote command.');
   await page.locator('[data-composer-input][contenteditable=true]').first().press('Enter');
   await expect.poll(async () => {
@@ -167,6 +179,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.screenshot({ path: `${root}/target/web-cold-cancel.png`, fullPage: true });
   await page.close();
   await scaffold.close();
+  await checkChildLifecycle(async () => { scaffold = await launch(true); return scaffold; }, sessionId, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
   const bindingFile = `${state}/bindings.json`;
   const bindings = JSON.parse(await readFile(bindingFile, 'utf8'));
   bindings.sessions = bindings.sessions.filter((entry: { sessionId: string }) => entry.sessionId !== sessionId);
@@ -216,4 +229,32 @@ async function stopBackground(agent: Agent) {
   expect(result.isError).not.toBe(true);
   await expect.poll(() => jobs.get(job.id, agent).status).toBe('killed');
   expect(await owner.fs.stat(await owner.fs.resolve('background.finished'))).toBeUndefined();
+}
+
+async function checkTerminal(agent: Agent, other: Agent) {
+  const terminals = scaffold!.ctx.get('agentPresets').serviceFor(agent, 'terminals')!;
+  const terminal = await terminals.spawn(agent, { type: 'shell', name: 'remote-acceptance' }, AbortSignal.timeout(15000));
+  const sent = await scaffold!.ctx.tools.execute({ name: 'terminal_send', arguments: { sessionId: terminal.sessionId, text: 'printf terminal-proof > terminal-proof.txt' }, agent,
+    callId: ToolCallId(crypto.randomUUID()), signal: AbortSignal.timeout(15000) });
+  expect(sent.isError).not.toBe(true);
+  const owner = scaffold!.ctx.get('executionWorlds').forAgent(agent);
+  expect(await owner.fs.readText(await owner.fs.resolve('terminal-proof.txt'))).toBe('terminal-proof');
+  expect(scaffold!.ctx.get('agentPresets').serviceFor(other, 'terminals')!.list(other)).toEqual([]);
+  const rejected = await scaffold!.ctx.tools.execute({ name: 'terminal_send', arguments: { sessionId: terminal.sessionId, text: 'touch wrong-world' }, agent: other,
+    callId: ToolCallId(crypto.randomUUID()), signal: AbortSignal.timeout(15000) });
+  expect(rejected.isError).toBe(true);
+  const closed = await scaffold!.ctx.tools.execute({ name: 'terminal_close', arguments: { sessionId: terminal.sessionId }, agent,
+    callId: ToolCallId(crypto.randomUUID()), signal: AbortSignal.timeout(15000) });
+  expect(closed.isError).not.toBe(true);
+}
+
+function waitForTurn(sessionId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { off(); reject(new Error('Parent turn did not settle')); }, 30000);
+    const off = scaffold!.ctx.on('session/event', (session, event) => {
+      if (session.header.id !== sessionId || event.type !== 'turn/end') return;
+      clearTimeout(timer); off();
+      scaffold!.ctx.sessions.flush(session).then(() => resolve(sessionId), reject);
+    });
+  });
 }

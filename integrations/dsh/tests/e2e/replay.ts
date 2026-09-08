@@ -60,15 +60,35 @@ cat world.txt
 if env | grep -F local-connector-fixture; then exit 90; fi
 if timeout 2 bash -c 'echo probe >/dev/tcp/127.0.0.1/${port}' 2>/dev/null; then exit 91; fi
 printf browser-proof > browser-proof.txt` }, 'remote_bash');
+  entries.splice(entries.length - 1, 0,
+    tool('subagent', { description: 'Check inherited remote skills', prompt: 'Read the bound workspace and execute the deployed remote-proof skill.', run_in_background: false }, 'remote_delegate'),
+  );
+  const childFile = `${directory}/child.jsonl`;
+  const childEntries = [
+    tool('read', { file_path: '/workspace/world.txt' }, 'remote_child_read'),
+    tool('skill', { name: 'remote-proof' }, 'remote_child_skill'),
+    tool('bash', { description: 'Verify child workspace', command: 'sh "$HOME/.agents/skills/remote-proof/scripts/proof.sh"; printf child-proof > child-proof.txt' }, 'remote_child_bash'),
+    JSON.parse(JSON.stringify(entries[entries.length - 1]).replaceAll('REMOTE_ACCEPTANCE_DONE', 'REMOTE_CHILD_DONE')),
+  ];
+  await writeFile(childFile, [
+    { type: 'session', version: 2, id: 'remote-child-fixture', createdAt: 1, cwd: '/workspace', isSeeded: false, origin: 'subagent', parentSession: 'remote-parent-fixture', delegationDepth: 1 },
+    ...childEntries.map((entry, index) => ({ type: 'assistant/message', surfaceOp: 'append', data: {
+      turn: 1, step: index + 1, usage: { inputTokens: 10, outputTokens: 5 },
+      message: { role: 'assistant', id: `child-message-${index}`, source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        content: entry.chunks.filter((chunk: { type: string }) => chunk.type === 'block-end').map((chunk: { block: unknown }) => chunk.block) },
+      stream: entry.chunks.map((chunk: unknown) => ({ type: 'chunk', time: 1, chunk })),
+    } })),
+  ].map(row => JSON.stringify(row)).join('\n') + '\n');
+  let childFixtures = [childFile];
   await writeFile(override, JSON.stringify(entries));
   let generation = 0;
-  return { override, requests,
+  return { override, requests, get childFixtures() { return childFixtures; },
     roundScript: () => { generation++; return writeFile(override, JSON.stringify(entries).replace(/remote_[a-z_]+|local_search/g, id => `${id}-${generation}`).replace(/coding-0/g, `coding-${generation}`)); },
     baseURL: `http://127.0.0.1:${port}`,
-    cancelScript: () => writeFile(override, JSON.stringify([tool('bash', {
+    cancelScript: () => { childFixtures = []; return writeFile(override, JSON.stringify([tool('bash', {
       description: 'Exercise remote process cancellation',
       command: 'echo $$ > cancel.pid; touch cancel.started; sleep 120; touch cancel.finished',
       timeoutMs: 180000,
-    }, 'remote_cancel')])),
+    }, 'remote_cancel')])); },
     close: () => new Promise<void>((accept, reject) => server.close(error => error ? reject(error) : accept())) };
 }

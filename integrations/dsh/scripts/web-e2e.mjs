@@ -3,12 +3,24 @@ import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { deploySkills } from '../plugins/skills/src/deploy.ts';
 import { sshControl } from '../../../runtime/ssh/src/control.ts';
+import yaml from 'js-yaml';
 import { BindingStore } from '../plugins/ssh-world/src/bindings.ts';
 const root = resolve('.');
 const upstream = resolve(process.env.DSH_WEB_SOURCE ?? 'target/web-host');
 await mkdir('target/web-acceptance', { recursive: true });
-const resultFile = resolve('target/web-acceptance/result.json');
+const live = process.argv[2] === '--live';
+const liveEnvironment = {};
+if (live) {
+  if (!process.argv[3]) throw new Error('Live acceptance requires a private DeepSeek-only config directory');
+  const credentials = yaml.load(await readFile(resolve(process.argv[3], '.credentials.yaml'), 'utf8'));
+  const key = credentials?.refs?.DEEPSEEK_API_KEY;
+  if (typeof key !== 'string' || !key) throw new Error('DeepSeek credential unavailable');
+  liveEnvironment.DEEPSEEK_API_KEY = key;
+}
+const scenario = live ? 'remote-live.e2e.ts' : 'portable-workspace.e2e.ts';
+const resultFile = resolve(`target/web-acceptance/${live ? 'live-result' : 'result'}.json`);
 await rm(resultFile, { force: true });
+if (live) await rm(resolve('target/web-acceptance/live-details.json'), { force: true });
 const build = JSON.parse(await readFile(`${upstream}/remote-build.json`, 'utf8'));
 const series = JSON.parse(await readFile('integrations/dsh/patches/series.json', 'utf8'));
 if (build.revision !== series.revision || JSON.stringify(build.patches) !== JSON.stringify(series.patches.map(({ file, sha256 }) => ({ file, sha256 })))) {
@@ -28,11 +40,13 @@ try {
     manifest: JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST, 'utf8')),
     cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE, graceMs: 15000, leaseMs: 5000,
   } };
+  await copyFile('integrations/dsh/tests/e2e/live.e2e.ts', `${upstream}/apps/web/tests/remote-live.e2e.ts`);
+  await copyFile('integrations/dsh/tests/e2e/children.ts', `${upstream}/apps/web/tests/remote-children.ts`);
   await copyFile('integrations/dsh/tests/e2e/replay.ts', `${upstream}/apps/web/tests/remote-replay.ts`);
   await copyFile('integrations/dsh/tests/e2e/portable-workspace.e2e.ts', `${upstream}/apps/web/tests/portable-workspace.e2e.ts`);
   await copyFile('integrations/dsh/tests/e2e/vitest.config.ts', `${upstream}/vitest.remote.config.ts`);
-  const child = spawn('pnpm', ['exec', 'vitest', 'run', '--config', 'vitest.remote.config.ts', 'apps/web/tests/portable-workspace.e2e.ts'], {
-    cwd: upstream, stdio: 'inherit', detached: process.platform !== 'win32', env: { ...process.env, CI: 'true', GIT_CEILING_DIRECTORIES: resolve(upstream, '..'), DSH_SNAPSHOT: 'replay', DSH_REMOTE_CONFIG: JSON.stringify(config), DSH_REMOTE_ROOT: root, DSH_REMOTE_STATE: state },
+  const child = spawn('pnpm', ['exec', 'vitest', 'run', '--config', 'vitest.remote.config.ts', `apps/web/tests/${scenario}`], {
+    cwd: upstream, stdio: 'inherit', detached: process.platform !== 'win32', env: { ...process.env, ...liveEnvironment, CI: 'true', GIT_CEILING_DIRECTORIES: resolve(upstream, '..'), DSH_SNAPSHOT: live ? 'record' : 'replay', DSH_REMOTE_CONFIG: JSON.stringify(config), DSH_REMOTE_ROOT: root, DSH_REMOTE_STATE: state },
   });
   const interrupt = () => {
     if (child.pid === undefined) return;
@@ -44,8 +58,9 @@ try {
   try {
     await new Promise((accept, reject) => { child.once('error', reject); child.once('exit', code => code === 0 ? accept() : reject(new Error(`Browser acceptance exited ${code}`))); });
     await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
-      scenario: 'portable-workspace.e2e.ts', topology: 'host Web + Chromium; two Docker Linux/SSH Worlds',
-      model: 'synthetic replay', search: 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
+      scenario, topology: 'host Web + Chromium; two Docker Linux/SSH Worlds',
+      ...(live ? { checks: JSON.parse(await readFile('target/web-acceptance/live-details.json', 'utf8')) } : {}),
+      model: live ? 'live DeepSeek API' : 'synthetic replay and native MockAdapter', search: live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
   } finally {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', interrupt);

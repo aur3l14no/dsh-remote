@@ -44,6 +44,37 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   worlds() { return [...this.catalog].map(([id, world]) => ({ id, name: world.name })); }
   world(id: WorkspaceId) { const row = this.row(id); return { id: row.worldId, name: row.worldName }; }
   forSession(id: SessionId) { const row = this.records().find(row => row.sessionIds.includes(id)); return row && this.get(WorkspaceId(row.id)); }
+  /** Resolve descendant context without making children top-level Workspace members. */
+  async contextForSession(id: SessionId): Promise<Workspace> {
+    const visited = new Set<SessionId>();
+    const bindings: WorldDefinition[] = [];
+    let persisted: Awaited<ReturnType<Context['sessionPersistence']['list']>> | undefined;
+    let current = id;
+    for (;;) {
+      if (visited.has(current)) throw new RemoteError('WORLD_MISMATCH', 'Cyclic Session lineage');
+      visited.add(current);
+      const saved = this.ctx.executionWorlds.bindings.get(current);
+      if (!saved) throw new RemoteError('WORLD_REQUIRED', 'Session lineage has no saved World binding');
+      bindings.push(saved);
+      const workspace = this.forSession(current);
+      if (workspace) {
+        const expected = this.definition(workspace.id);
+        if (bindings.some(binding => JSON.stringify(binding) !== JSON.stringify(expected))) {
+          throw new RemoteError('WORLD_MISMATCH', 'Session lineage crosses portable workspaces');
+        }
+        return workspace;
+      }
+      let header = this.ctx.sessions.get(current)?.header;
+      if (!header) {
+        persisted ??= await this.ctx.sessionPersistence.list();
+        header = persisted.find(row => row.header.id === current)?.header;
+      }
+      if (!header || header.origin !== 'subagent' || !header.parentSession || header.cwd !== saved.cwd) {
+        throw new RemoteError('WORLD_REQUIRED', 'Remote context requires saved portable_workspace membership or subagent lineage');
+      }
+      current = header.parentSession;
+    }
+  }
   private catalog = new Map<string, { name: string; environment: WorldDefinition }>();
 
   constructor(ctx: Context, config: Config) {

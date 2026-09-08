@@ -24,6 +24,7 @@ async function prepare(ctx: Context, request: ApiSessionAdmissionRequest): Promi
     throw new RemoteError('PORTABLE_WORKSPACE_NOT_FOUND', 'Selected portable_workspace is absent');
   }
   if (!workspace && saved) workspace = registry.forSession(sourceId);
+  if (!workspace && saved && request.operation === 'resume') workspace = await registry.contextForSession(sourceId);
   if (!workspace) throw new RemoteError('WORLD_REQUIRED', 'Select a portable_workspace or restore its saved Session membership');
   const definition = registry.definition(workspace.id);
   if (request.cwd !== definition.cwd) throw new RemoteError('WORLD_MISMATCH', 'Session cwd differs from selected portable_workspace');

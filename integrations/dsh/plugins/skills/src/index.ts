@@ -20,8 +20,7 @@ export function apply(ctx: Context): void {
     const signal = options.signal ? AbortSignal.any([options.signal, lifecycle.signal]) : lifecycle.signal;
     signal.throwIfAborted();
     const id = SessionId(options.sessionId);
-    const workspace = ctx.worldPortableWorkspaces.forSession(id);
-    if (!workspace) throw new Error('Remote context requires saved portable_workspace membership');
+    const workspace = await observe(ctx.worldPortableWorkspaces.contextForSession(id), signal);
     const expected = ctx.worldPortableWorkspaces.definition(workspace.id);
     const saved = ctx.executionWorlds.bindings.get(id);
     if (JSON.stringify(expected) !== JSON.stringify(saved) || options.cwd !== expected.cwd) throw new Error('Remote context binding mismatch');

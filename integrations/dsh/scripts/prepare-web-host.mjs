@@ -5,12 +5,13 @@ import { resolve, join } from 'node:path';
 import { assertUnchangedSource, baselineRevision } from './baseline.mjs';
 
 const source = process.argv[2];
-if (!source) throw new Error('Usage: node integrations/dsh/scripts/prepare-web-host.mjs DSH_SOURCE [CANDIDATE_PATCH]');
+if (!source) throw new Error('Usage: node integrations/dsh/scripts/prepare-web-host.mjs DSH_SOURCE [--production] [CANDIDATE_PATCH]');
 assertUnchangedSource(source);
 const root = resolve('target/web-host');
 const series = JSON.parse(await readFile('integrations/dsh/patches/series.json', 'utf8'));
 const patches = [...series.patches];
-for (const file of process.argv.slice(3)) patches.push({ file });
+const production = process.argv.includes('--production');
+for (const file of process.argv.slice(3).filter(value => value !== '--production')) patches.push({ file });
 // Only this disposable, script-owned checkout is replaced; the source stays pristine.
 await rm(root, { recursive: true, force: true });
 await mkdir(root, { recursive: true });
@@ -25,10 +26,10 @@ for (const patch of patches) {
   execFileSync('git', ['apply', '--no-index', file], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
   applied.push({ file: patch.file, sha256 });
 }
-execFileSync('git', ['apply', '--no-index', resolve('integrations/dsh/tests/e2e/scaffold.patch')], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
+if (!production) execFileSync('git', ['apply', '--no-index', resolve('integrations/dsh/tests/e2e/scaffold.patch')], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
 const run = args => execFileSync('pnpm', args, { cwd: root, stdio: 'inherit', env: { ...process.env, CI: 'true', DSH_CLIENT_COMMIT_HASH: baselineRevision, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
 run(['install', '--frozen-lockfile']);
 run(['run', 'build']);
-run(['--filter', '@deepseek-ai/dsh-web-frontend', 'exec', 'playwright', 'install', 'chromium']);
-await writeFile(join(root, 'remote-build.json'), JSON.stringify({ revision: baselineRevision, patches: applied, scaffold: 'test-only' }, null, 2) + '\n');
+if (!production) run(['--filter', '@deepseek-ai/dsh-web-frontend', 'exec', 'playwright', 'install', 'chromium']);
+await writeFile(join(root, 'remote-build.json'), JSON.stringify({ revision: baselineRevision, patches: applied, scaffold: production ? false : 'test-only' }, null, 2) + '\n');
 execFileSync(process.execPath, [resolve('integrations/dsh/scripts/build-web-plugin.mjs'), root], { stdio: 'inherit' });

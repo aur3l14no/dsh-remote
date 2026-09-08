@@ -20,12 +20,12 @@ DSH 是本地 Agent 宿主；dsh-remote 是它的远程执行与项目集成层�
 | Service Provider / runtime owner | ExecutionWorlds 管理 World 连接，FS 与 subprocess 共享同一 runtime | [plugins/ssh-world](../integrations/dsh/plugins/ssh-world/)，已有 |
 | FileSystem provider | resolve/stat/read/write/edit/stream，远程目标带 World 与 runtime 身份 | ssh-world/src/fs.ts，已有 |
 | SubprocessRuntime provider | argv、cwd、env、pipe、信号、取消、PTY 与输出句柄 | ssh-world/src/subprocess.ts、terminal.ts，已有 |
-| Tool Consumer | 复用原生 read/write/edit/search 和适配过的 shell/terminal 消费者 | remote Web preset 已装配文件/搜索/前台与后台 Bash；PTY 仍为底层能力 |
+| Tool Consumer | 复用原生 read/write/edit/search 和适配过的 shell/terminal 消费者 | remote Web preset 已装配文件/搜索/前台与后台 Bash及原生终端工具 |
 | Agent preset / realm | standing preset 的隔离组让 routers 与消费者看到同一服务实例；不是每个 Agent 重注册工具 | routing.ts 及集成测试，已有 |
 | Agent / Session | Session ID → binding → World；Agents 由 DSH 创建和恢复 | bindings.ts、worlds.ts，已有 |
 | Workspace / portable_workspace | portable_workspace 是 World × 远端 canonical workspace，成员关联到原生 Session | [portable_workspace plugin](../integrations/dsh/plugins/portable_workspace/)，持久 registry 与 Web UI |
 | Tool allow/deny | 由 DSH 原生过滤决定可调用工具，不用于选择本地/远端 | 本项目验证继承，不复制过滤引擎 |
-| Jobs / terminal ownership | 原生 owner-aware 服务管理 Session 的任务；helper 管理底层进程句柄 | jobs 创建/查询/取消与 World 隔离已有 browser/SSH 验收；terminal 仍限集成 fixture |
+| Jobs / terminal ownership | 原生 owner-aware 服务管理 Session 的任务；helper 管理底层进程句柄 | jobs 创建/查询/取消与 World 隔离已有 browser/SSH 验收；terminal 创建/读写/隔离也已验收 |
 | Approval | 外部审批能力使用 World、cwd、操作事实 | 已暴露执行上下文；完整审批策略不由 helper 实现 |
 
 `runtime/client/` 只认识协议，`runtime/ssh/` 只认识连接、安装与 runtime，`runtime/helper/` 只实现文件和进程。它们不认识 DSH Agent、portable_workspace、skills 或工具名称。
@@ -36,7 +36,7 @@ DSH 是本地 Agent 宿主；dsh-remote 是它的远程执行与项目集成层�
 
 World catalog 描述环境；portable_workspace 选择该环境中的目录。当前 v1 `WorldDefinition` 同时包含 SSH 坐标与 cwd，是具体执行绑定，不能直接当成不含 workspace 的 catalog 条目。portable_workspace registry 为每个组合生成具体 binding ID，保留 v1 数据含义。
 
-Session 的持久绑定不可改向。恢复以该绑定为权威，不以当前 UI 选择、同名路径或 SSH 连接是否存在为依据。底层子 Agent 绑定默认继承；当前 remote Web preset 尚未启用子 Agent consumer。跨 World 使用独立 Session 和显式协作能力，不在现有 Agent 内偷偷切换环境。
+Session 的持久绑定不可改向。恢复以该绑定为权威，不以当前 UI 选择、同名路径或 SSH 连接是否存在为依据。子 Agent 继承绑定，沿持久 parent lineage 找到顶层 portable_workspace；逐级校验 cwd 和完整 binding，冷恢复可准备 World，但不会把 child 添加为顶层成员。原生 continuation 保留 child Session 与工具过滤。跨 World 使用独立 Session 和显式协作能力，不在现有 Agent 内偷偷切换环境。
 
 World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。同一个活跃 runtime 可在有限宽限期内重连；宿主重启准备新 runtime 不恢复旧句柄，也不重放旧命令。见 [Session bindings](reference/session-bindings.md)。
 
@@ -69,3 +69,5 @@ remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 pre
 - `integrations/dsh/experiments/`：不随插件发行的可执行实验；portable_workspace 实验复用维护中的 registry，保留原生宿主的缺口负例。
 - `integrations/dsh/tests/`、`scripts/`、`packaging/`：宿主兼容验证和发行适配；通用 client/SSH 测试归入 runtime/tests/。
 - `docs/`：稳定的用户/维护者说明；`.agents/notes/`：计划、取舍、实验和按时间记录的证据。
+
+`terminal` plugin 将原生 BashTerminalBackend 的创建转发给 Agent 所属远端 subprocess，保留原生 owner/关闭生命周期。`account-policy` 复用原生 policy 投影，固定为 SSH 账户权限；其他 sandbox mode 明确拒绝。两者不新增上游补丁。

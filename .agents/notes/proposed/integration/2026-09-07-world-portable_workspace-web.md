@@ -20,16 +20,18 @@ Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状
 | M1 执行边界准入（部分） | 按 consumer 清单确定 local control / explicit local connector / remote workspace；定界 skill 指令、脚本、依赖和 transfer | 不依靠名称黑白名单或提示词猜执行环境；每个启用 consumer 有 Agent/World 选择依据；缺失本地脚本不会被偷偷本地运行 |
 | M2 Host admission 补丁（源码与 browser/SSH 已验收） | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
 | M3 portable_workspace 插件与 Web（核心链路已验收） | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
-| M4 远程编码消费者（文件/搜索/Bash/jobs/文件补全/instructions/skills 已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
-| M5 可维护开发者发行 | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
+| M4 远程编码消费者（含子 Agent/终端工具已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
+| M5 源码交付（本地已验收） | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
 
 当前受限 remote profile 已通过真实 DSH Web + Chromium + 双 Linux/SSH World。覆盖显式 World/目录创建、同路径文件隔离、原生 fork、宿主冷启动 deep link 与新 runtime、取消后的远端进程退出、丢失 binding、停止容器与本地 Web Search 边界。完整记录见[Web/SSH 验收](../../implemented/integration/2026-09-07-web-ssh-acceptance.md)。
 
-M3 的管理 UI 已接入原生 rename/delete/reorder/archive API，并通过浏览器操作和登记恢复验收。M4 项目及嵌套 instructions、选定 skills 部署/发现/调用已通过浏览器验收；file reference 与后台 jobs 已通过双 World 浏览器验收；子 Agent consumers、terminal UI 和远程 policy 尚未装配。M5 已有可复现源码构建与 CI 定义，公开包安装、真实模型/真实外部搜索和 GitHub runner 运行记录仍未完成。不能把本轮通过改写成完整默认编码 profile 已交付。
+M3 的管理 UI 已接入原生 rename/delete/reorder/archive API，并通过浏览器操作和登记恢复验收。M4 项目及嵌套 instructions、选定 skills 部署/发现/调用已通过浏览器验收；file reference 与后台 jobs 已通过双 World 浏览器验收；子 Agent、终端工具和 SSH 账户 policy 已装配并验收。M5 的真实 DeepSeek 模型/外部搜索已通过；用户确认源码安装先交付，独立 npm 发行延期。原生 CLI 无密钥安装及真实模型执行验收均已通过，GitHub runner 运行记录仍未确认。不能把本轮通过改写成完整默认编码 profile 已交付。
 
-本轮按用户“高不确定性时停止”的条件收口：原生子 Agent 在 child-agent.ts 中声明固定委派权限，但当前 remote overlay 关闭本地 sandbox/policy，尚无远端强制执行对应；skills 的 Session 校验目前依赖顶层 registry membership，子 Agent 只有继承 binding，冷恢复与 catalog 还缺 lineage 准入设计。不能仅打开 tool-subagent 就声称安全继承。terminal 的 owner/provider 初始化、公开安装态及真实模型/外部搜索也未完成。后续先解决远端权限契约和子 Agent lineage，再扩展 profile；worktree 仍按此前要求延期。
+用户随后确认继续推进并协商不确定性：第一版父/子 Agent 使用选定远端 SSH 账户权限，完整 OS 文件系统/网络 sandbox 单独立项。已接入原生子 Agent 与持久终端；子 Agent 沿持久 parent lineage 找到顶层 portable_workspace，逐级验证 binding 全等，不追加顶层成员；原生 tool filter 仍按工具名生效，不能描述成“禁用某工具就禁止整个执行能力”。不支持的 sandbox mode 必须明确拒绝，不能仅改变提示而继续全权限执行。
 
-本轮实现与终审证据见 [Skills 与消费者验收](../../implemented/integration/2026-09-08-skills-consumers-acceptance.md)。
+原生 child 创建/continuation、终端 owner 生命周期继续复用，不新增 Agent loop 或 Session schema 补丁。one-shot、cold child catalog、终端读写/隔离与 continuation 宿主重启已通过扩展双 World 测试；绑定损坏及工具过滤负例也已通过。真实模型配置经用户授权从 ~/.dsh 提炼为 .local/deepseek-only，仅含 DeepSeek key 与默认模型；不复制其他凭据、浏览器会话或个人配置。真实模型/外部搜索已通过：实际 search result 成功且含官方 Python 文档 URL，远端代码测试通过，宿主 key 未进入远端环境。worktree 仍按此前要求延期。
+
+本轮实现与终审证据见 [子 Agent、终端与源码交付验收](../../implemented/integration/2026-09-08-child-terminal-source-acceptance.md)。此前 skills 原始验收记录保持历史状态。
 
 M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端；M4 是可用编码门槛，不可以“Web 打开了”替代。每完成阶段就改本 note 与相关 docs，只保留最新未决项。未实施步骤不创建空 plugin 或伪造可运行 profile。
 
@@ -68,7 +70,7 @@ agent-instructions 已增加显式环境接口；skill 发现与部署为外部 
 
 ## Web Search 重点验收
 
-优先级：作为 M1 的必选连接器边界验证，并在 M4 完整 consumer 装配和 M5 安装态验收中回归。状态：原生 Web Search provider + 受控宿主 HTTP 已通过浏览器验收；相同 Session 的远端 Bash 无法访问该 loopback 端点，且远端 env 中没有测试凭据。双 Session 并发、连接器失败/取消、技能组合与外部真实服务仍待覆盖。
+优先级：作为 M1 的必选连接器边界验证，并在 M4 完整 consumer 装配和 M5 安装态验收中回归。状态：原生 Web Search provider + 受控宿主 HTTP 已通过浏览器验收；相同 Session 的远端 Bash 无法访问该 loopback 端点，且远端 env 中没有测试凭据。技能组合与外部真实服务已覆盖；双 Session 并发、连接器失败/取消仍待专项覆盖。
 
 | 测试 | 必须观察到的行为 |
 | --- | --- |

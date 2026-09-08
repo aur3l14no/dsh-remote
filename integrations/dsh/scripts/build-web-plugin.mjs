@@ -8,7 +8,7 @@ const upstream = resolve(process.argv[2] ?? 'target/web-host');
 const output = resolve('target/web-plugin');
 await mkdir(output, { recursive: true });
 const entries = {
-  index: 'portable_workspace/src/index.ts',
+  index: 'portable_workspace/src/index.ts', terminal: 'terminal/src/index.ts',
   routing: 'ssh-world/src/routing.ts', fs: 'ssh-world/src/routed-fs.ts', subprocess: 'ssh-world/src/routed-subprocess.ts',
 };
 // Runtime/provider entries have no browser metadata. The UI package has exactly one Loader row.

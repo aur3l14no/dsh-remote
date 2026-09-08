@@ -5,6 +5,7 @@
     subprocess: true
     shell: true
     toolBashWorkdir: true
+    terminals: true
   config:
     - name: '@dsh-remote/web/fs'
     - name: '@dsh-remote/web/subprocess'
@@ -27,3 +28,11 @@
         maxBytes: 32768
     - name: '@deepseek-ai/dsh-tool-skill'
     - name: '@deepseek-ai/dsh-tool-jobs'
+    - name: '@deepseek-ai/dsh-terminal'
+    - name: '@dsh-remote/web/terminal'
+    - name: '@deepseek-ai/dsh-tool-terminal'
+    - name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        backgroundMode: continuable
+    - name: '@deepseek-ai/dsh-tool-subagent-control'

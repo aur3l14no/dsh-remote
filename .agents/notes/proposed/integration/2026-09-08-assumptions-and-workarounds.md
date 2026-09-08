@@ -2,7 +2,7 @@
 
 Status: proposed
 
-本页是待用户验收的持续决策表；具体实现与测试结果见[验收记录](../../implemented/integration/2026-09-08-skills-consumers-acceptance.md)。整体阶段仍未全部完成。
+本页是待用户验收的持续决策表；具体实现与测试结果见[验收记录](../../implemented/integration/2026-09-08-child-terminal-source-acceptance.md)。已确认的源码首版范围已落地；延期范围及专项未覆盖项仍按下表保留。
 
 | 项目 | 当前决定 / 假设 | 验收与限制 |
 | --- | --- | --- |
@@ -14,7 +14,10 @@ Status: proposed
 | 更新与取消 | 无远端 watcher，关闭 catalog 缓存；每次重新发现；调用者独立取消等待，插件销毁取消扫描 | 不承诺实时更新已注入上下文；共享查询取消已有单元测试，扫描中销毁尚无独立 integration 回归 |
 | 文件补全与 jobs | 文件补全显式远端扫描；背景任务沿用原生 jobs，回调持有具体进程句柄 | 每查询最多扫描 50,000 项、返回 20 个候选；越 canonical root 路径不显示。双 World 隔离与取消已验收 |
 | 输出预算 | Bash 每流预留 4 MiB；helper 0.1.2 在 release 时归还未用预留，完成 spill 文件仍计费 | 活跃预留与保留文件合计上限 64 MiB；不是无限历史输出。回归覆盖复用和持久文件配额；并发 release 尚无专项回归 |
-| 测试 workaround | 复用上游 Vitest/Playwright；scaffold 注入持久状态，alias 统一 scope 身份，导出 checkout 限制 Git 向上发现 | 不计入产品补丁。模型 replay + 实际 search provider/受控宿主 HTTP，不能替代真实模型、真实外部服务或 GitHub runner 证据 |
-| 暂停边界 | 子 Agent 权限继承/lineage 准入未完整适配；terminal UI、附件桥接、公开 Web 发行未完成；worktree 按先前要求延期 | 按用户条件停止高不确定性推进；不把“远端 SSH 账户权限”描述成 workspace sandbox。真实服务配置尚未提供 |
+| 测试 workaround | 复用上游 Vitest/Playwright；scaffold 注入持久状态，alias 统一 scope 身份，导出 checkout 限制 Git 向上发现 | 不计入产品补丁。模型 replay + 实际 search provider/受控宿主 HTTP，另有独立真实模型/外部服务和无 scaffold 的 CLI 验收；仍不能替代 GitHub runner 证据 |
+| 账户权限（用户已确认） | 父/子 Agent 使用所选远端 SSH 账户权限，完整 OS sandbox 独立延期；非法 sandbox mode 拒绝；逐次 approval 服务/UI 保留，策略由 DSH 决定（默认 ask） | World/cwd 是路由身份，不是 containment；工具名 allow/deny 不等于禁止某种执行能力 |
+| 子 Agent / 终端 | 原生生命周期与工具过滤；child 沿持久 lineage 找到顶层 workspace；终端创建显式选择 provider | 不让子 Agent成为顶层成员；one-shot、continuation 重启与终端隔离已验收，工具过滤、跨父级发送与损坏 binding 负例也已通过 |
+| 源码启动 workaround | 固定源码构建，显式 `--expose-internals` 使用上游 Loader 的原生配置锚点解析；排除依赖宿主 shell 的 permission/ui-permission | 不新增上游补丁；profile 链接 target 产物，目录不能移动；生产构建不含 scaffold。原生 CLI 无密钥和真实模型远端执行已通过；preset 依赖显式链接 profile 锚点，版本冲突拒绝 |
+| 真实服务与延期 | 用户授权从 ~/.dsh 提炼 .local/deepseek-only，只有 DeepSeek key 与默认模型；真实模型/搜索已通过 | 仅新建 Docker 的合成数据发往官方 API；不挂载个人项目。附件桥接与 worktree 未交付；用户确认独立 npm 发行延期，先交付源码安装 |
 
 终审：subagent 基于提供的最终代码片段/摘要完成静态 review，未独立读全仓或运行测试。空目录、HOME 取消、销毁后创建 provider 的问题已修复；未发现剩余确定性 P1/P2。此结论不等于独立完整审计。

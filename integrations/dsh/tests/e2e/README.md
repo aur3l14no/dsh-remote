@@ -48,3 +48,11 @@ Preparation exports a fresh disposable checkout to `target/web-host`, verifies a
 The browser runner keeps host control state under `target/web-acceptance/run-*` and removes it after the test. Screenshots are written to `target/web-*.png`. Never upload temporary state, bindings, SSH keys or artifact caches. Controlled model/search responses prove integration behavior, not external service availability or live model quality.
 
 Browser acceptance must cover two Worlds at the same path, selecting/creating Sessions, independent remote writes, page reload and cold host restart, binding errors, cancellation/disconnection, and local Web Search followed by remote file operations. Replay controls model output only; filesystem/process/SSH and browser transport remain real. Remote worktree orchestration remains deferred.
+
+## Native source installation and live checks
+
+`web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` keeps the real model and external DeepSeek search provider; its task data are generated in fresh Docker Worlds. Only `refs.DEEPSEEK_API_KEY` is read and injected into the host. This is a manual credentialed lane, separate from keyless CI.
+
+`source-install.mjs [PRIVATE_DEEPSEEK_HOME]` requires a `prepare-web-host.mjs --production` build (`scaffold: false`). It invokes the installed native CLI, follows the first-run welcome flow and creates a remote Session with Playwright. The optional credentialed variant also asks the real model to write/execute a remote test, independently reruns it and checks the other World remains unchanged. No fixture host or test-only Loader alias is used. CI runs the keyless variant after a production rebuild. Source-profile dependencies are explicitly linked at the native profile anchor.
+
+Sanitized results are `target/web-acceptance/live-result.json`, `source-install.json` and `source-install-live.json`. The private CLI diagnostic log may contain its process-token URL and is never an uploaded artifact. Temporary homes and Docker resources are removed after acceptance. Local success does not claim a GitHub runner result.

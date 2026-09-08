@@ -3,6 +3,7 @@ import * as SearchTools from '@deepseek-ai/dsh-tool-fs-search';
 import ExecutionWorlds, { type Config as ExecutionConfig } from '../../ssh-world/src/worlds.ts';
 import Registry, { type Config as RegistryConfig } from './registry.ts';
 import { PortableWorkspaceApi, PortableWorkspaceFeed } from './api.ts';
+import AccountPolicy from '../../account-policy/src/index.ts';
 import RemoteFileReferences from '../../file-references/src/index.ts';
 import * as RemoteSkills from '../../skills/src/index.ts';
 import * as Admission from '../../session-admission/src/index.ts';
@@ -22,6 +23,7 @@ export async function apply(ctx: Context, config: Config) {
   await ctx.plugin(Registry, { worlds: config.worlds });
   await ctx.plugin(Admission);
   await ctx.plugin(PortableWorkspaceApi);
+  await ctx.plugin(AccountPolicy);
   await ctx.plugin(RemoteSkills);
   await ctx.plugin(RemoteFileReferences);
 }

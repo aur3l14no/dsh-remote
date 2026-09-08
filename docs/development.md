@@ -86,7 +86,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 
 需要 pnpm 与宿主 Chromium 系统依赖；首次构建会下载依赖和浏览器。`prepare-web-host` 只替换 `target/web-host`，不修改上游源码 checkout。GitHub Actions 的 `CI` workflow 在 push、pull request 和手动触发时运行两个独立的 Ubuntu 24.04 job：Runtime 执行固定 Rust 1.85.1 的格式、Clippy、构建、测试及 TypeScript 检查/测试；DSH 执行 unchanged-source 类型/打包检查、patched-host gate、双 World SSH 和完整 Web E2E。浏览器系统依赖显式安装，重复提交取消旧运行。只上传截图与脱敏验收结果，保留 7 天；临时状态、凭据和缓存不上传。具体远端运行状态以 GitHub Actions 为准。
 
-当前 browser/SSH 验收覆盖创建与同路径隔离、rename/order/archive/remove/恢复登记、原生 fork、冷启动 deep link、新 runtime、远端 AGENTS/skills 与部署脚本、文件补全、后台 jobs 及取消、丢失 binding、停止 World 和宿主 Web Search 边界。它不代表默认工具全集、公开安装包、真实模型或外部搜索服务验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
+当前 browser/SSH 验收覆盖创建与同路径隔离、rename/order/archive/remove/恢复登记、原生 fork、冷启动 deep link、新 runtime、远端 AGENTS/skills 与部署脚本、文件补全、后台 jobs 及取消、丢失 binding、停止 World 和宿主 Web Search 边界。另有真实 DeepSeek/外部搜索验收及原生 CLI 安装检查；不代表默认工具全集或公开 npm 包验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
 
 ## 文档与证据
 
@@ -95,3 +95,13 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 移动代码时验证相对 import、TS include、Cargo workspace、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
 
 Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/proposed/integration/2026-09-08-assumptions-and-workarounds.md)。
+
+真实模型验收（手动、需要仅含 DeepSeek key 的私有配置）与源码启动检查：
+
+```sh
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --live .local/deepseek-only
+node integrations/dsh/scripts/prepare-web-host.mjs "$DSH_SOURCE" --production
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/source-install.mjs .local/deepseek-only
+```
+
+第一条读取私有配置的 `.credentials.yaml` 中 `refs.DEEPSEEK_API_KEY`，只注入宿主；发送的是新建双 World 的合成任务数据。源码 gate 在 `--production` 产物上启动真实 DSH CLI，经 Playwright 创建远端 Session；提供凭据目录时还执行真实模型的远端写入/测试与另一 World 隔离检查，不使用 scaffold。生产构建与配置见[源码安装](source-install.md)。

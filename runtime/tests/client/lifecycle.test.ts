@@ -96,7 +96,7 @@ test('real helper: releasing processes returns unused spill reservation', { time
   try {
     for (let index = 0; index < 6; index++) {
       const process = await RemoteProcess.spawn(r.client, { argv: [fixture, 'argv', String(index)], cwd: r.dir,
-        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 16 * 1024 * 1024 }, stderr: 'ignore' });
+        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 16 * 1024 * 1024 } });
       assert.equal((await process.done).rootExit?.code, 0);
       await process.release();
     }
@@ -110,13 +110,13 @@ test('real helper: released spill files remain available and charged to the runt
     const size = 16 * 1024 * 1024;
     for (let index = 0; index < 4; index++) {
       const process = await RemoteProcess.spawn(r.client, { argv: [fixture, 'burst', String(size)], cwd: r.dir,
-        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: size }, stderr: 'ignore' });
+        stdout: { mode: 'collect', maxBytes: 1024, spillBytes: size } });
       assert.equal((await process.done).rootExit?.code, 0);
       const snapshot = await r.client.request<{ spill: string }>('stream.read', { stream: process.outputs[0]!.stream, offset: 0 });
       await process.release();
       assert.equal((await localRead(snapshot.spill)).length, size);
     }
     await assert.rejects(RemoteProcess.spawn(r.client, { argv: [fixture, 'argv'], cwd: r.dir,
-      stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 1 }, stderr: 'ignore' }), { code: 'RESOURCE_LIMIT' });
+      stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 1 } }), { code: 'RESOURCE_LIMIT' });
   } finally { await r.close(); }
 });
