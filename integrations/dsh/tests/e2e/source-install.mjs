@@ -11,6 +11,7 @@ const root = resolve('.');
 const build = JSON.parse(await readFile('target/web-host/remote-build.json', 'utf8'));
 assert.equal(build.scaffold, false, 'Build with --production before CLI acceptance');
 const credentialHome = process.argv[2];
+const videoDirectory = process.env.DSH_E2E_VIDEO_DIR && resolve(process.env.DSH_E2E_VIDEO_DIR);
 await mkdir('target/web-acceptance', { recursive: true });
 const resultFile = resolve(`target/web-acceptance/source-install${credentialHome ? '-live' : ''}.json`);
 await rm(resultFile, { force: true });
@@ -55,8 +56,10 @@ try {
     child.once('error', error => { clearTimeout(timeout); reject(error); });
     child.once('exit', code => { clearTimeout(timeout); reject(new Error(`CLI exited ${code} before readiness`)); });
   });
-  browser = await chromium.launch({ headless: true });
-  page = await browser.newPage({ locale: 'en-US' });
+  browser = await chromium.launch({ headless: true, ...(videoDirectory ? { slowMo: 350 } : {}) });
+  page = await browser.newPage({ locale: 'en-US', viewport: { width: 1440, height: 900 },
+    ...(videoDirectory ? { recordVideo: { dir: videoDirectory, size: { width: 1440, height: 900 } } } : {}),
+  });
   await page.goto(url);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
@@ -91,6 +94,10 @@ try {
       ...(credentialHome ? ['real-model remote script execution', 'independent remote test rerun', 'remote credential absent', 'other World unchanged'] : [])],
   }, null, 2) + '\n');
   console.log('PASS source-install CLI and Playwright remote workspace creation');
+  if (videoDirectory) {
+    await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor({ state: 'hidden', timeout: 120000 });
+    await page.waitForTimeout(5000);
+  }
 } catch (error) {
   if (page) {
     console.log('CLI workspace diagnostic:', await page.locator('.portable-workspaces').innerText().catch(() => 'unavailable'));
@@ -99,6 +106,7 @@ try {
   throw error;
 } finally {
   await browser?.close();
+  if (videoDirectory && page?.video()) console.log(`Browser recording: ${await page.video().path()}`);
   if (child && child.exitCode === null) {
     const exited = new Promise(accept => child.once('exit', accept));
     child.kill('SIGTERM');
