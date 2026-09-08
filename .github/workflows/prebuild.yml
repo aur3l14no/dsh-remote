@@ -1,0 +1,55 @@
+name: Helper prebuild
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/helper/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/prebuild.yml'
+  pull_request:
+    paths:
+      - 'runtime/helper/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/prebuild.yml'
+permissions:
+  contents: read
+jobs:
+  helper:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned build toolchain
+        run: rustup toolchain install 1.85.1 --profile minimal --target x86_64-unknown-linux-musl
+      - name: Build static Linux helper
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.1
+        run: sh runtime/helper/scripts/build-linux.sh x86_64-unknown-linux-musl
+      - name: Check target binary and run native tests
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.1
+        run: |
+          helper=target/x86_64-unknown-linux-musl/release/dsh-remote
+          "$helper" --version
+          if readelf -l "$helper" | grep -q INTERP; then
+            echo 'Unexpected dynamic interpreter' >&2
+            exit 1
+          fi
+          cargo test --locked --workspace --target x86_64-unknown-linux-musl
+      - name: Package helper with source identity and checksum
+        run: |
+          mkdir -p target/prebuild
+          cp target/x86_64-unknown-linux-musl/release/dsh-remote target/prebuild/dsh-remote
+          cp LICENSE target/prebuild/LICENSE
+          git rev-parse HEAD > target/prebuild/SOURCE_REVISION
+          (cd target/prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
+          tar -czf target/helper-linux-x86_64-musl.tar.gz -C target/prebuild .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-linux-x86_64-musl-${{ github.sha }}
+          path: target/helper-linux-x86_64-musl.tar.gz
+          if-no-files-found: error
+          retention-days: 14

@@ -3,6 +3,11 @@
 set -eu
 build_target=${1:-x86_64-unknown-linux-gnu}
 case "$build_target" in
+    x86_64-unknown-linux-musl)
+        build_host=$(rustc -vV | sed -n 's/^host: //p')
+        CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER="$(rustc --print sysroot)/lib/rustlib/$build_host/bin/rust-lld"
+        export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER
+        ;;
     aarch64-unknown-linux-musl)
         build_host=$(rustc -vV | sed -n 's/^host: //p')
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$(rustc --print sysroot)/lib/rustlib/$build_host/bin/rust-lld"
