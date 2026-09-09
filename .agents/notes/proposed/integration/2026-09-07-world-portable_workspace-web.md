@@ -1,76 +1,34 @@
-# Agent Note: World-qualified DSH Web
+# World-qualified DSH Web：后续工作
 
 Status: proposed
 
-## Problem
+## 当前基线
 
-现有执行 providers 和 binding fixture 已工作，但原生 Web 的本地 mkdir、冷恢复准备缺口、path-only Workspace 与非工具消费者阻止可靠的多 World 项目体验。用户已选择下游补丁 + 外部插件路线，要求先整理目录、维护责任、文档和执行边界。proposed 标记工作尚未完成，不是重新等待方向批准。
+第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [architecture](../../../../docs/architecture.md)、[execution boundaries](../../../../docs/execution-boundaries.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
 
-## Proposal
+本页只维护后续事项和验收要求，proposed 不表示第一阶段未完成。已完成过程见 [原生 bundle 交付](../../implemented/integration/2026-09-08-native-bundle-delivery.md)、[DSH 新版适配](../../implemented/integration/2026-09-09-dsh-upgrade.md)；适配提交 4f3ad28 的 [GitHub CI](https://github.com/aur3l14no/dsh-remote/actions/runs/34304573317) 已通过。
 
-交付本地 DSH Web 中可选择 World×workspace 的项目，保留原生 Agent、Session 与对话，所有受支持的 workspace IO/进程在绑定 World 中执行。固定当前 DSH revision，维护窄补丁和显式 profile；不等待上游 PR，不使用 Fake portable_workspace，不改 Session JSONL schema。
+## 尚未完成的范围
 
-Rust helper、client/SSH 库、DSH 集成分层已经确定；当前代码和状态以 README/docs 为准。series.json 当前登记 5 个补丁、涉及 7 个原生包：Session admission、Workspace feed、Bash workdir、FS cwd、instruction/skill 的显式环境上下文。其余包级审计仍是规划。
-
-## Stages and dependencies
-
-| 阶段 | 工作与输出 | 退出门槛 |
-| --- | --- | --- |
-| M0 结构维护（已完成） | runtime/{helper,client,ssh}/、integrations/dsh/；精简 docs；notes lifecycle；迁移 imports/build/package 声明 | 根 Cargo/npm、DSH 类型检查、bundle/package consumer 和文档链接通过；原始 JSON 保真 |
-| M1 执行边界准入（部分） | 按 consumer 清单确定 local control / explicit local connector / remote workspace；定界 skill 指令、脚本、依赖和 transfer | 不依靠名称黑白名单或提示词猜执行环境；每个启用 consumer 有 Agent/World 选择依据；缺失本地脚本不会被偷偷本地运行 |
-| M2 Host admission 补丁（源码与 browser/SSH 已验收） | api-session-controller 中 create/adopt/resume/observed promotion/upload lookup/fork；独立 patched-host 脚本及有序 patch | 持久 World 绑定先于执行；覆盖同 ID 并发和 raced adoption；远程目录不被本地 mkdir/realpath；原本 local Session 行为有回归 |
-| M3 portable_workspace 插件与 Web（核心链路已验收） | 产品化实验 registry；补 rename/delete/reorder/archive；实现 API/feed 与 UI/navigation，保留 uiWorkspace/useWorkspaces | 两 World 同路径列表并存，增量与重连一致；直接深链接、重启恢复、创建、fork 真实浏览器闭环 |
-| M4 远程编码消费者（含子 Agent/终端工具已验收） | tool-fs、policy、instructions；remote skill/file-reference；terminal/jobs 初始化与 owner 清理；明确本地能力 | 远端 AGENTS/skills 生效、本地全局指令不误读远端；并发不同 World，无本地同名路径副作用；shell/cancel/子 Agent 继承与非工具阶段通过 |
-| M5 源码交付（本地已验收） | 可复现 patched host + 外部包 + profile；产物校验、兼容矩阵、setup/resume 指南 | 真实模型远程读/搜/改/测，SSH 断线/重启，安装态 browser 验收；发布说明不夸大平台和附加能力 |
-
-当前受限 remote profile 已通过真实 DSH Web + Chromium + 双 Linux/SSH World。覆盖显式 World/目录创建、同路径文件隔离、原生 fork、宿主冷启动 deep link 与新 runtime、取消后的远端进程退出、丢失 binding、停止容器与本地 Web Search 边界。完整记录见[Web/SSH 验收](../../implemented/integration/2026-09-07-web-ssh-acceptance.md)。
-
-M3 的管理 UI 已接入原生 rename/delete/reorder/archive API，并通过浏览器操作和登记恢复验收。M4 项目及嵌套 instructions、选定 skills 部署/发现/调用已通过浏览器验收；file reference 与后台 jobs 已通过双 World 浏览器验收；子 Agent、终端工具和 SSH 账户 policy 已装配并验收。M5 的真实 DeepSeek 模型/外部搜索已通过；用户确认源码安装先交付，独立 npm 发行延期。原生 CLI 无密钥安装及真实模型执行验收均已通过，GitHub runner 运行记录仍未确认。不能把本轮通过改写成完整默认编码 profile 已交付。
-
-用户随后确认继续推进并协商不确定性：第一版父/子 Agent 使用选定远端 SSH 账户权限，完整 OS 文件系统/网络 sandbox 单独立项。已接入原生子 Agent 与持久终端；子 Agent 沿持久 parent lineage 找到顶层 portable_workspace，逐级验证 binding 全等，不追加顶层成员；原生 tool filter 仍按工具名生效，不能描述成“禁用某工具就禁止整个执行能力”。不支持的 sandbox mode 必须明确拒绝，不能仅改变提示而继续全权限执行。
-
-原生 child 创建/continuation、终端 owner 生命周期继续复用，不新增 Agent loop 或 Session schema 补丁。one-shot、cold child catalog、终端读写/隔离与 continuation 宿主重启已通过扩展双 World 测试；绑定损坏及工具过滤负例也已通过。真实模型配置经用户授权从 ~/.dsh 提炼为 .local/deepseek-only，仅含 DeepSeek key 与默认模型；不复制其他凭据、浏览器会话或个人配置。真实模型/外部搜索已通过：实际 search result 成功且含官方 Python 文档 URL，远端代码测试通过，宿主 key 未进入远端环境。worktree 仍按此前要求延期。
-
-本轮实现与终审证据见 [子 Agent、终端与源码交付验收](../../implemented/integration/2026-09-08-child-terminal-source-acceptance.md)。此前 skills 原始验收记录保持历史状态。
-
-M1 必须先定 consumer 范围；M2/M3 是同一用户链路的后端和前端；M4 是可用编码门槛，不可以“Web 打开了”替代。每完成阶段就改本 note 与相关 docs，只保留最新未决项。未实施步骤不创建空 plugin 或伪造可运行 profile。
-
-## Patch / plugin ownership
-
-已实现 7 个包的窄补丁，以 series.json 为准。Workspace controller 保留原生 API/client，仅增加 registry-owned feed seam；World-aware 创建为外部 Remote。Bash workdir 通过可选 resolver 选定 Agent FS，tool-fs 在 parent traversal 前由 provider 解析 cwd。nativeOpen=false 同时禁止宿主桌面 handoff。
-
-agent-instructions 已增加显式环境接口；skill 发现与部署为外部 provider。sandbox-policy 仍需定界；remote file-reference 已通过双 World 浏览器验收。portable_workspace registry 已迁入维护中的 plugin，原实验只保留 re-export 和 unchanged-source 负例，不维护第二份 registry。
-
-新 patch 必须记录包/源文件、准入输入、失败行为、local profile 回归和专门测试；只能在通过 patched-host gate 后进入 series.json。保持 unchanged-source 验收独立，不能删除脚本中的 dirty/revision guard 伪装兼容。
-
-新增 portable_workspace 插件落在 integrations/dsh/plugins/，不把未产品化 registry 留在 experiments 充当发行入口。experiment 在迁移前保留为负例和证据，成熟行为迁移后删除重复实现或保留明确小型 seam fixture。
-
-## Execution decisions to close
-
-1. 非 tools/execute 阶段以 Agent/owner 显式选择具体 provider，不依赖一个默认 World。列清 pre-step、skill catalog、file-reference、terminal 初始化、job 回调和 disposal 的传播点。
-2. 本地 user/bundled skill 与远程 portable_workspace skill 各自发现；内容的来源不会赋予本地 Shell 权。定义可支持的能力要求和不兼容报告；第一版不实现任意本地 CLI skill 自动执行。
-3. 本地网络连接器保持本地独立 service/tool，远端 workspace Shell 保持远端。当前 profile 已装配原生 DeepSeek search provider，并通过受控宿主 HTTP 端点验证；外部服务可用性与连接器失败/取消仍待验收。
-4. 若某 skill 需要本地脚本处理远端文件，第一版应明确不支持或采用专门 API + 显式 transfer；不可自动上传任意路径、同步凭据或改写 shell 文本。
-5. bootstrap 本地控制命令不是模型可调用的 host-shell。保持 SSH 验证、目标账号权限和不复制本地 env 的机制。
-
-## Edge-case acceptance matrix
-
-| 反例 | 预期 |
+| 项目 | 后续工作与边界 |
 | --- | --- |
-| 两 World 相同 cwd、不同文件与指令 | portable_workspace/Session、工具输出、AGENTS 和 skill 结果不混淆 |
-| 本地同名目录或 symlink | 不能成为远程 path resolution、policy root 或失败回退的来源 |
-| cold deep link、history follower、upload-first | 保存绑定驱动准备；先准备再执行，UI 活动顺序不改变 World |
-| 不同 portable_workspace 并发请求相同 Session ID | 精确冲突，catch/race 不接管错误 World |
-| Web fork、子 Agent、子 Agent continuation | 对应 lineage 和 binding 正确，过滤/取消由 DSH 原生机制保留 |
-| 本地 skill 写绝对本地脚本路径 | 明确不可用；不改向 host、不自动复制/解释本地路径 |
-| 本地连接器需要远端文件 | 传递的是明确选择的数据，执行地点与副作用清晰 |
-| 回调/初始化不在 ALS 工具链 | 有显式 owner provider 或失败，不默认 local/first World |
-| 丢 binding、配置改向、容器消失、断线超时 | 执行阻止，识别历史 World，无静默重试到新环境 |
-| 新 runtime、取消/响应丢失 | 不重放未知结果的旧命令；确认清理与请求已接受明确区分 |
+| 连接器鲁棒性 | 补双 Session 并发、超时/失败/取消专项验收；不改变本地连接器和远端 Shell 的分工 |
+| 远端 worktree | 明确新目录、portable_workspace、新 Agent 关系与失败清理；见下文，未授权本阶段实现 |
+| 附件桥接 | 明确本地 attachment store 与远端工具之间的显式传输；已有文件预览不等于附件传输 |
+| 远端 OS sandbox | 单独立项；目前父/子 Agent 使用 SSH 账户权限 |
+| 发行完善 | 公共 npm/Release、helper 平台矩阵、ripgrep 与可信下载清单、安装 GC；现有 CI 产物不等于公开发布 |
+| 其他消费者 | sameWorkspace Session 引用、LSP/Git 扩展、跨根 Agent 消息及外部 Agent 后端需单独适配 |
+| 生命周期强化 | 子 Agent pre-publication 原子提交、扫描中销毁、并发输出 release 等专项验证；不得放宽绑定或取消语义 |
+
+## 维护约束
+
+新消费者必须说明执行地点、身份来源和缺失上下文时的失败行为。新补丁记录修改包、输入与 local profile 回归，通过独立 patched-host gate 后才纳入 series.json；unchanged-source gate 保留。不可为 skill 提供通用本地 shell、隐式传凭据或改写命令。
+
+保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；已知限制集中在[重要假设与 workaround](../../implemented/architecture/2026-09-08-assumptions-and-workarounds.md)。
 
 ## Web Search 重点验收
 
-优先级：作为 M1 的必选连接器边界验证，并在 M4 完整 consumer 装配和 M5 安装态验收中回归。状态：原生 Web Search provider + 受控宿主 HTTP 已通过浏览器验收；相同 Session 的远端 Bash 无法访问该 loopback 端点，且远端 env 中没有测试凭据。技能组合与外部真实服务已覆盖；双 Session 并发、连接器失败/取消仍待专项覆盖。
+这是持续回归要求。状态：原生 Web Search provider + 受控宿主 HTTP 已通过浏览器验收；相同 Session 的远端 Bash 无法访问该 loopback 端点，且远端 env 中没有测试凭据。技能组合与外部真实服务已覆盖；双 Session 并发、连接器失败/取消仍待专项覆盖。
 
 | 测试 | 必须观察到的行为 |
 | --- | --- |
@@ -81,15 +39,15 @@ agent-instructions 已增加显式环境接口；skill 发现与部署为外部 
 | 连接器超时、失败与取消 | 返回明确错误或取消结果，不重试到远端 Shell，不扩大为本地通用 shell 权限，不改变 binding；恢复后的远端操作仍指向原 World |
 | 本地 skill 搜索后操作远端项目 | 通过明确本地连接器搜索、远端 provider 读写；本地脚本路径不赋予本地 shell 权，也不能作为隐式 transfer |
 
-测试分两层：M1 使用实际连接器实现接入可记录请求的受控 HTTP 服务，验证路由、凭据及错误；M5 在安装后的 profile 中使用真实搜索服务与 Linux/SSH World 完成端到端任务，记录连接器版本、装配配置、执行地点和取消行为。测试替身不能替代真实服务可用性证据，原生 macOS fixture 不能替代 SSH 验收。测试代码归入 integrations/dsh/tests/，阶段记录进入 notes；未通过前保持“不支持/未验收”的描述。
+测试分受控宿主 HTTP 边界测试和安装态真实服务验收；两者不能互相替代。测试属于 integrations/dsh/tests/，结果按时间记录到 implemented notes。
 
 ## 远端 worktree（待处理）
 
-状态：仅完成源码现状审计；用户要求本轮不实现。不是已有自动能力，也不把它追加为当前 M0 的交付条件。
+状态：仅完成源码现状审计；用户要求本轮不实现。不是已有自动能力，不属于已完成的第一阶段。
 
 期望：Git 仓库和新 worktree 都位于选定远端 World；新目录登记为该 World 下的新 portable_workspace，新 Session/Agent 在绑定持久化后启动。Git 工作目录与索引独立，仓库对象可共享；不能把相同 World 误当成相同 workspace。
 
-当前可组合的部分：远端 subprocess 可以运行 Git；实验 registry 的 createInWorld 只接收已存在的目录；startPortableWorkspaceSession 显式绑定后创建独立 Session。仓库中没有 worktree 创建器、模型工具、UI 流程或相关验收，不能称为自动支持。目标 Git、权限与仓库条件也未专项验证。
+当前可组合的部分：远端 subprocess 可以运行 Git；维护中 registry 的 createInWorld 只接收已存在的目录；startPortableWorkspaceSession 显式绑定后创建独立 Session。仓库中没有 worktree 创建器、模型工具、UI 流程或相关验收，不能称为自动支持。目标 Git、权限与仓库条件也未专项验证。
 
 当前阻碍：worlds.ts 的 inherited/adopt 要求普通子 Agent 的 cwd 和完整绑定与父级相同，直接替换 cwd 或预绑定另一目录仍会冲突。固定 DSH 基线的 Web fork 复制源 cwd，不创建 Git worktree；workflow-worker-thread 的 isolation 属于 deferred options，现有测试明确拒绝 worktree 隔离。独立 Session 的源码入口可作为未来编排基础，但不等于已支持保留父子 lineage 的隔离子 Agent。
 
@@ -102,66 +60,7 @@ agent-instructions 已增加显式环境接口；skill 发现与部署为外部 
 - 仓库布局与权限：linked worktree 的 .git 是引用文件，Git common directory 和管理文件可能在 workspace 外。项目指令发现、远端路径解析、审批/policy 必须认识这一布局，不能简单把越出 cwd 都当成本地访问或都放行。
 - 生命周期：重启后按持久绑定恢复；worktree 被移动、删除或 prune 时明确失败。Agent 结束不隐式删除 worktree，清理前处理修改、活跃进程和其他 Session 的引用。
 
-证据基线：DSH d347e703908d0406b7a7ef80e3a0e594d86b2215，源码检查完成，未运行 Git/worktree 实验。
+历史源码审计基线：DSH d347e703908d0406b7a7ef80e3a0e594d86b2215，源码检查完成，未运行 Git/worktree 实验。
 
 - 本仓库：integrations/dsh/experiments/portable_workspace/{registry,entry}.ts；integrations/dsh/plugins/ssh-world/src/{worlds,routing}.ts。
 - 上游：packages/api/session-controller/src/commands.ts 的 fork；packages/subagent/subagent/src/child-agent.ts 的 cwd 继承；packages/workflow/workflow-worker-thread/src/runtime.ts 的 DEFERRED_AGENT_OPTIONS 及对应测试。
-
-## Deferred boundaries
-
-准确的 session-reference 同项目排序、严格子 Agent pre-publication 原子提交、任意附件同步/远程预览、LSP/Git 扩展、跨根 Agent 消息、完整远程 sandbox、外部 Agent 后端、公共自动下载与安装 GC 不默认为第一版支持。若必需消费者要求改 Agent loop/Session schema 或通用对话协议，先重新定界并记录具体调用点。
-
-## Alternatives considered
-
-**纯外部插件且不改 DSH。** 原生 Web 创建和冷恢复绕过准备，已被实验复现；不继续用 CLI 降级代替用户选择的完整 Web 方向。
-
-**Fake portable_workspace。** 占位 cwd 会引入两种路径语义并影响指令、shell 和本地消费者；不作为本阶段身份方案。
-
-**自建或迁移 Harness。** 现有原生 Agent/Session 接口足以继续做局部补丁验证，暂不承担替换模型循环和对话引擎的成本。
-
-## 双 World E2E 与浏览器方法
-
-统一环境：本地 Mac/OrbStack 或 GitHub Ubuntu runner 为宿主，DSH、patch/plugin、Vitest 和 Playwright Chromium 都在宿主运行。两个 Docker 容器分别提供 sshd、Linux helper、独立 Git 仓库和同名 `/workspace`，不挂载宿主项目目录。入口为 `integrations/dsh/scripts/e2e.mjs -- COMMAND [ARGS...]`；配置接口和清理约定见 `integrations/dsh/tests/e2e/README.md`。
-
-沿用固定上游 `vitest.web.config.ts`、`apps/web/tests/scaffold.ts` 和 `workspace-management.e2e.ts` 的实践：构建真实 Web client，经 Loader 装配实际宿主，通过 Chromium 页面操作与真实 HTTP/WebSocket 触发行为；模型输出使用 keyless replay，远端 FS/process/SSH 不 mock。scaffold 已提供 `extraOverlayPath` / `extraInstallAnchors` 扩展点，后续 remote overlay 必须在 Agent 创建前替换本地 workspace consumers。
-
-准入 fixture 和受限 remote browser profile 均已接入真实双 SSH World；源码/controller gate 与浏览器 gate 独立。浏览器现已覆盖 World 选择、同路径隔离、新建/fork、冷启动深链接、缺失 binding、取消和停止 World。远端 worktree 仍按单独 edge case 延后。
-
-Web Search 延续 M1 必测要求：参考上游 `web-search-round.e2e.ts` 的真实 DeepSeek provider + 受控宿主 HTTP 服务 + 测试凭据，追加两个 World 的远端读写、请求执行地点和凭据不下发断言。不能用上游本地测试通过替代我们本地/远端边界的验收。
-
-## Acceptance criteria
-
-阶段完成以真实可复现的行为与安装态证据为准。静态审计、控制器 fixture、tarball import、原生 macOS helper 测试分别只证明自身范围。至少两个 World 同路径，保持模型/历史本地，远端代码读写与测试、重启恢复、子 Agent 与取消成功；缺少 World/脚本/依赖有可理解的明确失败。
-
-## Risks
-
-上游预览 API 变化、WorkspaceFeed 存储耦合、跨 World 同路径缓存键、非工具路由、附件执行路径和 local policy canonicalization 是重点风险。9 个职责不是最终包数上限。补丁需带 local 行为回归；支持集合之外的可信插件仍能直接调用本地 Node API，这不是 sandbox。
-
-## 当前验收入口
-
-- [重要假设与 workaround 一页纸](2026-09-08-assumptions-and-workarounds.md)。
-- [Skills 部署与执行契约](../../../../docs/skills.md)。
-
-## Evidence
-
-- [包级审计](2026-09-07-patch-surface.md)
-- [执行边界](../../../../docs/execution-boundaries.md)
-- [原始 portable_workspace 验收](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)
-- [原始 session-routing 验收](../../archived/2026-09-initial-integration/evidence/binding-acceptance-results.json)
-
-Follow-up: [Skill synchronization and review fixes](../../implemented/integration/2026-09-08-skill-sync-review-fixes.md) records automatic/manual synchronization and cancellation regressions.
-
-## 官方安装与扩展发行进展（2026-09-08）
-
-原生 bundle 迁移已通过本地验收，见[记录](../../implemented/integration/2026-09-08-native-bundle-delivery.md)。开发者、用户、CI 共用标准 `dsh plugin add` 和官方 CLI；源码仅是窄补丁构建输入，不再提供源码宿主构建或自定义启动器。固定官方 alpha.2，五个补丁涉及七包，包内相对插件路径保留原生浏览器身份。
-
-已验收安装、重复安装、版本拒绝、移除恢复、完整双 World browser/SSH 及最终 tarball 的真实模型远端执行。最终产物尚未发布 npm/公开 Release，GitHub CI 未推送运行；本地通过不代表这些交付已完成。
-
-后续保持用户已确定的边界：远端 worktree/新 portable_workspace、附件桥接和 OS sandbox 单独推进；Linux helper 平台矩阵、ripgrep 与可信发布清单继续按真实平台证据完成。不因打包迁移扩大远端或本地权限。
-
-
-## DSH 0.1.5-alpha.1 适配（2026-09-09，已实现）
-
-已完成 helper 0.1.3 范围读取、官方版本与锁文件更新、文件预览 Session/World 路由以及 V2/V3 迁移验收。扩展版本为 0.3.0，6 个补丁覆盖 9 个官方包；只新增 workspace-files 和 ui-chat 两个覆盖包，不构建完整宿主或前端。
-
-本地通过：原生 composition/声明门禁、patched-host 真 SSH、官方 CLI 安装、双 World Playwright（含预览/迁移/冷恢复/子 Agent）、Skills 部署，以及真实 DeepSeek 编码与外部搜索。以细粒度提交推进，GitHub runner 结果在推送后确认。详见[本轮验收](../../implemented/integration/2026-09-09-dsh-upgrade.md)。用户实际 DSH home 和会话没有迁移；OS sandbox、附件传输、worktree 编排仍保持延期。

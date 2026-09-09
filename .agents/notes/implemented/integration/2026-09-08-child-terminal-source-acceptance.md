@@ -31,6 +31,6 @@ Status: implemented
 
 用户要求的 subagent 终审已执行。reviewer 无独立文件/命令工具，基于提供的代码、原生接口语义和主 agent 的测试结果审查；没有剩余确定性 P1/P2。其建议补上生产构建断言、真实远端工具执行、审批语义核对和依赖版本冲突拒绝均已处理。不是独立全仓审计。
 
-重要假设统一维护在[验收一页纸](../../proposed/integration/2026-09-08-assumptions-and-workarounds.md)，稳定使用方式见 docs/source-install.md。
+重要假设统一维护在[验收一页纸](../architecture/2026-09-08-assumptions-and-workarounds.md)，稳定使用方式见 docs/source-install.md。
 
 脱敏原始结果：[Web/child](evidence/2026-09-08-child-terminal-web.json)、[真实模型/搜索](evidence/2026-09-08-live-model-search.json)、[源码安装](evidence/2026-09-08-source-install.json)、[原生 CLI 真实执行](evidence/2026-09-08-source-install-live.json)。仅复制通过结果，未复制日志或私有状态。

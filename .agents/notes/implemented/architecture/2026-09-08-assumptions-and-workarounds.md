@@ -1,14 +1,14 @@
 # 重要假设与 workaround（验收用一页）
 
-Status: proposed
+Status: implemented
 
-本页是待用户验收的持续决策表；具体实现与测试结果见[验收记录](../../implemented/integration/2026-09-08-child-terminal-source-acceptance.md)。原生插件交付见[迁移验收](../../implemented/integration/2026-09-08-native-bundle-delivery.md)；延期范围及专项未覆盖项仍按下表保留。
+本页是已采用假设与 workaround 的持续决策表，保留未验收限制；具体实现与测试结果见[验收记录](../integration/2026-09-08-child-terminal-source-acceptance.md)。原生插件交付见[迁移验收](../integration/2026-09-08-native-bundle-delivery.md)；延期范围及专项未覆盖项仍按下表保留。
 
 | 项目 | 当前决定 / 假设 | 验收与限制 |
 | --- | --- | --- |
 | AGENTS 发现 | 指远端 AGENTS.md/CLAUDE.md、local overlay 和嵌套指令；World × canonical cwd 是权威 | 两 World 同路径不同指令、嵌套与冷恢复已验收；全局目录用远端 `$HOME/.dsh`，不自动合并宿主个人 AGENTS |
 | Skill 部署 | 显式配置选择本地已管理的完整 skill 文件夹，复制到远端 `$HOME/.local/share/dsh-remote/skills/<name>/<digest>`，链接进 `$HOME/.agents/skills` | 保留文件权限和空目录；源根可为 APM 链接，内部 symlink/特殊文件拒绝；同名非托管条目拒绝覆盖 |
-| Skill sync (2026-09-08) | Host orchestration syncs configured sources before each new helper; Sync Skills updates an existing connection without restart | No watcher or sync on same-runtime transport recovery; remote home is shared by SSH account. Existing revision permission drift fails explicitly; dependencies remain separately managed. |
+| Skill 同步 | 本地编排层在新 helper 前同步选定来源；Sync Skills 更新现有连接，不重启 helper | 无 watcher，同 runtime 的传输恢复不触发同步；远端 home 按 SSH 账户共享。已有 revision 权限漂移明确失败，依赖另行管理 |
 | 管理与 exec | APM/chezmoi/skill-ops 管理来源及依赖适配；本项目部署内容，Shell 在绑定 World，连接器留宿主 | `requires` 只检查命令存在，不证明版本兼容；不安装 runtime、不自动复制凭据、不改写 shell、不增加通用 host-shell 权限 |
 | 部署原子性 | Linux + POSIX shell/tar/diff/GNU coreutils；按 skill 原子切换链接 | 整个列表不是事务；省略不卸载，旧 revision 保留。SIGKILL 可能留锁/暂存目录；无自动 GC |
 | 发现接口补丁 | lookup 携带 Session 身份；instruction 非工具阶段显式 Agent environment；上下文接口沿用 0001–0005；当前全序列 6 个补丁涉及 9 个包 | 沿用原生解析、调用控制和 instruction 生命周期；冷 catalog 准备绑定但不发布 Agent |
@@ -27,4 +27,4 @@ Status: proposed
 
 新版适配（2026-09-09，已实现与本地验收）：helper 0.1.3 用 fs.read-range 显式协商范围读取，旧 helper 明确拒绝；预览按 Session/World 路由，不引入宿主 FS fallback。目录树/文本预览限定 portable_workspace 根，图片保留 SSH 账户可读绝对路径；两者都不改变 Shell 账户权限。图片 URL 带渲染所属 Session，文件链接先远端 canonicalize，避免 `..` 在 URL 层被消去；根 workspace `/` 也强制 Session 资源地址，未知 cwd 拒绝。Agent 变更提示没有 OS watcher。
 
-迁移验收使用一次性 V2 zstd 日志（header 独立 frame），检查旧日志字节保留、V3 history 和 bindings 不变；不迁移真实用户会话，不声称覆盖所有历史日志形态。源码 fixture 使用官方 node-addon-system 预构建文件锁，移除 fs-ext；浏览器类型程序与宿主分开，额外的官方静态 UI 声明包仅是构建/测试输入。真实 DeepSeek 编码、外部搜索及远端凭据隔离已重新验收。见[本轮验收](../../implemented/integration/2026-09-09-dsh-upgrade.md)。
+迁移验收使用一次性 V2 zstd 日志（header 独立 frame），检查旧日志字节保留、V3 history 和 bindings 不变；不迁移真实用户会话，不声称覆盖所有历史日志形态。源码 fixture 使用官方 node-addon-system 预构建文件锁，移除 fs-ext；浏览器类型程序与宿主分开，额外的官方静态 UI 声明包仅是构建/测试输入。真实 DeepSeek 编码、外部搜索及远端凭据隔离已重新验收。见[本轮验收](../integration/2026-09-09-dsh-upgrade.md)。

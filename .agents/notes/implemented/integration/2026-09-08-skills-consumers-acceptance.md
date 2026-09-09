@@ -33,4 +33,4 @@ Status: implemented
 
 按用户“高不确定性时停止”条件，本轮不扩大为默认远端工具全集：原生 child-agent 委派权限承诺尚无远端 sandbox/policy 对应，且子 Agent 只有继承 binding，skills/admission 使用的顶层 membership 尚未形成完整 lineage 准入。terminal UI、安装态发行、真实服务也未完成。继续工作前先定权限/lineage 契约；不能简单启用本地消费者。worktree 按既有约定延期。
 
-重要假设与 workaround 的唯一[验收页](../../proposed/integration/2026-09-08-assumptions-and-workarounds.md)；剩余规划继续保留 proposed 状态。
+重要假设与 workaround 的唯一[验收页](../architecture/2026-09-08-assumptions-and-workarounds.md)；剩余规划继续保留 proposed 状态。

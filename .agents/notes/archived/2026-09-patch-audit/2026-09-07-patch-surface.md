@@ -2,7 +2,7 @@
 
 Status: proposed
 
-后续实现状态：首个 api-session-controller 准入补丁已通过独立源码 gate，见[实现记录](../../implemented/integration/2026-09-07-session-admission.md)；下文保留包级审计范围，不表示其他补丁已完成。
+历史审计：下文冻结早期候选范围；当前实现以 [series.json](../../../../integrations/dsh/patches/series.json) 和 [架构](../../../../docs/architecture.md) 为准，不继续更新当时的包数推导。
 
 日期：2026-09-07。研究结论，尚未实施补丁或完成 Web 验收。此文重新评估此前“不修改上游”的实现约束，不自动改变已有交付状态。
 

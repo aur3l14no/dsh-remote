@@ -6,6 +6,20 @@
 
 私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。`target/` 与 `node_modules/` 是忽略提交的构建产物和依赖目录。
 
+## 选择验证入口
+
+DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自己的子系统。按修改范围选择检查，不必每次运行全部入口。
+
+| 修改范围 | 主要入口 | 证明范围 |
+| --- | --- | --- |
+| 通用 runtime | 下节 Cargo、npm 检查；协议变更再跑 Linux/SSH | helper、client 和 bootstrap 契约 |
+| 外部插件或装配 | `check-web-plugin`，构建扩展后跑安装/双 World 浏览器验收 | 我们的源代码及用户实际安装链路 |
+| 上游版本或补丁 | unchanged-source composition/package gates + 独立 `check-patched-host`；再跑完整扩展验收 | 区分原生上游边界、补丁行为和安装态兼容 |
+| 浏览器兼容包 | `check-preview-client` + 构建扩展、浏览器验收 | 独立浏览器类型环境与实际 UI |
+| 纯文档 | 相对链接、路径、当前事实与历史记录一致性 | 不以无关运行测试替代文档审查 |
+
+产品装配入口为 `integrations/dsh/plugins/extension/src/index.ts`；浏览器入口仍在 `plugins/portable_workspace/src/client/index.tsx`。两者由 `build-extension.mjs` 收录，服务顺序和产物身份属于维护契约。
+
 ## 通用代码
 
 ```sh
@@ -33,7 +47,7 @@ node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-s
   --cache "$CACHE" --out "$MANIFEST"
 ```
 
-## DSH 兼容与发行
+## 上游兼容检查（升级或补丁变更）
 
 [patches/series.json](../integrations/dsh/patches/series.json) 是上游 revision 和补丁序列的唯一配置源。unchanged-source 脚本要求同一 revision 且 checkout 干净，始终只验证原生 composition；下游补丁走独立入口。
 
@@ -50,7 +64,7 @@ DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node target/package-check/accept.mjs
 
 `portable_workspace` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
 
-Session 准入和路径补丁有独立源码 gate：从干净基线导出隔离副本，校验补丁摘要并顺序应用，检查改动宿主包与集成的类型、构建行为 fixture。完整 Web 宿主另外走下面的构建和浏览器入口。
+Session 准入和路径补丁有独立源码 gate：从干净基线导出隔离副本，校验补丁摘要并顺序应用，检查改动宿主包与集成的类型、构建行为 fixture。安装态宿主另外走下面的扩展构建和浏览器入口。
 
 ```sh
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
@@ -100,7 +114,7 @@ CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并�
 
 移动代码时验证相对 import、TS include、Cargo workspace、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
 
-Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/proposed/integration/2026-09-08-assumptions-and-workarounds.md)。
+Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/implemented/architecture/2026-09-08-assumptions-and-workarounds.md)。
 
 真实模型验收（手动、需要仅含 DeepSeek key 的私有配置）与原生安装检查：
 
