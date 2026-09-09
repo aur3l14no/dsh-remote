@@ -8,7 +8,7 @@ import type {} from '@deepseek-ai/dsh-agent-default-model';
 import type {} from '@deepseek-ai/dsh-session-query';
 import { randomUUID } from 'node:crypto';
 import { RemoteError } from '../../../../runtime/client/src/index.ts';
-import './registry.ts';
+import '../../packages/workspace/portable-workspace/src/registry.ts';
 
 export async function startPortableWorkspaceSession(ctx: Context, portableWorkspaceId: WorkspaceId): Promise<SessionId> {
   await ctx.worldPortableWorkspaces.validate(portableWorkspaceId);

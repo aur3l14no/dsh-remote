@@ -32,8 +32,8 @@ import { installModelSelectionProjection } from '@dsh-test/web-model-selection-p
 import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
 import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
 import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
-import PortableWorkspaces, { type CatalogWorld } from '../../experiments/portable_workspace/registry.ts';
-import { startPortableWorkspaceSession, openPortableWorkspaceSession } from '../../experiments/portable_workspace/entry.ts';
+import PortableWorkspaces, { type CatalogWorld } from '../../packages/workspace/portable-workspace/src/registry.ts';
+import { startPortableWorkspaceSession, openPortableWorkspaceSession } from './portable-workspace-entry.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 
 const phase = process.argv[2];
