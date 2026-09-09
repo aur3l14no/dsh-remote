@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 const state = await mkdtemp(join(tmpdir(), 'dsh-connect-install-'));
 const home = join(state, 'home');
 const build = JSON.parse(await readFile('dist/dsh/extension-build.json', 'utf8'));
-const selection = JSON.parse(await readFile(process.env.DSH_TEST_WORLD_SELECTION, 'utf8'));
+const selection = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, 'utf8'));
 const launcher = resolve('.build/dsh/official-install/node_modules/@deepseek-ai/dsh/lib/bin.js');
 let child, browser, page, requests = 0;
 const server = createServer(async (request, response) => {
