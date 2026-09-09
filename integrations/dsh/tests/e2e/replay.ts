@@ -14,7 +14,7 @@ export async function prepareReplay(directory: string) {
       { type: 'finish', reason: { kind: 'tool-calls' } },
     ] };
   };
-  const text = 'REMOTE_ACCEPTANCE_DONE';
+  const text = 'REMOTE_ACCEPTANCE_DONE\n\n![Remote preview](/workspace/preview.svg)';
   const entries = [
     tool('read', { file_path: '../workspace/world.txt' }, 'remote_read'),
     tool('bash', { description: 'Verify remote working directory and write a fixture marker', command: 'pwd; cat world.txt; printf browser-proof > browser-proof.txt' }, 'remote_bash'),

@@ -1,3 +1,4 @@
+import * as FilePreview from '../../file-preview/src/index.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import * as SearchTools from '@deepseek-ai/dsh-tool-fs-search';
 import ExecutionWorlds, { type Config as ExecutionConfig } from '../../ssh-world/src/worlds.ts';
@@ -31,4 +32,5 @@ export async function apply(ctx: Context, config: Config) {
   await ctx.plugin(AccountPolicy);
   await ctx.plugin(RemoteSkills);
   await ctx.plugin(RemoteFileReferences);
+  await ctx.plugin(FilePreview);
 }

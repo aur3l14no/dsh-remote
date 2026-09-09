@@ -44,7 +44,11 @@ export default class SshFileSystem extends FileSystem {
   }
   fileUrl(target: FsTarget): string { return `file://${this.processPath(target).split('/').map(encodeURIComponent).join('/')}`; }
   contains(parent: FsTarget, child: FsTarget): boolean {
-    const relative = posix.relative(this.processPath(parent), this.processPath(child));
+    const parentPath = this.processPath(parent);
+    let identity: unknown;
+    try { identity = JSON.parse(child.targetKey); } catch { return false; }
+    if (!Array.isArray(identity) || identity[0] !== this.client.info.world || identity[1] !== this.client.info.runtime) return false;
+    const relative = posix.relative(parentPath, this.processPath(child));
     return relative === '' || (relative !== '..' && !relative.startsWith('../') && !posix.isAbsolute(relative));
   }
   async resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<FsTarget> {

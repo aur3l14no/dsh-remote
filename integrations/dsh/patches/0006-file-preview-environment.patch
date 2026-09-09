@@ -1,0 +1,361 @@
+diff --git a/packages/api/session-controller/src/media-references.ts b/packages/api/session-controller/src/media-references.ts
+index 9da8002..ff43516 100644
+--- a/packages/api/session-controller/src/media-references.ts
++++ b/packages/api/session-controller/src/media-references.ts
+@@ -12,6 +12,12 @@ import type {} from '@deepseek-ai/dsh-attachment'
+ import { FsError, type FileSystem } from '@deepseek-ai/dsh-fs'
+ import mime from 'mime-types'
+ 
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    sessionMediaEnvironment: { resolve(sessionId: string, signal: AbortSignal): Promise<FileSystem> }
++  }
++}
++
+ const BASE_HEADERS = {
+   'Cache-Control': 'private, no-store',
+   'X-Content-Type-Options': 'nosniff',
+@@ -64,14 +70,21 @@ async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Pr
+  * `ctx.fs` supplies the execution world's paths, reads, and access policy.
+  */
+ export const SessionMediaReferences = {
+-  inject: ['connection', 'fs', 'attachments'],
++  inject: ['connection', 'attachments'],
+   apply(ctx: Context): void {
+     const maxBytes = ctx.attachments.imageLimits.maxImageBytes
+     ctx.effect(() => ctx.connection.fetch.register({
+       path: '/api/file',
+       methods: ['GET', 'HEAD'],
+       requestBody: 'buffered',
+-      fetch: request => serveFile(request, ctx.fs, maxBytes),
++      fetch: async request => {
++        const environment = ctx.get('sessionMediaEnvironment')
++        if (!environment) return serveFile(request, ctx.fs, maxBytes)
++        const sessionId = new URL(request.url).searchParams.get('sessionId')
++        if (!sessionId) return new Response('sessionId required', { status: 400, headers: BASE_HEADERS })
++        const fs = await environment.resolve(sessionId, request.signal)
++        return serveFile(request, fs, maxBytes)
++      },
+     }), 'session-controller: /api/file')
+   },
+ }
+diff --git a/packages/api/workspace-files/src/changes.ts b/packages/api/workspace-files/src/changes.ts
+index 6a1bd7a..50c5b63 100644
+--- a/packages/api/workspace-files/src/changes.ts
++++ b/packages/api/workspace-files/src/changes.ts
+@@ -9,7 +9,7 @@
+ 
+ import type { Context } from '@deepseek-ai/cordis'
+ import { Deque } from '@deepseek-ai/dsh-deque'
+-import type { FsObservation, FsTarget } from '@deepseek-ai/dsh-fs'
++import type { FileSystem, FsObservation, FsTarget } from '@deepseek-ai/dsh-fs'
+ import type { WorkspaceFileWatchFrame } from './types.ts'
+ 
+ /** One `fs/observed` emission as received, before any generation filters it. */
+@@ -37,7 +37,7 @@ export class WorkspaceChangeFeed {
+    * @returns `ready` after observation is active and the root resolves, then
+    *   observations made after the generation was first pulled, in emission order.
+    */
+-  async *follow(workspaceRoot: string, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame> {
++  async *follow(workspaceRoot: string, signal: AbortSignal, fs: FileSystem = this.ctx.fs): AsyncIterable<WorkspaceFileWatchFrame> {
+     signal.throwIfAborted()
+     // Registered before the root resolves, so nothing observed while it does is
+     // missed; the root only filters at drain time.
+@@ -47,15 +47,15 @@ export class WorkspaceChangeFeed {
+       // Under the generation's signal, so a consumer leaving mid-resolve on a slow
+       // backend releases the follower now rather than when the resolve settles;
+       // a rejection the abort caused is the quiet end every other abort takes here.
+-      const root = await this.ctx.fs.resolve(workspaceRoot, { signal }).catch((error: unknown) => {
++      const root = await fs.resolve(workspaceRoot, { signal }).catch((error: unknown) => {
+         if (signal.aborted) return undefined
+         throw error
+       })
+       if (root === undefined || signal.aborted || follower.isClosed) return
+       yield { kind: 'ready' }
+       for await (const [target, observation] of follower.read(signal)) {
+-        if (!this.ctx.fs.contains(root, target)) continue
+-        const absolutePath = this.ctx.fs.processPath(target)
++        if (!fs.contains(root, target)) continue
++        const absolutePath = fs.processPath(target)
+         yield {
+           kind: 'change',
+           change: observation.kind === 'present'
+diff --git a/packages/api/workspace-files/src/index.ts b/packages/api/workspace-files/src/index.ts
+index 42dfb13..af24a55 100644
+--- a/packages/api/workspace-files/src/index.ts
++++ b/packages/api/workspace-files/src/index.ts
+@@ -29,7 +29,7 @@ import type { Context } from '@deepseek-ai/cordis'
+ import z from '@deepseek-ai/schemastery'
+ import type { Agent } from '@deepseek-ai/dsh-agent'
+ import type {} from '@deepseek-ai/dsh-fs'
+-import type { FsDirEntry, FsInfo, FsPathInfo, FsTarget } from '@deepseek-ai/dsh-fs'
++import type { FileSystem, FsDirEntry, FsInfo, FsPathInfo, FsTarget } from '@deepseek-ai/dsh-fs'
+ import type {} from '@deepseek-ai/dsh-sandbox-policy'
+ import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+ import { WorkspaceChangeFeed } from './changes.ts'
+@@ -50,6 +50,7 @@ declare module '@deepseek-ai/cordis' {
+   interface Context {
+     /** Host owner of the `workspaceFiles` Remote namespace. */
+     workspaceFiles: WorkspaceFiles
++    workspaceFileEnvironment: { resolve(agent: Agent): { fs: FileSystem; workspaceRoot: string } }
+   }
+ }
+ 
+@@ -166,7 +167,7 @@ function directoryEntry(child: FsDirEntry): WorkspaceDirectoryEntry {
+ 
+ /** Host Remote service over the composed filesystem, confined to one workspace. */
+ export class WorkspaceFiles extends TypertRemoteService {
+-  static inject = ['fs', 'sandboxPolicy', 'typert']
++  static inject = ['typert']
+ 
+   static Config: z<Config> = z.object({
+     maxBytes: z.number().step(1).min(1).default(2 * 1024 * 1024),
+@@ -197,11 +198,11 @@ export class WorkspaceFiles extends TypertRemoteService {
+   async read(agent: Agent, path: string, range: WorkspaceFileRange, signal: AbortSignal): Promise<WorkspaceFileText> {
+     const { offset, limit } = this.resolvePage(range)
+     const { target, info } = await this.locateFile(agent, path, signal)
+-    const page = await this.cutPage(target, offset, limit, signal, path)
++    const page = await this.cutPage(agent, target, offset, limit, signal, path)
+     if (page.text.includes(NUL)) {
+       throw new RemoteError('workspace-file/not-text', `"${path}" contains NUL bytes`, { path })
+     }
+-    return { ...this.statOf(target, info), offset, text: page.text, lines: page.lines, eof: page.eof }
++    return { ...this.statOf(agent, target, info), offset, text: page.text, lines: page.lines, eof: page.eof }
+   }
+ 
+   /**
+@@ -217,9 +218,9 @@ export class WorkspaceFiles extends TypertRemoteService {
+   async readBytes(agent: Agent, path: string, range: WorkspaceByteRange, signal: AbortSignal): Promise<WorkspaceFileBytes> {
+     const { offset, length } = this.resolveWindow(range, path)
+     const { target, info } = await this.locateFile(agent, path, signal)
+-    const data = await this.ctx.fs.readByteRange(target, { offset, length }, signal)
++    const data = await this.fsOf(agent).readByteRange(target, { offset, length }, signal)
+     const eof = info.size === undefined ? data.length < length : offset + data.length >= info.size
+-    return { ...this.statOf(target, info), offset, data: Buffer.from(data).toString('base64'), eof }
++    return { ...this.statOf(agent, target, info), offset, data: Buffer.from(data).toString('base64'), eof }
+   }
+ 
+   /**
+@@ -232,7 +233,7 @@ export class WorkspaceFiles extends TypertRemoteService {
+   @Remote
+   async stat(agent: Agent, path: string, signal: AbortSignal): Promise<WorkspaceFileStat> {
+     const { target, info } = await this.locateFile(agent, path, signal)
+-    return this.statOf(target, info)
++    return this.statOf(agent, target, info)
+   }
+ 
+   /**
+@@ -252,10 +253,10 @@ export class WorkspaceFiles extends TypertRemoteService {
+         { path, kind: entry.type },
+       )
+     }
+-    const target = await this.confine(root, workspaceRoot, path, signal)
+-    const children = await this.ctx.fs.listDir(target, signal)
++    const target = await this.confine(agent, root, workspaceRoot, path, signal)
++    const children = await this.fsOf(agent).listDir(target, signal)
+     return {
+-      path: workspacePathOf(this.ctx.fs.fileUrl(root), this.ctx.fs.fileUrl(target)),
++      path: workspacePathOf(this.fsOf(agent).fileUrl(root), this.fsOf(agent).fileUrl(target)),
+       entries: children.slice(0, this.config.maxEntries).map(directoryEntry),
+       truncated: children.length > this.config.maxEntries,
+     }
+@@ -272,7 +273,7 @@ export class WorkspaceFiles extends TypertRemoteService {
+    */
+   @Remote({ mode: 'stream' })
+   changes(agent: Agent, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame> {
+-    return this.feed.follow(this.workspaceRootOf(agent), signal)
++    return this.feed.follow(this.workspaceRootOf(agent), signal, this.fsOf(agent))
+   }
+ 
+   /** Apply the page defaults and caps here, so the request never carries them implicitly. */
+@@ -309,7 +310,14 @@ export class WorkspaceFiles extends TypertRemoteService {
+    * `fs-local` whose cwd differs, and resolving explicitly makes the answer
+    * the same whichever instance answers.
+    */
++  private fsOf(agent: Agent): FileSystem {
++    const environment = this.ctx.get('workspaceFileEnvironment')
++    return environment ? environment.resolve(agent).fs : this.ctx.fs
++  }
++
+   private workspaceRootOf(agent: Agent): string {
++    const environment = this.ctx.get('workspaceFileEnvironment')
++    if (environment) return environment.resolve(agent).workspaceRoot
+     return this.ctx.sandboxPolicy.resolve({ session: agent.session }).workspaceRoot
+   }
+ 
+@@ -328,9 +336,9 @@ export class WorkspaceFiles extends TypertRemoteService {
+   ): Promise<{ root: FsTarget; workspaceRoot: string; entry: FsPathInfo }> {
+     if (path.length === 0) throw new RemoteError('gateway/bad-request', 'path is required', {})
+     const workspaceRoot = this.workspaceRootOf(agent)
+-    const root = await this.ctx.fs.resolve(workspaceRoot, { signal })
++    const root = await this.fsOf(agent).resolve(workspaceRoot, { signal })
+     // Gate on the path itself before anything follows it.
+-    const entry = await this.ctx.fs.lstat(path, { cwd: workspaceRoot }, signal)
++    const entry = await this.fsOf(agent).lstat(path, { cwd: workspaceRoot }, signal)
+     if (entry === undefined) {
+       throw new RemoteError('workspace-file/not-found', `no entry at "${path}"`, { path })
+     }
+@@ -338,9 +346,9 @@ export class WorkspaceFiles extends TypertRemoteService {
+   }
+ 
+   /** Resolve an inspected path and refuse it unless the workspace contains it. */
+-  private async confine(root: FsTarget, workspaceRoot: string, path: string, signal: AbortSignal): Promise<FsTarget> {
+-    const target = await this.ctx.fs.resolve(path, { cwd: workspaceRoot, signal })
+-    if (!this.ctx.fs.contains(root, target)) {
++  private async confine(agent: Agent, root: FsTarget, workspaceRoot: string, path: string, signal: AbortSignal): Promise<FsTarget> {
++    const target = await this.fsOf(agent).resolve(path, { cwd: workspaceRoot, signal })
++    if (!this.fsOf(agent).contains(root, target)) {
+       throw new RemoteError('workspace-file/outside-workspace', `"${path}" is outside the workspace`, { path })
+     }
+     return target
+@@ -356,8 +364,8 @@ export class WorkspaceFiles extends TypertRemoteService {
+     if (entry.type !== 'file') {
+       throw new RemoteError('workspace-file/not-regular-file', `"${path}" is a ${entry.type}`, { path, kind: entry.type })
+     }
+-    const target = await this.confine(root, workspaceRoot, path, signal)
+-    const info = await this.ctx.fs.stat(target, signal)
++    const target = await this.confine(agent, root, workspaceRoot, path, signal)
++    const info = await this.fsOf(agent).stat(target, signal)
+     if (info === undefined) {
+       throw new RemoteError('workspace-file/not-found', `no entry at "${path}"`, { path })
+     }
+@@ -367,18 +375,18 @@ export class WorkspaceFiles extends TypertRemoteService {
+     return { target, info }
+   }
+ 
+-  private statOf(target: FsTarget, info: FsInfo): WorkspaceFileStat {
++  private statOf(agent: Agent, target: FsTarget, info: FsInfo): WorkspaceFileStat {
+     return {
+-      absolutePath: this.ctx.fs.processPath(target),
++      absolutePath: this.fsOf(agent).processPath(target),
+       version: info.version,
+       ...info.size === undefined ? {} : { bytes: info.size },
+     }
+   }
+ 
+   /** Stream the file as text and cut the page, classifying the backend's non-text refusal. */
+-  private async cutPage(target: FsTarget, offset: number, limit: number, signal: AbortSignal, path: string): Promise<Page> {
++  private async cutPage(agent: Agent, target: FsTarget, offset: number, limit: number, signal: AbortSignal, path: string): Promise<Page> {
+     try {
+-      return await cutPage(await this.ctx.fs.streamText(target, signal), offset, limit, this.config.maxBytes, path)
++      return await cutPage(await this.fsOf(agent).streamText(target, signal), offset, limit, this.config.maxBytes, path)
+     } catch (error: unknown) {
+       if (isNotTextRefusal(error)) {
+         throw new RemoteError('workspace-file/not-text', `"${path}" is not UTF-8 text`, { path }, { cause: error })
+diff --git a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx b/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
+index 3212801..6f5da31 100644
+--- a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
++++ b/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
+@@ -19,13 +19,14 @@ import css from './AssistantMarkdown.module.css'
+  * (non-HTTP transport such as Electron `file://`, protocol-relative or
+  * relative destinations).
+  */
+-export function localPathMediaUrl(protocol: string, origin: string, value: string): string | undefined {
++export function localPathMediaUrl(protocol: string, origin: string, value: string, sessionId?: string): string | undefined {
+   if (protocol !== 'http:' && protocol !== 'https:') return undefined
+   if (value.length === 0 || !value.startsWith('/') || value.startsWith('//')) return undefined
+-  return `${origin}/api/file?path=${encodeURIComponent(value)}`
++  return `${origin}/api/file?path=${encodeURIComponent(value)}${sessionId === undefined ? '' : `&sessionId=${encodeURIComponent(sessionId)}`}`
+ }
+ 
+ export interface AssistantMarkdownProps {
++  sessionId?: string | undefined
+   blocks: readonly AssistantBlock[]
+   streaming: boolean
+   /** Frozen partial of an aborted turn: rendered with a stopped marker. */
+@@ -44,7 +45,7 @@ export interface AssistantMarkdownProps {
+ 
+ /** Reasoning block as the Think variant summary row (figma 39:28304). */
+ export const AssistantMarkdown = memo(function AssistantMarkdown({
+-  blocks, streaming, interrupted, renderMessageImages,
++  sessionId, blocks, streaming, interrupted, renderMessageImages,
+   reasoningHidden = false, revealProcess, mentions, t,
+ }: AssistantMarkdownProps) {
+   // Stable per locale revision (t identity changes on switch): a fresh object
+@@ -55,8 +56,8 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
+   // stable per page load because MarkdownText memoizes on it.
+   const pathImages = useMemo<MarkdownPathImages>(() => {
+     const { protocol, origin } = window.location
+-    return { resolve: value => localPathMediaUrl(protocol, origin, value) }
+-  }, [])
++    return { resolve: value => localPathMediaUrl(protocol, origin, value, sessionId) }
++  }, [sessionId])
+   const last = blocks.length - 1
+   // Tool-call heads render as tool rows in the chat view's grouping pass, so
+   // a node that is only those heads (or empty) would paint an empty root
+diff --git a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+index 399897a..c219870 100644
+--- a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
++++ b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+@@ -4,7 +4,7 @@ import { AssistantMarkdown } from './AssistantMarkdown.tsx'
+ 
+ /** Streaming, settled, and interrupted Assistant states share one keyed renderer instance. */
+ export const AssistantNodeView = memo(function AssistantNodeView({
+-  node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, t,
++  sessionId, node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, t,
+ }: ChatNodeViewProps<'assistant-step'>) {
+   const data = node.data
+   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
+@@ -28,6 +28,7 @@ export const AssistantNodeView = memo(function AssistantNodeView({
+   const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
+   return (
+     <AssistantMarkdown
++      sessionId={sessionId}
+       blocks={data.blocks}
+       streaming={data.status === 'running'}
+       interrupted={data.status === 'interrupted'}
+diff --git a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+index b1d8d96..d29bffa 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+@@ -37,7 +37,7 @@ function turnOf(node: ChatNode | undefined): number | undefined {
+ /** Subscribe, apply Turn-process visibility, and dispatch one stable Context key. */
+ export const ChatNodeSeat = memo(function ChatNodeSeat({
+   nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript,
+-  cwd, openFile, inspectCall, forkAt,
++  sessionId, cwd, openFile, inspectCall, forkAt,
+   loadImage, renderMessageImages, fileMentions, useStore, actions, renderSlot, t,
+ }: ChatNodeSeatProps) {
+   const node = useChatNode(nodeKey)
+@@ -103,7 +103,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+   const owner = useMemo<ChatNodeOwnerProps | null>(() => node === undefined
+     ? null
+     : {
+-      cwd,
++      sessionId, cwd,
+       openFile,
+       inspectCall,
+       forkAt,
+@@ -112,7 +112,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+       fileMentions,
+       turnProcess,
+     }, [
+-    node, cwd, openFile, inspectCall, forkAt,
++    node, sessionId, cwd, openFile, inspectCall, forkAt,
+     loadImage, renderMessageImages, fileMentions, turnProcess,
+   ])
+   if (routedNode === undefined || owner === null) return null
+diff --git a/packages/client/ui-chat/src/client/chat/ChatView.tsx b/packages/client/ui-chat/src/client/chat/ChatView.tsx
+index 8ff8eca..03a226a 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatView.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatView.tsx
+@@ -789,6 +789,7 @@ export function ChatView({
+             compactTranscript={compactTranscript}
+             useStore={useStore}
+             actions={actions}
++            sessionId={sessionId}
+             cwd={cwd}
+             openFile={requestOpenFile}
+             inspectCall={inspectCall}
+diff --git a/packages/client/ui-chat/src/client/contract/slots.ts b/packages/client/ui-chat/src/client/contract/slots.ts
+index 3fb8bcf..38c8f0e 100644
+--- a/packages/client/ui-chat/src/client/contract/slots.ts
++++ b/packages/client/ui-chat/src/client/contract/slots.ts
+@@ -77,6 +77,7 @@ export interface ChatNodeTurnDataInjected {
+ 
+ /** Stable owner currency delivered to a keyed Chat renderer. */
+ export interface ChatNodeOwnerProps {
++  sessionId?: string | undefined
+   cwd?: string | undefined
+   openFile: (path: string, options?: OpenFileOptions) => void
+   inspectCall: (callId: ToolCallId) => void

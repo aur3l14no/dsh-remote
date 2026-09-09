@@ -79,3 +79,15 @@
     includeShippedRoot: false
     includeUserRoot: false
     roots: !!js ctx.remoteSetup.roots
+
+- id: workspace-files
+  disabled: true
+- id: ui-chat
+  disabled: true
+- insert:
+    - id: remote-workspace-files
+      name: './compat/@deepseek-ai/dsh-api-workspace-files/lib/index.js'
+      inject: [remoteSetup, workspaceFileEnvironment]
+    - id: remote-ui-chat
+      name: './compat/@deepseek-ai/dsh-client-ui-chat/lib/index.js'
+      inject: [remoteSetup]

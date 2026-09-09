@@ -1,3 +1,4 @@
+import { checkFilePreview } from './remote-file-preview.ts';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { afterAll, expect, it, onTestFailed } from 'vitest';
@@ -44,6 +45,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => page.getByRole('button', { name: /New session in World/ }).count(), { timeout: 15000 }).toBe(2);
   await page.screenshot({ path: `${root}/target/web-two-worlds.png`, fullPage: true });
   const first = scaffold.ctx.agents.list()[0]!;
+  await checkFilePreview(scaffold, page, first, scaffold.ctx.agents.list()[1]!);
   const catalogA = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: first.session.header.id }, new AbortController().signal);
   const catalogB = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: scaffold.ctx.agents.list()[1]!.session.header.id }, new AbortController().signal);
   expect(catalogA.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
@@ -59,6 +61,9 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await input.fill('Exercise the remote workspace and the local search connector.');
   await input.press('Enter');
   await settled;
+  const preview = page.getByRole('img', { name: 'Remote preview', exact: true }).first();
+  await expect.poll(() => preview.getAttribute('src')).toContain(`sessionId=${first.session.header.id}`);
+  await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(13);
   expect(results).toHaveLength(17);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const history = JSON.stringify(first.session.surface.nodes.map(seq => first.session.eventAt(seq)));

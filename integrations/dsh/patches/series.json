@@ -39,6 +39,15 @@
         "@deepseek-ai/dsh-tool-skill",
         "@deepseek-ai/dsh-api-session-controller"
       ]
+    },
+    {
+      "file": "0006-file-preview-environment.patch",
+      "sha256": "c96e4ada5634464c56195afb516d68212f1c9de0de61f73929ccccad48144008",
+      "packages": [
+        "@deepseek-ai/dsh-api-workspace-files",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ]
     }
   ],
   "release": {

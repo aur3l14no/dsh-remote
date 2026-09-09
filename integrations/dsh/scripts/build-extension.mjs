@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
+import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 
 const [sourceArg, installationArg] = process.argv.slice(2);
@@ -45,11 +46,14 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
     })); } }],
   });
 }
+await buildClientCompatibility(sources, installation,
+  JSON.parse(await readFile(join(installation, 'node_modules/@deepseek-ai/dsh-client-ui-chat/package.json'), 'utf8')),
+  join(output, 'compat/@deepseek-ai/dsh-client-ui-chat'));
 // Keep shipped declarations consistent with the compatibility implementation.
 // Type correctness is checked by the separate patched-host and plugin gates.
 const parsed = ts.parseJsonConfigFileContent(ts.readConfigFile(join(sources, 'tsconfig.base.json'), ts.sys.readFile).config, ts.sys, sources);
-const program = ts.createProgram(patchedSources.map(item => join(item.source, 'index.ts')), {
-  ...parsed.options, composite: false, incremental: false, noEmit: false, declaration: true, declarationMap: false,
+const program = ts.createProgram(patchedSources.flatMap(item => [join(item.source, 'index.ts'), join(item.source, 'client/index.ts'), join(item.source, 'css-modules.d.ts')].filter(existsSync)), {
+  ...parsed.options, jsx: ts.JsxEmit.ReactJSX, composite: false, incremental: false, noEmit: false, declaration: true, declarationMap: false,
   emitDeclarationOnly: true, rootDir: sources, outDir: join(output, '.types'), rewriteRelativeImportExtensions: true,
 });
 for (const file of program.getSourceFiles()) {
@@ -58,7 +62,7 @@ for (const file of program.getSourceFiles()) {
   let declaration;
   program.emit(file, (path, content) => { if (path.endsWith('.d.ts')) declaration = content; }, undefined, true);
   if (declaration === undefined) throw new Error(`Could not emit compatibility declaration: ${file.fileName}`);
-  const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.ts$/, '.d.ts'));
+  const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
 const entries = { index: 'portable_workspace/src/index.ts', terminal: 'terminal/src/index.ts', routing: 'ssh-world/src/routing.ts', fs: 'ssh-world/src/routed-fs.ts', subprocess: 'ssh-world/src/routed-subprocess.ts' };
@@ -96,4 +100,4 @@ await mkdir('target/packages', { recursive: true });
 const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('target/packages'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
 if (packed.files.some(file => file.path.includes('node_modules') || file.path.includes('.local'))) throw new Error('Unexpected extension archive entry');
 await writeFile('target/packages/extension-build.json', JSON.stringify({ revision, dshVersion: version, integrity: packed.integrity, filename: packed.filename }, null, 2));
-console.log('Built seven compatibility packages and the remote extension; no DSH host/frontend build');
+console.log(`Built ${compatibilityNames.size} compatibility packages and the remote extension; no DSH host/frontend build`);
