@@ -1,8 +1,7 @@
 FROM rust:1.85.1-bookworm AS builder
 WORKDIR /src
-COPY Cargo.toml Cargo.lock ./
-COPY .cargo/config.toml .cargo/config.toml
 COPY runtime/helper runtime/helper
+WORKDIR /src/runtime/helper
 RUN cargo build --locked --release --bin dsh-remote
 
 FROM debian:bookworm-slim

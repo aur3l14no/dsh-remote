@@ -40,12 +40,12 @@ remote Web profile 支持显式 World/目录选择、Session 创建/fork、远�
 ## 开发与文档
 
 ```sh
-cargo build --locked
+(cd runtime/helper && cargo build --locked)
 npm run check
 npm test
 ```
 
-Cargo workspace 保留根目录构建命令，Rust 产物输出到 `runtime/helper/target/`；根 `target/` 保留集成构建与验收产物。环境要求、DSH 基线检查、集成和打包命令见 [开发指南](docs/development.md)。
+helper 是独立 Cargo crate，manifest、lockfile 和 `target/` 均在 `runtime/helper/`；根 `target/` 保留集成构建与验收产物。环境要求、DSH 基线检查、集成和打包命令见 [开发指南](docs/development.md)。
 
 - [架构与 DSH 对应](docs/architecture.md)：稳定的责任和接口边界。
 - [执行边界](docs/execution-boundaries.md)：本地/远端、skills、凭据和未支持能力。

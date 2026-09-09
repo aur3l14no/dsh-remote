@@ -1,6 +1,6 @@
 # 开发与验证
 
-所有命令从仓库根执行。Rust 1.85+、Node.js 24+；使用已有工具链与 lockfiles，不通过验证命令安装系统工具。项目依赖通过 `npm ci` 安装。
+除明确切换到 helper 的 Cargo 命令外，入口命令从仓库根执行。Rust 1.85+、Node.js 24+；使用已有工具链与 lockfiles，不通过验证命令安装系统工具。项目依赖通过 `npm ci` 安装。
 
 根目录保留 workspace 配置、lockfiles、README/LICENSE/AGENTS 和 justfile。代码、测试与脚本按所属子系统收录：通用测试在 `runtime/tests/`，产物准备/上传脚本在 `runtime/scripts/`，DSH 专用入口在 `integrations/dsh/`。
 
@@ -23,14 +23,14 @@ DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自
 ## 通用代码
 
 ```sh
-cargo fmt --all --check
-cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo build --locked
+(cd runtime/helper && cargo fmt --all --check)
+(cd runtime/helper && cargo clippy --locked --all-targets -- -D warnings)
+(cd runtime/helper && cargo build --locked)
 npm run check
 npm test
 ```
 
-根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 保留在根目录；`.cargo/config.toml` 将 Cargo 产物统一输出到 `runtime/helper/target/`，从根目录或 helper 目录执行均适用。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
+`runtime/helper/` 是独立 Cargo crate，拥有 Cargo.toml、Cargo.lock 和默认 target/；无需根 Cargo workspace 或 target-dir 配置。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
 
 ```sh
 python3 runtime/helper/tests/acceptance.py --help
@@ -112,7 +112,7 @@ CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并�
 
 `docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的结果先写 target/，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
 
-移动代码时验证相对 import、TS include、Cargo workspace、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
+移动代码时验证相对 import、TS include、Cargo crate 路径、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
 
 Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/implemented/architecture/2026-09-08-assumptions-and-workarounds.md)。
 

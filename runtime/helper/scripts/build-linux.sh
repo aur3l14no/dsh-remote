@@ -1,6 +1,7 @@
 #!/bin/sh
 # Run on the Linux build machine. Rust std for the requested target must be installed.
 set -eu
+cd "$(dirname "$0")/.."
 build_target=${1:-x86_64-unknown-linux-gnu}
 case "$build_target" in
     x86_64-unknown-linux-musl)
