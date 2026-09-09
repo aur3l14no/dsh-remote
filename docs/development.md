@@ -2,9 +2,19 @@
 
 除明确切换到 helper 的 Cargo 命令外，入口命令从仓库根执行。Rust 1.85+、Node.js 24+；使用已有工具链与 lockfiles，不通过验证命令安装系统工具。项目依赖通过 `npm ci` 安装。
 
-根目录保留 workspace 配置、lockfiles、README/LICENSE/AGENTS 和 justfile。代码、测试与脚本按所属子系统收录：通用测试在 `runtime/tests/`，产物准备/上传脚本在 `runtime/scripts/`，DSH 专用入口在 `integrations/dsh/`。
+私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。生成目录按生命周期划分，均忽略提交：
 
-私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。`target/`、`runtime/helper/target/` 与 `node_modules/` 是忽略提交的构建产物和依赖目录。
+| 目录 | 内容与清理边界 |
+| --- | --- |
+| `runtime/helper/target/` | Cargo 自己管理的编译产物；用 Cargo clean 清理 |
+| `.build/dsh/` | 官方依赖安装、兼容源码副本、编译 staging、测试 fixture 和私有临时状态；可重建，测试运行中勿清理 |
+| `artifacts/dsh/` | 脱敏验收 JSON、截图；按需保留，CI 仅上传显式清单 |
+| `dist/dsh/` | 用户扩展 tarball 与完整发行归档；不存临时配置或测试 fixture |
+| `.build/runtime/`、`dist/runtime/` | 通用 helper 发行暂存与最终归档；不放入 Cargo target |
+
+`node_modules/` 由包管理器管理；私有诊断日志只写 `.build/dsh/logs/`，不混入可上传报告。根目录不再使用 `target/`，也不设置旧路径兼容软链接。
+
+清理命令按上述边界执行：`just clean` 只删除 `.build/`；`just clean-reports` 删除报告；`just clean-dist` 删除发行文件；`just clean-rust` 调用 helper 的 Cargo clean。测试进程结束后再清理。历史 notes 的路径保留原文，不作为当前脚本输入。
 
 ## 选择验证入口
 
@@ -16,9 +26,8 @@ DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自
 | 外部插件或装配 | `check-web-plugin`，构建扩展后跑安装/双 World 浏览器验收 | 我们的源代码及用户实际安装链路 |
 | 上游版本或补丁 | unchanged-source composition/package gates + 独立 `check-patched-host`；再跑完整扩展验收 | 区分原生上游边界、补丁行为和安装态兼容 |
 | 浏览器兼容包 | `check-preview-client` + 构建扩展、浏览器验收 | 独立浏览器类型环境与实际 UI |
+| 发行组装 / 初始化 | `node --test integrations/dsh/tests/release/*.test.mjs`；构建扩展后跑 packaging 与 extension-install | 摘要、拒绝损坏、私有 cache 与官方 CLI / SSH 安装 |
 | 纯文档 | 相对链接、路径、当前事实与历史记录一致性 | 不以无关运行测试替代文档审查 |
-
-产品装配入口为 `integrations/dsh/packages/bundle/remote/src/index.ts`；浏览器入口仍在 `packages/workspace/portable-workspace/src/client/index.tsx`。两者由 `build-extension.mjs` 收录，服务顺序和产物身份属于维护契约。
 
 ## 通用代码
 
@@ -30,7 +39,7 @@ npm run check
 npm test
 ```
 
-`runtime/helper/` 是独立 Cargo crate，拥有 Cargo.toml、Cargo.lock 和默认 target/；无需根 Cargo workspace 或 target-dir 配置。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
+默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
 
 ```sh
 python3 runtime/helper/tests/acceptance.py --help
@@ -54,24 +63,24 @@ node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-s
 ```sh
 node integrations/dsh/scripts/check-composition.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" session-routing
-DSH_TEST_RG="$LOCAL_RG" node target/composition/session-routing.mjs
+DSH_TEST_RG="$LOCAL_RG" node .build/dsh/composition/session-routing.mjs
 node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" portable_workspace
-DSH_TEST_RG="$LOCAL_RG" node target/composition/portable_workspace.mjs
+DSH_TEST_RG="$LOCAL_RG" node .build/dsh/composition/portable_workspace.mjs
 node integrations/dsh/scripts/pack-plugin.mjs "$DSH_SOURCE"
 node integrations/dsh/scripts/check-plugin.mjs "$DSH_SOURCE"
-DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node target/package-check/accept.mjs
+DSH_TEST_RG="$LOCAL_RG" DSH_TEST_PACKAGED=1 node .build/dsh/package-check/accept.mjs
 ```
 
-`portable_workspace` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。打包产物位于 target/packages/，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
+`portable_workspace` 测试明确复现现有 Web 缺口；通过不表示完整 Web 可用。低层 unchanged-source fixture 包位于 `.build/dsh/fixture-packages/`；用户发行文件位于 `dist/dsh/`，公开的插件入口名称不因源码迁移改变。声明文件内的目录结构属于打包实现，不是消费者 API。
 
 Session 准入和路径补丁有独立源码 gate：从干净基线导出隔离副本，校验补丁摘要并顺序应用，检查改动宿主包与集成的类型、构建行为 fixture。安装态宿主另外走下面的扩展构建和浏览器入口。
 
 ```sh
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
-DSH_TEST_RG="$LOCAL_RG" node target/patched-host/admission.mjs
+DSH_TEST_RG="$LOCAL_RG" node .build/dsh/patched-host/admission.mjs
 ```
 
-输出在 target/patched-host/；build.json 记录基线和补丁摘要。开发新补丁可在命令末尾指定 patches/ 内的候选文件名，验证后再纳入 series.json。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。所有测试与构建产物都在各自 target 子目录中，不能在 target 根声明一个上游 npm 包。
+输出在 .build/dsh/patched-host/；build.json 记录基线和补丁摘要。开发新补丁可在命令末尾指定 patches/ 内的候选文件名，验证后再纳入 series.json。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。只有具体 fixture 目录可以声明上游 npm 包身份，不能在 `.build/` 或 `.build/dsh/` 根声明，以免影响相邻构建的模块解析。
 
 SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-portable_workspace.mjs`，参数通过显式环境输入；只允许针对已选目标操作测试资源。宿主名、SSH 配置、token 不写入公共文档和报告。helper 与 ripgrep 必须使用目标平台产物。
 
@@ -81,14 +90,14 @@ SSH/Podman 验收用 `integrations/dsh/scripts/accept-podman.mjs` 和 `accept-po
 
 ```sh
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
-node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
+node integrations/dsh/scripts/e2e.mjs -- node .build/dsh/patched-host/admission.mjs
 ```
 
 浏览器层复用上游 Vitest + Playwright fixture，但实际 CLI、服务和前端来自官方 npm 安装；不构建整套 DSH。开发者、CI 和用户安装同一扩展 tarball：
 
 ```sh
 node integrations/dsh/scripts/prepare-official.mjs
-node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" target/official-install
+node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" .build/dsh/official-install
 node integrations/dsh/scripts/prepare-test-profile.mjs
 node --test integrations/dsh/tests/packaging/*.test.mjs
 node integrations/dsh/scripts/check-web-plugin.mjs
@@ -100,29 +109,25 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
 ```
 
-Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖；新版官方文件锁不再需要本地重编译 fs-ext。`build-extension` 导出固定源码，编译补丁涉及的 9 个兼容包（含 ui-chat 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
+Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
 
-CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并以官方 CLI 验收安装包；通过后上传扩展 tarball。截图与脱敏结果保留 7 天，扩展候选产物保留 14 天。临时状态、凭据和缓存不上传。GitHub runner 的实际结果以 CI 为准。
+CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并以官方 CLI 验收安装包；通过后上传扩展 tarball，以及包含已验收 Linux helper/ripgrep 的完整候选归档。手动触发 GitHub Actions 发布的流程见[发行](release.md)。截图与脱敏结果保留 7 天，扩展候选产物保留 14 天。临时状态、凭据和缓存不上传。GitHub runner 的实际结果以 CI 为准。
 
-当前 browser/SSH 验收覆盖创建与同路径隔离、rename/order/archive/remove/恢复登记、原生 fork、冷启动 deep link、新 runtime、远端 AGENTS/skills 与部署脚本、文件补全、后台 jobs 及取消、丢失 binding、停止 World 和宿主 Web Search 边界。另有真实 DeepSeek/外部搜索验收及原生 CLI 安装检查；不代表默认工具全集或公开 npm 包验收。环境接口、清理与测试脚手架适配见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
+各 gate 的覆盖范围、环境变量、清理和测试脚手架适配统一见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。
 
 ## 文档与证据
 
 `Helper prebuild` workflow 在相关 PR、main 修改或手动触发时构建 Linux x86_64 musl helper，使用固定 Rust 1.85.1，检查无动态解释器并运行目标测试。通过后上传含二进制、LICENSE、源码 revision 和 SHA256SUMS 的 tar.gz，保留执行权限。这是 CI 候选产物，不是完整 bootstrap bundle：尚未包含 ripgrep、可信下载清单或公开发布入口；GitHub runner 的实际结果需在推送后确认。
 
-`docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的结果先写 target/，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
+`docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的脱敏结果先写 `artifacts/dsh/`，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
 
 移动代码时验证相对 import、TS include、Cargo crate 路径、esbuild 源码边界、npm exports/declarations 和脚本路径。结构重整不顺便改变协议、会话绑定格式或执行权限。
 
-Skills 配置与部署入口见 [Skills 与项目指令](skills.md)。当前假设与 workaround 集中在[验收一页纸](../.agents/notes/implemented/architecture/2026-09-08-assumptions-and-workarounds.md)。
+## 真实模型验收
 
-真实模型验收（手动、需要仅含 DeepSeek key 的私有配置）与原生安装检查：
+手动运行，需要仅含 DeepSeek key 的私有配置；凭据读取与数据范围见 [E2E 说明](../integrations/dsh/tests/e2e/README.md#optional-live-and-recording-lanes)。
 
 ```sh
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --live .local/deepseek-only
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs .local/deepseek-only
 ```
-
-第一条读取私有配置的 `.credentials.yaml` 中 `refs.DEEPSEEK_API_KEY`，只注入宿主；发送的是新建双 World 的合成任务数据。安装 gate 通过扩展启动官方 DSH CLI，经 Playwright 创建远端 Session；提供凭据目录时还执行真实模型的远端写入/测试与另一 World 隔离检查，不使用 scaffold。安装与配置见[安装](install.md)。
-
-新版预览验收覆盖同路径宿主/双 World 隔离、范围读取、图片与原生 Sidebar、symlink 拒绝和跨 World 变更通知。迁移用例在一次性状态内植入 V2 压缩日志，检查 V3 恢复、原日志保留与 bindings 不变。浏览器补丁用独立类型程序验证，避免宿主与浏览器的 Cordis Context 声明互相污染。

@@ -9,16 +9,17 @@ import { resolve, join, relative } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 
 const root = resolve('.');
-const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');
-const build = JSON.parse(await readFile('target/packages/extension-build.json', 'utf8'));
-const archive = resolve('target/packages', build.filename);
+const installation = resolve(process.env.DSH_TEST_INSTALL ?? '.build/dsh/official-install');
+const build = JSON.parse(await readFile('dist/dsh/extension-build.json', 'utf8'));
+const archive = resolve('dist/dsh', build.filename);
 const series = JSON.parse(await readFile('integrations/dsh/patches/series.json', 'utf8'));
 assert.equal(build.dshVersion, series.release.version);
 assert.equal(build.revision, series.revision);
 const credentialHome = process.argv[2];
 const videoDirectory = process.env.DSH_E2E_VIDEO_DIR && resolve(process.env.DSH_E2E_VIDEO_DIR);
-await mkdir('target/web-acceptance', { recursive: true });
-const resultFile = resolve(`target/web-acceptance/extension-install${credentialHome ? '-live' : ''}.json`);
+await mkdir('artifacts/dsh', { recursive: true });
+await mkdir('.build/dsh/logs', { recursive: true, mode: 0o700 });
+const resultFile = resolve(`artifacts/dsh/extension-install${credentialHome ? '-live' : ''}.json`);
 await rm(resultFile, { force: true });
 const { chromium } = createRequire(import.meta.url)('playwright');
 const state = await mkdtemp(join(tmpdir(), 'dsh-extension-install-'));
@@ -36,14 +37,18 @@ try {
   await writeFile(`${skillSource}/sync-proof.txt`, 'automatic');
   const config = { worlds: selection.worlds.map(world => ({ ...world,
     skills: [{ name: 'remote-proof', source: skillSource }],
-  })), bootstrap: {
-    manifest: JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST, 'utf8')),
-    cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE, graceMs: 15000, leaseMs: 5000,
-  } };
+  })) };
+  const releaseDirectory = process.env.DSH_TEST_RELEASE_OUTPUT ? resolve(process.env.DSH_TEST_RELEASE_OUTPUT) : `${state}/release`;
+  execFileSync(process.execPath, ['integrations/dsh/scripts/pack-release.mjs', 'dist/dsh/extension-build.json',
+    process.env.DSH_TEST_BOOTSTRAP_MANIFEST, process.env.DSH_TEST_ARTIFACT_CACHE, process.env.DSH_TEST_RIPGREP_LICENSE, releaseDirectory], { stdio: 'pipe' });
   await writeFile(`${state}/config.json`, JSON.stringify(config), { mode: 0o600 });
   await mkdir(home, { mode: 0o700 });
   plugin('add', archive);
-  plugin('exec', 'dsh-remote-config', 'init', `${state}/config.json`);
+  plugin('exec', 'dsh-remote-config', 'init-release', releaseDirectory, `${state}/config.json`);
+  const initialized = JSON.parse(await readFile(`${home}/remote/config.json`, 'utf8'));
+  assert.equal(initialized.bootstrap.cacheDir, `${home}/remote/artifacts`);
+  // Initialization owns its cache; bootstrap must not depend on the download directory.
+  if (!process.env.DSH_TEST_RELEASE_OUTPUT) await rm(releaseDirectory, { recursive: true });
   if (credentialHome) {
     const credentials = yaml.load(await readFile(resolve(credentialHome, '.credentials.yaml'), 'utf8'));
     const key = credentials?.refs?.DEEPSEEK_API_KEY;
@@ -51,9 +56,10 @@ try {
     await writeFile(`${home}/.credentials.yaml`, yaml.dump({ version: credentials.version, refs: { DEEPSEEK_API_KEY: key } }), { mode: 0o600 });
     await writeFile(`${home}/settings.yaml`, yaml.dump({ 'agent-default-model': { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }), { mode: 0o600 });
   }
-  assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/config.json`));
+  await writeFile(`${state}/legacy-config.json`, JSON.stringify({ ...config, bootstrap: initialized.bootstrap }), { mode: 0o600 });
+  assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/legacy-config.json`));
   child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  const log = createWriteStream(resolve('target/web-acceptance/extension-cli.private.log'), { mode: 0o600 });
+  const log = createWriteStream(resolve('.build/dsh/logs/extension-cli.private.log'), { mode: 0o600 });
   child.stdout.pipe(log, { end: false });
   child.stderr.pipe(log, { end: false });
   child.once('close', () => log.end());
@@ -136,7 +142,7 @@ try {
 } catch (error) {
   if (page) {
     console.log('CLI workspace diagnostic:', await page.locator('.portable-workspaces').innerText().catch(() => 'unavailable'));
-    await page.screenshot({ path: resolve('target/web-extension-install.png') }).catch(() => {});
+    await page.screenshot({ path: resolve('artifacts/dsh/web-extension-install.png') }).catch(() => {});
   }
   throw new Error(String(error).replace(/https?:\/\/[^\s]+/g, '[URL]'));
 } finally {

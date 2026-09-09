@@ -1,29 +1,27 @@
 # Agent Notes
 
-Notes 记录尚在演进的计划、设计取舍、实验和证据；docs/ 记录稳定的架构、契约与当前使用方式。参考 DSH 的 lifecycle/class/date-topic 组织方式，采用单语文件，不复制其整套文档工具链。
+Notes 保存待办、重要决策和按时间记录的验收；当前使用方式与契约以 [docs/](../../docs/architecture.md) 为准。
 
 ```text
 proposed/integration/        已选方向或待决方案，仍未完成实现
-implemented/architecture/   已采用的结构/设计决策，事实随代码维护
+implemented/architecture/   已采用的结构/设计决策
 implemented/integration/    已完成阶段的实现与验收记录
 rejected/                   被否决且仍有防止重复试错价值的方案（按需创建）
 archived/                   被替代的历史记录与原始验收证据
 ```
 
-文件名为 `yyyy-mm-dd-topic.md`。活跃 note 包含标题、`Status: proposed|implemented|rejected`、问题、方案/决定、真实替代方案、验收/后果。proposed 表示尚未完成，不表示用户尚未同意方向。按阶段更新当前计划，不叠加多个互相矛盾的 next-stage 文件。
+文件名为 `yyyy-mm-dd-topic.md`，声明 Status、决定或问题、适用基线与证据范围。只维护一份当前计划；proposed 表示工作未完成，不表示方向未经同意。
 
-- [验收一页纸](implemented/architecture/2026-09-08-assumptions-and-workarounds.md) 集中维护重要假设、workaround 和 review 限制。
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 仅维护后续事项和未决验收要求。
 - [补丁审计](archived/2026-09-patch-audit/2026-09-07-patch-surface.md) 保留早期静态范围推导，不是当前补丁清单或实现保证。
 - [DSH 0.1.5-alpha.1 适配验收](implemented/integration/2026-09-09-dsh-upgrade.md) 记录范围读取、文件预览、V2/V3 和新版安装回归。
+- [原生 bundle 交付](implemented/integration/2026-09-08-native-bundle-delivery.md) 记录替代源码启动的决定、安装验收和后续修复。
 - [子 Agent、终端与源码交付验收](implemented/integration/2026-09-08-child-terminal-source-acceptance.md) 记录续接、真实模型和无 scaffold 的原生 CLI 交付。
 - [Skills 与消费者验收](implemented/integration/2026-09-08-skills-consumers-acceptance.md) 记录本轮实现、测试及独立 review 的范围。
 - [Web/SSH 验收](implemented/integration/2026-09-07-web-ssh-acceptance.md) 记录受限 profile、4 包补丁、浏览器闭环与未覆盖范围。
 - [双 World E2E 环境](implemented/integration/2026-09-07-e2e-environment.md) 记录 Docker/SSH 验收及浏览器边界。
 - [Session 准入补丁](implemented/integration/2026-09-07-session-admission.md) 记录首个源码切片与验收边界。
-- [DSH 子系统目录迁移](implemented/architecture/2026-09-09-package-subsystems.md) 记录四组源码归属和兼容边界。
-- [文档与装配入口整理](implemented/architecture/2026-09-09-documentation-layout.md) 记录入口迁移、文档生命周期和本轮 review 范围。
-- [结构维护](implemented/architecture/2026-09-07-repository-layout.md) 记录本次已落地整理及验证。
-- archived/2026-09-initial-integration 保存此前分散文档及 evidence/。旧 no-patch、延期 Web 等决策已被当前方向替代，不能覆盖用户新指令。
+- [仓库与子系统结构](implemented/architecture/2026-09-09-package-subsystems.md) 汇总目录决策与迁移验收。
+- [早期集成决策](archived/2026-09-initial-integration/2026-09-07-decisions.md) 汇总已被替代的 no-patch、单 World 和延期 Web 方案；同目录保留各子系统验收及原始 evidence/。
 
-实现落地时更新 docs/ 的当前行为，将对应独立 note 移到 implemented；未完成的阶段保留 proposed。归档记录冻结为历史，原始 JSON 不改字节；新验收另存新记录。重命名/移动时同步修复链接，代码事实变动时更新活跃和 implemented notes。删除没有持续价值的中间草稿，不维护重复的每日状态表。
+实现落地时更新对应 docs/，计划删除已完成待办；只有重要决定或新验收才保存独立 note。验收记录描述当时结果，不随代码重写；被替代的决定注明后继记录。原始 JSON 不改字节，新结果另存。修复记录并入相关验收，目录整理合并为结构决策；普通操作过程留在 Git 历史中，不另维护流水账。删除或移动文件时修复链接。

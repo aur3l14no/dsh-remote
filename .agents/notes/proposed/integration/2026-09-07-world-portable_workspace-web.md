@@ -24,7 +24,7 @@ Status: proposed
 
 新消费者必须说明执行地点、身份来源和缺失上下文时的失败行为。新补丁记录修改包、输入与 local profile 回归，通过独立 patched-host gate 后才纳入 series.json；unchanged-source gate 保留。不可为 skill 提供通用本地 shell、隐式传凭据或改写命令。
 
-保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；已知限制集中在[重要假设与 workaround](../../implemented/architecture/2026-09-08-assumptions-and-workarounds.md)。
+保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；当前契约见[执行边界](../../../../docs/execution-boundaries.md)。
 
 ## Web Search 重点验收
 

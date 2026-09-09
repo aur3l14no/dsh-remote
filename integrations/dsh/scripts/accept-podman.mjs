@@ -22,7 +22,7 @@ const fixture = resolve(required('DSH_TEST_FIXTURE'));
 const rg = resolve(required('DSH_TEST_RG'));
 assert.ok(process.argv.slice(2).every(arg => arg === '--package'), 'Only --package is supported');
 const packaged = process.argv.includes('--package');
-const build = packaged ? JSON.parse(await readFile('target/packages/plugin-build.json', 'utf8')) : undefined;
+const build = packaged ? JSON.parse(await readFile('.build/dsh/fixture-packages/plugin-build.json', 'utf8')) : undefined;
 const manifest = JSON.parse(await readFile(manifestFile, 'utf8'));
 assert.equal(manifest.bundles.length, 1, 'Acceptance requires one explicitly selected Linux bundle');
 const bundle = manifest.bundles[0];
@@ -81,7 +81,7 @@ try {
     DSH_BOOTSTRAP_HELPER: `${cache}/${bundle.helper.artifact.sha256}`, DSH_BOOTSTRAP_RG: `${cache}/${bundle.ripgrep.artifact.sha256}`,
     DSH_TEST_RG_MODE: 'npm', DSH_TEST_PACKAGED: '0', DSH_TEST_TERMINAL_SHELL: '/bin/bash' };
   if (packaged) {
-    await run('package-session-routing', ['target/package-check/accept.mjs'], { ...env, DSH_TEST_PACKAGED: '1' });
+    await run('package-session-routing', ['.build/dsh/package-check/accept.mjs'], { ...env, DSH_TEST_PACKAGED: '1' });
   } else {
     const ready = await bootstrapSshWorld({ ...nested, world: 'nested-transport', cwd: root, manifest, cacheDir: cache, installRoot: `${root}/artifacts` });
     try {
@@ -90,7 +90,7 @@ try {
     await run('bootstrap', ['--test', 'runtime/tests/bootstrap/install.test.ts'], env);
     for (const suite of ['session-routing', 'terminal']) {
       await run(`build-${suite}`, ['integrations/dsh/scripts/build-composition.mjs', source, suite], env);
-      await run(suite, [`target/composition/${suite}.mjs`], env);
+      await run(suite, [`.build/dsh/composition/${suite}.mjs`], env);
     }
   }
   // Removing the selected container must fail the target, without executing the command on the SSH host.
@@ -102,7 +102,7 @@ try {
   report = { schema: 1, started, completed: new Date().toISOString(), platform: bundle.target, transport: 'system-ssh/podman-exec',
     imageId, helper: bundle.helper.version, helperSha256: bundle.helper.artifact.sha256, fixtureSha256: fixtureHash,
     ...(build ? { package: { file: build.package, integrity: build.integrity,
-      sha256: createHash('sha256').update(await readFile(`target/packages/${build.package}`)).digest('hex') } } : {}),
+      sha256: createHash('sha256').update(await readFile(`.build/dsh/fixture-packages/${build.package}`)).digest('hex') } } : {}),
     sshServerInContainer: false, containerNetwork: 'none', checks,
     limits: ['Source-built DSH fixtures; no Web application or model-driven cross-root communication', 'Terminal consumer fixture uses one World; shared-router terminal initialization remains unverified'] };
 } catch (error) { failure = error; }
@@ -113,6 +113,6 @@ finally {
   }
 }
 if (failure) throw failure;
-await mkdir('target', { recursive: true });
-await writeFile(`target/podman${packaged ? '-package' : ''}-acceptance.json`, `${JSON.stringify(report, null, 2)}\n`);
+await mkdir('artifacts/dsh', { recursive: true });
+await writeFile(`artifacts/dsh/podman${packaged ? '-package' : ''}-acceptance.json`, `${JSON.stringify(report, null, 2)}\n`);
 console.log('PASS SSH → Podman exec acceptance; disposable container removed');

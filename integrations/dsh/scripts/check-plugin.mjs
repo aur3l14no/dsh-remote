@@ -9,14 +9,14 @@ import { execFileSync } from 'node:child_process';
 // Host fixture from unchanged DSH sources. Only our plugin is under package acceptance here.
 const root = resolve(process.argv[2] ?? '');
 if (!process.argv[2]) throw new Error('Usage: node integrations/dsh/scripts/check-plugin.mjs DSH_SOURCE_CHECKOUT');
-const buildRecord = JSON.parse(await readFile('target/packages/plugin-build.json', 'utf8'));
+const buildRecord = JSON.parse(await readFile('.build/dsh/fixture-packages/plugin-build.json', 'utf8'));
 assertUnchangedSource(root);
 if (buildRecord.dshSourceRevision !== baselineRevision) throw new Error('Plugin build baseline changed');
-const output = resolve('target/package-check');
+const output = resolve('.build/dsh/package-check');
 await rm(output, { recursive: true, force: true }); await mkdir(output, { recursive: true });
 const plugin = join(output, 'node_modules/@dsh-remote/ssh-world');
 await mkdir(plugin, { recursive: true });
-execFileSync('tar', ['-xf', resolve('target/packages', buildRecord.package), '--strip-components=1', '-C', plugin]);
+execFileSync('tar', ['-xf', resolve('.build/dsh/fixture-packages', buildRecord.package), '--strip-components=1', '-C', plugin]);
 // The bundled LLM attribution code resolves ../package.json from lib/.
 writeFileSync(join(output, 'package.json'), await readFile(join(root, 'packages/llm/llm/package.json')));
 const paths = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;

@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 const command = process.argv.slice(2);
 if (command.shift() !== '--' || !command.length) throw new Error('Usage: node integrations/dsh/scripts/e2e.mjs -- COMMAND [ARGS...]');
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-await mkdir(resolve(root, 'target/e2e'), { recursive: true });
-const state = await mkdtemp(resolve(root, 'target/e2e/run-'));
+await mkdir(resolve(root, '.build/dsh/e2e'), { recursive: true });
+const state = await mkdtemp(resolve(root, '.build/dsh/e2e/run-'));
 const stack = `dsh-e2e-${state.split('run-').at(-1).toLowerCase()}`;
 const compose = ['compose', '-p', stack, '-f', resolve(root, 'integrations/dsh/tests/e2e/compose.yaml')];
 let env = { ...process.env };
@@ -62,6 +62,8 @@ try {
   }
   await docker(['cp', 'world-a:/opt/dsh-e2e/bin/dsh-remote', resolve(state, 'helper')]);
   await docker(['cp', 'world-a:/usr/bin/rg', resolve(state, 'rg')]);
+  env.DSH_TEST_RIPGREP_LICENSE = resolve(state, 'ripgrep-copyright');
+  await docker(['cp', 'world-a:/usr/share/doc/ripgrep/copyright', env.DSH_TEST_RIPGREP_LICENSE]);
   const arch = await docker(['exec', '-T', 'world-a', 'uname', '-m'], { capture: true });
   const rgVersion = (await docker(['exec', '-T', 'world-a', 'rg', '--version'], { capture: true })).split('\n')[0].split(' ')[1];
   const cargo = await readFile(resolve(root, 'runtime/helper/Cargo.toml'), 'utf8');

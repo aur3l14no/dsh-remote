@@ -1,6 +1,6 @@
 # Helper API revision 1
 
-Wire revision 1, helper 0.1.2. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
+Wire revision 1, helper 0.1.3. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
 
 ## Design basis
 
@@ -23,7 +23,7 @@ The default inbound lease and disconnected grace are each 30 seconds. `--lease-m
 
 Grace expiry or helper TERM/INT triggers managed cleanup. Explicit `runtime.shutdown` stops admission immediately and reports cleanup completion or a deadline error. There is no task journal, cross-helper-restart recovery, task adoption, or automatic re-execution in a new session. Agent-created external persistence is outside helper supervision. OS logout/session policies may kill the runtime itself; a detached session is not immunity from host policy, helper SIGKILL, or reboot.
 
-The socket/token is scoped to the same account, not a security boundary against that account. The helper has the invoking account's filesystem/process permissions. Cwd is not a sandbox. Auto Approval is supplied by the separate local plugin; helper operations do not bypass World-aware approval policy in the future adapter.
+The socket/token is scoped to the same account, not a security boundary against that account. The helper has the invoking account's filesystem/process permissions. Cwd is not a sandbox. The helper supplies operation facts, not approval policy; see the [execution boundary](../execution-boundaries.md).
 
 ## Framing and requests
 
@@ -53,7 +53,7 @@ Response loss is not proof of cancellation. Re-send the *same* request ID only w
 
 ## Operation inventory
 
-The approved logical operations are encoded as 26 wire methods: guarded byte publication is split into a bounded upload transaction; stream reading/acknowledgement/release are explicit transport controls. They are not additional Agent-facing tools.
+The approved logical operations are encoded as 27 wire methods: guarded byte publication is split into a bounded upload transaction; stream reading/acknowledgement/release are explicit transport controls. They are not additional Agent-facing tools.
 
 ### Runtime
 
@@ -146,4 +146,4 @@ Stable errors distinguish invalid input, unknown/expired session/resource, unava
 
 ## DSH integration boundary
 
-This milestone supplies OS primitives. The external adapters still need to prove the E2B composition seam, synchronous provisional spawn handles and collection mirrors, exact filesystem edit/diff parity, per-Agent ownership, Agent-visible World binding, and approval context. Search uses an uploaded target-native ripgrep through `process.spawn`; the future adapter maps only DSH's exact registered packaged-ripgrep identity. No helper search engine or basename-based executable rewrite is provided. See [platform acceptance](../../.agents/notes/archived/2026-09-initial-integration/helper-acceptance.md) for evidence and remaining checks.
+DSH adapters own provisional handles, local collection mirrors, text editing and Agent context. Search runs target-native ripgrep through `process.spawn`; the adapter maps only DSH's exact registered packaged-ripgrep identity. The helper has no search engine or basename-based executable rewrite. Current composition is described in [architecture](../architecture.md); historical platform evidence remains in [helper acceptance](../../.agents/notes/archived/2026-09-initial-integration/helper-acceptance.md).

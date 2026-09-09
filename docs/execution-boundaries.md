@@ -47,34 +47,13 @@ DSH tools.execute(exec.agent)
 
 “所有 workspace 操作走远端”是受支持装配必须满足的契约，不是当前对任意 DSH 插件都已强制成立的保证。
 
-Web Search 是执行边界的重点验收对象：必须同时证明本地连接器的网络请求和凭据留在本地、同一 Session 的 Shell 网络命令仍在绑定 World 执行，且连接器失败不会改变执行地点。具体测试及证据门槛见[阶段计划中的 Web Search 验收](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#web-search-重点验收)。当前浏览器用例验证原生 provider 请求、测试凭据、远端 Shell 无法访问宿主 loopback 端点，以及远端 env 中没有连接器凭据；真实 DeepSeek 模型和外部搜索也已验收；连接器故障/取消与双 Session 并发仍未专项验收。
+Web Search 的故障/取消和双 Session 并发仍待专项验收，测试要求见[当前计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#web-search-重点验收)。
 
-## Skill 的位置不等于命令的位置
+## Skills 与数据传递
 
-Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后若调用已装配的远程 Shell，该命令仍在 World 中执行。
+Skill 提供说明和资源，不选择执行主机。远程 Shell 收到本地脚本路径时仍在绑定 World 执行；不会临时复制依赖、改写命令或失败后转到宿主。选定内容的部署、发现和同步统一见 [Skills](skills.md)。
 
-```text
-本地 skill: python /Users/me/skills/report/run.py /workspace/input.csv
-       ↓ 调用远程 Shell
-远端收到同一 argv / command
-       ↓
-本地脚本路径通常不存在；本地 SDK、配置、凭据也不会自动跟过去
-```
-
-本地连接编排层在新 helper 启动前同步配置选定的 skill 文件夹，也提供手动 Sync Skills 和独立部署命令；不会因读取这条指令而临时复制脚本、改写 shell 字符串或在失败后重试本地。远端同名路径存在时也不能把它当成本地脚本的等价物。单独设置 execution-world 提示词不能解决文件、依赖和权限问题。
-
-面向终态的支持分类如下；部署及发现的当前契约见 [Skills](skills.md)；下表不是自动能力分类 schema 或 dispatcher：
-
-| Skill 所需能力 | 支持方式 |
-| --- | --- |
-| 纯文本知识/操作指导 | 内容可来自本地；实际操作遵守所调用 capability 的 World |
-| 远程项目命令与项目脚本 | 从远端发现，声明并检查目标环境依赖，通过该 World 执行 |
-| 本地连接器/研究 API | 暴露独立、明确的本地服务工具；不能把通用远程 Shell 临时切成本地 |
-| 随 skill 分发的可移植脚本 | 支持前需显式发布脚本/依赖到目标、校验版本与目标平台，并给出真实远端路径；已有选定文件夹的内容摘要部署器；runtime/依赖由 skill-ops 单独维护 |
-| 本地 CLI 依赖的 skill | 尚未提供通用执行方案。需要经审核的专用本地能力或迁移为远端工具；不因 skill 提及一个路径就开放任意 host shell |
-| 同时需要本地 API 与远端项目数据 | 明确分步：远端读取/导出 → 显式数据传递 → 本地 API；结果写回同样显式 |
-
-本地配置与凭据在本地连接器使用，项目命令使用远端环境的依赖和权限。外部 API 的调用授权、数据范围和本地/远端审批事实必须可辨识。任何 UI/prompt 分类都不能替代 provider 边界。
+本地 API 与远端项目数据组合时，明确执行“远端读取/导出 → 授权的数据传递 → 本地 API”，写回同样显式。连接器使用宿主凭据；通用 host shell 未提供，skill 来源不能授予额外执行权。
 
 ## 必须保持的边缘行为
 
@@ -92,17 +71,13 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | 远端 environment | 只传明确 spec.env，不复制 process.env；SSH 配置可能带用户显式配置的行为，应准确披露而非声称绝对禁止 forwarding |
 | tool output 文件/附件/file URL | 原生 Sidebar 文本预览和目录树按 Session 选择远端 FS，并限制在 workspace 根；Markdown 绝对路径图片按 Session 读取远端账户可读文件。缺失身份拒绝；附件上传/下载及附件入远端仍未提供通用桥接 |
 | 同名 Session 引用 | 原生 session-reference 的 sameWorkspace 只比较 cwd，适配前关闭或明确不支持 |
-| 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。只允许 danger-full-access，其他模式在写入前拒绝；原生工具名过滤不等于能力隔离（允许 Bash 就仍可执行命令）。审批上下文与强制执行能力必须分开说明 |
+| 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。只允许 danger-full-access，其他模式在写入前拒绝；原生工具名过滤不等于能力隔离（允许 Bash 就仍可执行命令）。remote overlay 禁用原生 permission/UI，不承诺逐次审批界面；暴露审批事实不等于强制执行能力 |
 
 新增消费者必须按这些反例验收。详见 [阶段计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)。
 
 ## Git worktree：当前能力与缺口
 
-已绑定的 subprocess provider 可以在远端执行 Git 命令，前提是目标安装 Git、仓库可用且账号有权限；当前没有 worktree 专用编排或验收。执行 `git worktree add` 只产生 Git 工作目录，不会自动注册 portable_workspace 或创建 Agent。
-
-维护中 registry 的 `createInWorld` 可以登记一个已存在的远端目录；`startPortableWorkspaceSession` 可为该目录建立新绑定并创建独立 Session。Web 可登记已有远端目录并创建 Session；Git worktree 创建与登记尚未组成自动流程。普通子 Agent 的继承检查要求 cwd 和完整绑定与父级一致，不能仅传新 cwd 来实现 worktree 隔离。当前固定 DSH 基线的 Web fork 复制源 cwd；workflow 的 isolation 选项明确延期，也不能自动提供这项能力。
-
-预期语义是同一 World、不同 canonical workspace，对应两个 portable_workspace。新 Agent 的执行上下文应在启动前绑定新目录；它是否保留父子关系、复制哪些对话上下文，以及失败重试和清理规则，留待后续定界。详见[待处理的 worktree 边缘情况](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
+远端 subprocess 可运行目标已有的 Git；registry 可登记已有目录并为其创建独立 Session。两者尚未组成自动 worktree 流程。child 继承父绑定/cwd，Web fork 也不新建目录；隔离子 Agent、创建失败清理和上下文复制规则见[后续计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
 
 ## 文件预览
 

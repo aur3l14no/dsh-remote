@@ -1,23 +1,21 @@
 # Remote Web composition
 
-`cordis.patch.yml` is the host overlay; `presets/remote/agent.cordis.yml` is its standing Agent preset. The build places the overlay at the bundle root and the preset under `presets/remote/`. Relative paths address installed compatibility artifacts. Install the prebuilt bundle with native `dsh plugin --profile web add`; do not load this source template directly.
+`cordis.patch.yml` is the host overlay; `presets/remote/agent.cordis.yml` is the standing Agent preset. The build places them at the bundle root and under `presets/remote/`, respectively. Relative imports address installed compatibility artifacts. Install the prebuilt bundle using the [installation guide](../../../../docs/install.md); this directory is a source template.
 
-| Owner | Mounted behavior |
+The overlay replaces local workspace discovery/navigation and related controllers with the World registry and admission adapter. It excludes the local directory picker, same-cwd Session references, local file references, desktop path opener, sandbox runners and unadapted presets. The remote preset groups FS/subprocess/shell/workdir services with native file/search, Bash/jobs, Web/skill, instructions, subagent and terminal consumers. Activation and module identity rules are in [architecture](../../../../docs/architecture.md).
+
+Bash requests a 4 MiB spill cap per stream within the helper's 64 MiB runtime budget. Release refunds unused reservation; retained spill files stay charged until runtime cleanup. File completion scans at most 50,000 entries, excludes native ignored names and paths outside the canonical root, and returns up to 20 candidates.
+
+## Host configuration
+
+`$DSH_HOME/remote/config.json` contains:
+
+| Field | Input |
 | --- | --- |
-| DSH host | Native model route, Agent/Session, JSONL, browser transport, tool registry/filtering and local Web connector |
-| portable_workspace plugin | World catalog, canonical remote directory registration, immutable membership, durable feed and browser selection/navigation |
-| session-admission plugin | Prepare and validate the saved binding before create/adopt/resume/fork |
-| remote preset | Isolated FS/subprocess/shell/workdir services; native read/write/edit, grep/glob, foreground/background Bash, jobs, Web/skill tools, remote instructions, native subagents and terminal tools |
-| Linux World | Workspace files, Git repository, commands and helper-owned process state |
+| `worlds` | Catalog entries `{id, name, target, skills?}`. `target` contains `{kind:"ssh", host}` and optional `configFile`, `installRoot`, `runtimeBase`, or full immutable `podmanContainer` ID. Skills follow the [deployment format](../../../../docs/skills.md). |
+| `bindingFile` | Absolute path to an initialized private local [BindingStore](../../../../docs/reference/session-bindings.md). Initialization creates it; normal startup only opens it. |
+| `bootstrap` | `{manifest, cacheDir}`: trusted platform manifest and absolute local artifact cache, prepared through [bootstrap](../../../../docs/reference/bootstrap.md). |
 
-The overlay excludes native local Workspace discovery/navigation, directory picking, same-cwd Session references, local file references and local sandbox runners. It disables the native desktop path opener and discovery of unadapted presets. Bash requests a 4 MiB spill cap per stream, leaving room for concurrent jobs within the helper's 64 MiB runtime budget. Release refunds unused capacity; retained output files remain charged until runtime cleanup. Unsupported resource requests still fail explicitly.
+World registration accepts an existing absolute directory. Navigation preserves `?session=…`; cold activation uses the saved binding. Blank Sessions can only be reused in their registered workspace. Fork retains the binding and conversation boundary.
 
-Host configuration is read from `$DSH_HOME/remote/config.json`: `{worlds, bindingFile, bootstrap}`. `worlds` contains explicit catalog entries; `bindingFile` must be an initialized private local BindingStore; `bootstrap` supplies the trusted platform manifest and artifact cache. The E2E launcher creates these inputs without reading private developer targets.
-
-World registration accepts an existing absolute directory. Browser navigation preserves `?session=…`; cold activation uses the saved binding. A blank Session may be reused only within its registered portable_workspace. Fork copies the native conversation boundary and retains the same binding; it does not create a Git worktree.
-
-Remote file completion is mounted by an explicit Agent-owned provider. It scans at most 50,000 entries per query, excludes native ignored directory names and paths outside the canonical root, and returns up to 20 candidates. A dedicated terminal panel, attachment transfer and remote OS sandbox enforcement are outside this preset. Native attachment storage remains local. Do not add their default local consumers implicitly. A local skill's command still needs an explicitly supported capability; no general host shell is provided. Selected skill folders sync from configured local sources before a new helper starts. The World selector offers Sync Skills for an existing connection, without restarting its helper. [The deployment command](../../../../docs/skills.md) remains available; dependencies are maintained separately.
-
-See [E2E commands](../../tests/e2e/README.md), [execution boundaries](../../../../docs/execution-boundaries.md), and [remaining plan](../../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).
-
-The native plugin installation and configuration initialization are documented in [installation](../../../../docs/install.md). Parent and child Agents use the selected SSH account permissions; unsupported sandbox modes are rejected. Continuations retain the child identity and validate every persisted parent binding.
+Runtime permissions, unsupported consumers and preview semantics are maintained in [execution boundaries](../../../../docs/execution-boundaries.md); synchronization in [Skills](../../../../docs/skills.md); installation checks in [E2E](../../tests/e2e/README.md).

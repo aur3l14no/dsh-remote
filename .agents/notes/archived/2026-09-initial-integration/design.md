@@ -87,7 +87,7 @@ PTY support requires usable Unix 98 PTY facilities such as `/dev/ptmx` and `/dev
 
 ## Development stages
 
-The immediate implementation sequence and compatibility gates are detailed in [the next-stage plan](next-stage.md).
+The immediate implementation sequence and compatibility gates are detailed in [the next-stage plan](2026-09-07-decisions.md).
 
 The helper API has been confirmed with runtime-owned reconnectable resources, local text editing, scoped cleanup, and output backpressure. The [wire contract](../../../../docs/reference/helper-api.md) fixes revision 1. The [acceptance plan](helper-acceptance.md) covers embedded Linux/musl, containerized Linux/glibc, and native macOS using platform labels only.
 

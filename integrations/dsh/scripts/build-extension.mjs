@@ -15,8 +15,8 @@ const series = JSON.parse(await readFile('integrations/dsh/patches/series.json',
 const version = series.release.version;
 const revision = series.revision;
 if (JSON.parse(await readFile(join(installation, 'node_modules/@deepseek-ai/dsh/package.json'), 'utf8')).version !== version) throw new Error('Wrong official DSH installation');
-const output = resolve('target/extension');
-const sources = resolve('target/extension-source');
+const output = resolve('.build/dsh/extension');
+const sources = resolve('.build/dsh/extension-source');
 await rm(output, { recursive: true, force: true }); await mkdir(output, { recursive: true });
 await rm(sources, { recursive: true, force: true }); await mkdir(sources, { recursive: true });
 execFileSync('tar', ['-xf', '-', '-C', sources], { input: execFileSync('git', ['-C', source, 'archive', revision], { maxBuffer: 128 * 1024 * 1024 }) });
@@ -91,11 +91,15 @@ for (const browser of [false, true]) {
 }
 await cp('integrations/dsh/packaging/extension', output, { recursive: true, filter: path => !path.endsWith('/README.md') });
 await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
+await build({ entryPoints: ['runtime/ssh/src/manifest.ts'], outfile: join(output, 'manifest.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));
 await writeFile(join(output, 'package.json'), JSON.stringify({ name: '@dsh-remote/extension', version: extensionVersion, type: 'module', license: 'MIT', engines: { node: '>=24.19.0' }, bin: { 'dsh-remote-config': './config.mjs' }, exports: { '.': './setup.mjs', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } }, dependencies }, null, 2));
-await mkdir('target/packages', { recursive: true });
-const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('target/packages'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
+await mkdir('dist/dsh', { recursive: true });
+const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('dist/dsh'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
 if (packed.files.some(file => file.path.includes('node_modules') || file.path.includes('.local'))) throw new Error('Unexpected extension archive entry');
-await writeFile('target/packages/extension-build.json', JSON.stringify({ revision, dshVersion: version, integrity: packed.integrity, filename: packed.filename }, null, 2));
+await writeFile('dist/dsh/extension-build.json', JSON.stringify({ revision, dshVersion: version, extensionVersion,
+  sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  sourceDirty: Boolean(execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()),
+  integrity: packed.integrity, filename: packed.filename }, null, 2));
 console.log(`Built ${compatibilityNames.size} compatibility packages and the remote extension; no DSH host/frontend build`);

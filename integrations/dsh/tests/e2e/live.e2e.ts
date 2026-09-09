@@ -54,7 +54,7 @@ it('completes a real-model coding and external-search task in the selected World
     const otherOwner = await host.ctx.get('executionWorlds').prepareWorld(host.ctx.get('worldPortableWorkspaces').definition(other.id));
     expect(await otherOwner.fs.stat(await otherOwner.fs.resolve('LIVE_ACCEPTANCE.md'))).toBeUndefined();
     expect(results.length).toBeGreaterThan(0);
-    await writeFile(`${root}/target/web-acceptance/live-details.json`, JSON.stringify({ model: agent.options.model, tools, searchSucceeded: true, codingTestsPassed: true, remoteCredentialAbsent: true, otherWorldUnchanged: true }, null, 2) + '\n');
-    await page.screenshot({ path: `${root}/target/web-live-acceptance.png`, fullPage: true });
+    await writeFile(`${root}/artifacts/dsh/live-details.json`, JSON.stringify({ model: agent.options.model, tools, searchSucceeded: true, codingTestsPassed: true, remoteCredentialAbsent: true, otherWorldUnchanged: true }, null, 2) + '\n');
+    await page.screenshot({ path: `${root}/artifacts/dsh/web-live-acceptance.png`, fullPage: true });
   } finally { await browser.close(); await host.close(); }
 }, 180000);

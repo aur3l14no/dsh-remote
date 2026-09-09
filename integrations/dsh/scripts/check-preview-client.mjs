@@ -3,8 +3,8 @@ import { globSync, readFileSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 
 // Host and browser Context declarations must be checked in separate programs.
-const source = resolve(process.argv[2] ?? 'target/extension-source');
-const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');
+const source = resolve(process.argv[2] ?? '.build/dsh/extension-source');
+const installation = resolve(process.env.DSH_TEST_INSTALL ?? '.build/dsh/official-install');
 const paths = {};
 for (const manifest of globSync('node_modules/@deepseek-ai/*/package.json', { cwd: installation })) {
   const file = join(installation, manifest);

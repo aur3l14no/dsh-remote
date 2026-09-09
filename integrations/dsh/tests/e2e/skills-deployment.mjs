@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { deploySkills } from '../../packages/skill/remote-skills/src/deploy.ts';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 const config = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, 'utf8'));
-const directory = await mkdtemp(resolve('target/e2e/skills-'));
+const directory = await mkdtemp(resolve('.build/dsh/e2e/skills-'));
 try {
   const source = resolve('integrations/dsh/tests/e2e/skills/remote-proof');
   for (const world of config.worlds) {

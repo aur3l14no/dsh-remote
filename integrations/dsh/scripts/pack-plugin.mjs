@@ -12,7 +12,7 @@ assertUnchangedSource(root);
 const source = resolve('.');
 const sourceRoots = ['runtime/client', 'runtime/ssh', 'integrations/dsh/packages/world/ssh-world'].map(path => resolve(path) + '/');
 const isRepositorySource = file => sourceRoots.some(root => resolve(file).startsWith(root));
-const output = resolve('target/plugin');
+const output = resolve('.build/dsh/plugin');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 const manifest = JSON.parse(readFileSync('integrations/dsh/tests/packaging/ssh-plugin.package.json', 'utf8'));
@@ -51,11 +51,11 @@ for (const file of program.getSourceFiles().filter(file => isRepositorySource(fi
     mkdirSync(dirname(target), { recursive: true }); writeFileSync(target, content);
   }, undefined, true);
 }
-await mkdir('target/packages', { recursive: true });
-const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('target/packages'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
+await mkdir('.build/dsh/fixture-packages', { recursive: true });
+const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('.build/dsh/fixture-packages'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
 for (const file of packed.files) {
   if (!/^(lib\/.*\.js|types\/.*\.d\.ts|package\.json|README\.md|LICENSE)$/.test(file.path)) throw new Error(`Unexpected package file: ${file.path}`);
 }
-writeFileSync('target/packages/plugin-build.json', JSON.stringify({ dshSourceRevision: baseline, package: packed.filename,
+writeFileSync('.build/dsh/fixture-packages/plugin-build.json', JSON.stringify({ dshSourceRevision: baseline, package: packed.filename,
   integrity: packed.integrity, files: packed.files, inputs: Object.keys(result.metafile.inputs) }, null, 2) + '\n');
 console.log(`Built ${packed.filename}: ${packed.files.length} files; DSH/Cordis remain external`);

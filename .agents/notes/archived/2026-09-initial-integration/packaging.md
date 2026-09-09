@@ -11,7 +11,7 @@ DSH_TEST_PACKAGED=1 DSH_TEST_RG_MODE=npm DSH_TEST_RG="$LOCAL_RG" \
   node target/package-check/accept.mjs
 ```
 
-Output: `target/packages/dsh-remote-ssh-world-0.1.0-alpha.2.tgz`. The [package README](../../../../integrations/dsh/packaging/README.md) documents module names, service configuration and the shared preset. `pack-plugin.mjs` emits JavaScript with shared chunks so routers, World service and exported protocol client retain one module identity. It includes no DSH source and emits only this project's declarations.
+Output: `target/packages/dsh-remote-ssh-world-0.1.0-alpha.2.tgz`. The [package README](../../../../integrations/dsh/tests/packaging/ssh-fixture.md) documents module names, service configuration and the shared preset. `pack-plugin.mjs` emits JavaScript with shared chunks so routers, World service and exported protocol client retain one module identity. It includes no DSH source and emits only this project's declarations.
 
 ## Validation boundary
 
@@ -25,4 +25,4 @@ Alpha.2 passed declaration checks and all five packaged routing groups over SSH 
 
 This establishes tarball/Loader compatibility with the pinned source-built fixture. It does not establish compatibility with an installed public DSH distribution or a complete UI preset. The npm registry check on 2026-09-06 found no `@deepseek-ai/dsh-agent-presets@0.1.3-alpha.1`; public `latest` tags across DSH packages were inconsistent. Exact source-version peer dependencies remain in the manifest, rather than claiming an older release compatible. No npm package or public release has been published.
 
-Terminal/job initialization through the shared router remains deferred. Parent-path requests and child binding-commit failure retain the documented [behavior](upstream-seams.md).
+Terminal/job initialization through the shared router remains deferred. Parent-path requests and child binding-commit failure retain the documented [behavior](2026-09-07-decisions.md).

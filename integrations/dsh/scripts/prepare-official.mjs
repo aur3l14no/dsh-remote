@@ -1,7 +1,7 @@
 import { mkdir, cp, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-const output = resolve(process.argv[2] ?? 'target/official-install');
+const output = resolve(process.argv[2] ?? '.build/dsh/official-install');
 const source = resolve('integrations/dsh/packaging/official');
 const series = JSON.parse(await readFile('integrations/dsh/patches/series.json', 'utf8'));
 const lock = JSON.parse(await readFile(join(source, 'package-lock.json'), 'utf8'));

@@ -1,0 +1,75 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run:
+        description: Successful CI run on main whose accepted artifact will be released
+        required: true
+        type: string
+      publish:
+        description: Publish the release and mark it latest (otherwise create a draft)
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: draft-release
+  cancel-in-progress: false
+jobs:
+  draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify CI provenance and download the accepted archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_RUN: ${{ inputs.ci_run }}
+        run: |
+          [[ "$CI_RUN" =~ ^[0-9]+$ ]] || exit 1
+          gh api "repos/$GH_REPO/actions/runs/$CI_RUN" > run.json
+          jq -e '.status == "completed" and .conclusion == "success" and .path == ".github/workflows/dsh-ssh.yml" and .head_branch == "main" and (.event == "push" or .event == "workflow_dispatch")' run.json
+          source_revision=$(jq -r .head_sha run.json)
+          gh run download "$CI_RUN" --name "dsh-remote-release-$source_revision" --dir artifact
+          mkdir release
+          tar -xzf artifact/dsh-remote-linux-x86_64.tar.gz -C release
+          (cd release && sha256sum --check SHA256SUMS)
+          jq -e --arg revision "$source_revision" '.sourceRevision == $revision and .sourceDirty == false and (.manifest.bundles | length) == 1 and .manifest.bundles[0].target.os == "linux" and .manifest.bundles[0].target.arch == "x86_64"' release/release.json
+      - name: Create a draft from tested bytes without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          source_revision=$(jq -r .sourceRevision release/release.json)
+          version=$(jq -r .extensionVersion release/release.json)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          extension=$(jq -r .extension.filename release/release.json)
+          [[ "$extension" == "dsh-remote-extension-$version.tgz" ]] || exit 1
+          extension_sha256=$(jq -r .extension.sha256 release/release.json)
+          printf '%s  %s\n' "$extension_sha256" "release/$extension" | sha256sum --check -
+          cp "release/$extension" artifact/dsh-remote-extension.tgz
+          (cd artifact && sha256sum dsh-remote-extension.tgz dsh-remote-linux-x86_64.tar.gz > SHA256SUMS)
+          cat > notes.md <<'EOF'
+          Official DSH plus the remote extension and the Linux x86_64 bootstrap artifacts accepted together by CI. Target requires glibc 2.36 or newer. Model credentials remain on the local DSH host.
+
+          Install the extension directly from the latest published release:
+
+          ```sh
+          dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
+          ```
+
+          The extension asset is the exact CI-tested tarball with a stable download filename. The complete Linux archive also contains bootstrap artifacts; follow docs/install.md at this release commit for World configuration and upgrades. init-release is for new configuration only.
+
+          Other target platforms and npm publication are not included.
+          EOF
+          gh release create "v$version" artifact/dsh-remote-extension.tgz artifact/dsh-remote-linux-x86_64.tar.gz artifact/SHA256SUMS --target "$source_revision" --draft --title "dsh-remote $version" --notes-file notes.md
+      - name: Publish the verified release as latest
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(jq -r .extensionVersion release/release.json)
+          gh release edit "v$version" --draft=false --prerelease=false --latest

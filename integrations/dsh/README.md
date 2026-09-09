@@ -1,13 +1,10 @@
 # DeepSeek Harness integration
 
-DSH-specific code lives here; shared execution code and Rust stay in `../../runtime`.
+DSH-specific code and tooling live here; generic execution belongs in [runtime](../../runtime/README.md).
 
-- `packages/`: four subsystem modules: `world/ssh-world`, `workspace/portable-workspace`, `skill/remote-skills`, and `bundle/remote`. See [module ownership](packages/README.md).
-- `shared/`: small cross-module utilities; generic transport still belongs in `runtime/`.
-- `patches/`: six maintained patches across nine packages; `series.json` pins the official revision and npm release. Unchanged-source and patched-host gates remain separate.
-- `packaging/extension/`: native bundle configuration, overlay, Agent preset and initialization command. Users install through `dsh plugin add` and start the official CLI.
-- `packaging/official/`: locked official build/test inputs, not a user installer.
-- `tests/` and `scripts/`: subsystem checks, prebuilds and Playwright/SSH acceptance.
-- `tests/integration/`: retained unchanged-source proof of the original upstream gap; `tests/packaging/` also owns the low-level SSH package fixture.
+- [packages](packages/README.md): World, workspace, Skills and bundle source modules.
+- [patches](patches/README.md): pinned upstream seams and separate unchanged-source/patched-host gates.
+- [packaging](packaging/README.md): extension inputs and official build dependencies.
+- [integration fixtures](tests/integration/README.md), [E2E environment](tests/e2e/README.md): verification scopes and environment contracts.
 
-See [installation](../../docs/install.md), [architecture](../../docs/architecture.md), [execution boundaries](../../docs/execution-boundaries.md), and [development](../../docs/development.md).
+Commands are maintained in [development](../../docs/development.md); architecture and service ownership in [architecture](../../docs/architecture.md).

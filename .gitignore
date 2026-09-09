@@ -1,6 +1,9 @@
-/target/
+/.build/
+/artifacts/
+/dist/
 /.local/
 __pycache__/
 node_modules/
 *.tsbuildinfo
 /runtime/helper/target/
+/.pnpm-store/

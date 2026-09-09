@@ -12,11 +12,11 @@ const root = resolve(source);
 assertUnchangedSource(root);
 const config = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config;
 const paths = config.compilerOptions.paths;
-await mkdir('target/composition', { recursive: true });
+await mkdir('.build/dsh/composition', { recursive: true });
 // The LLM attribution module reads its package version relative to the built entry.
-await copyFile(join(root, 'packages/llm/llm/package.json'), 'target/composition/package.json');
+await copyFile(join(root, 'packages/llm/llm/package.json'), '.build/dsh/composition/package.json');
 await build({
-  entryPoints: [`integrations/dsh/tests/integration/${suite}.ts`], outfile: `target/composition/lib/${suite === 'composition' ? 'run' : suite}.mjs`,
+  entryPoints: [`integrations/dsh/tests/integration/${suite}.ts`], outfile: `.build/dsh/composition/lib/${suite === 'composition' ? 'run' : suite}.mjs`,
   bundle: true, platform: 'node', format: 'esm', target: 'node24', sourcemap: true,
   packages: 'external',
   external: ['@vscode/ripgrep', 'node-addon-require-builtin'],
@@ -37,5 +37,5 @@ await build({
     });
   } }],
 });
-await writeFile(`target/composition/${suite === 'composition' ? 'run' : suite}.mjs`, `import './lib/${suite === 'composition' ? 'run' : suite}.mjs';\n`);
+await writeFile(`.build/dsh/composition/${suite === 'composition' ? 'run' : suite}.mjs`, `import './lib/${suite === 'composition' ? 'run' : suite}.mjs';\n`);
 console.log(`Built external Loader composition against DSH ${baseline}`);

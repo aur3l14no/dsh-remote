@@ -32,6 +32,7 @@ jobs:
         working-directory: runtime/helper
       - run: npm run check
       - run: npm test
+      - run: node --test integrations/dsh/tests/release/*.test.mjs
   ssh:
     name: DSH compatibility and Web / SSH E2E
     runs-on: ubuntu-24.04
@@ -62,11 +63,11 @@ jobs:
           node integrations/dsh/scripts/pack-plugin.mjs "$RUNNER_TEMP/dsh-source"
           node integrations/dsh/scripts/check-plugin.mjs "$RUNNER_TEMP/dsh-source"
       - name: Two Linux Worlds over real SSH
-        run: node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
+        run: node integrations/dsh/scripts/e2e.mjs -- node .build/dsh/patched-host/admission.mjs
       - name: Install locked official DSH packages
         run: node integrations/dsh/scripts/prepare-official.mjs
       - name: Build only the extension and compatibility packages
-        run: node integrations/dsh/scripts/build-extension.mjs "$RUNNER_TEMP/dsh-source" target/official-install
+        run: node integrations/dsh/scripts/build-extension.mjs "$RUNNER_TEMP/dsh-source" .build/dsh/official-install
       - name: Install the native bundle into a test profile
         run: node integrations/dsh/scripts/prepare-test-profile.mjs
       - name: Install Chromium
@@ -74,6 +75,8 @@ jobs:
       - name: Installed package identity and version guards
         run: node --test integrations/dsh/tests/packaging/*.test.mjs
       - name: Native official CLI installation acceptance
+        env:
+          DSH_TEST_RELEASE_OUTPUT: .build/dsh/release-candidate
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
       - name: Check Web plugin source and prepare test fixtures
         run: |
@@ -84,13 +87,24 @@ jobs:
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
       - name: Installed-package browser regressions over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
+      - name: Reject legacy root output directory
+        run: test ! -e target
       - name: Extension prebuild
         uses: actions/upload-artifact@v4
         with:
           name: dsh-remote-extension-${{ github.sha }}
           path: |
-            target/packages/dsh-remote-extension-*.tgz
-            target/packages/extension-build.json
+            dist/dsh/dsh-remote-extension-*.tgz
+            dist/dsh/extension-build.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Package the accepted Linux runtime and extension together
+        run: tar -czf dist/dsh/dsh-remote-linux-x86_64.tar.gz -C .build/dsh/release-candidate .
+      - name: Complete release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-remote-release-${{ github.sha }}
+          path: dist/dsh/dsh-remote-linux-x86_64.tar.gz
           if-no-files-found: error
           retention-days: 14
       - name: Browser acceptance evidence
@@ -99,8 +113,8 @@ jobs:
         with:
           name: dsh-browser-acceptance
           path: |
-            target/web-*.png
-            target/web-acceptance/result.json
-            target/web-acceptance/extension-install.json
+            artifacts/dsh/web-*.png
+            artifacts/dsh/result.json
+            artifacts/dsh/extension-install.json
           if-no-files-found: ignore
           retention-days: 7

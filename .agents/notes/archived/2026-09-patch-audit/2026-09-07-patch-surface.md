@@ -1,6 +1,6 @@
 # Agent Note: DSH 下游补丁与包覆盖审计
 
-Status: proposed
+Status: archived
 
 历史审计：下文冻结早期候选范围；当前实现以 [series.json](../../../../integrations/dsh/patches/series.json) 和 [架构](../../../../docs/architecture.md) 为准，不继续更新当时的包数推导。
 

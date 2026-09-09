@@ -4,12 +4,12 @@ User and developer installation use the same native `@dsh-remote/extension` bund
 
 | Input | Purpose |
 | --- | --- |
-| `extension/config.mjs` | Validate the supported host/package versions and load private remote configuration |
-| `extension/setup.mjs` | Implement the explicit configuration initialization command |
+| `extension/setup.mjs` | Validate the supported host/package versions and load private remote configuration |
+| `extension/config.mjs` | Initialize private configuration, optionally from a verified complete release |
 | `official/package.json` and lockfile | Pin official build/test dependencies; not a user installer |
 | `extension/cordis.patch.yml` and `extension/presets/remote/` | Installed bundle overlay and Agent preset |
 | `../patches/series.json` | Authoritative upstream revision and ordered patch list |
 
-`../scripts/build-extension.mjs` builds our plugins and patched compatibility packages into `target/extension/` and emits the tarball described by `target/packages/extension-build.json`. It does not build the complete DSH host. CI uploads the extension and separately builds Linux helper candidates; public registry/release publishing is not implemented.
+`../scripts/build-extension.mjs` builds our plugins and patched compatibility packages into `.build/dsh/extension/` and emits the tarball described by `dist/dsh/extension-build.json`. It does not build the complete DSH host. Complete runtime archives and CI promotion are documented in [release](../../../docs/release.md).
 
 The [SSH fixture](../tests/packaging/ssh-fixture.md) exists for unchanged-source package/import checks. It is not a second user delivery scheme. Build and validation commands are in the [development guide](../../../docs/development.md).

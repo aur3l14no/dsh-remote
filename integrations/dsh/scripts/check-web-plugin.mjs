@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
 
 const root = resolve('.');
-const upstream = resolve(process.argv[2] ?? 'target/extension-source');
+const upstream = resolve(process.argv[2] ?? '.build/dsh/extension-source');
 const raw = ts.readConfigFile(join(upstream, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(raw).map(([name, values]) => [name, values.map(value => {
   const file = resolve(upstream, value);

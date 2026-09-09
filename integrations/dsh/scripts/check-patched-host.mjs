@@ -14,7 +14,7 @@ const series = JSON.parse(readFileSync(new URL('../patches/series.json', import.
 const patches = [...series.patches];
 for (const file of process.argv.slice(3)) patches.push({ file });
 if (!patches.length) throw new Error('No patches selected');
-const output = resolve('target/patched-host');
+const output = resolve('.build/dsh/patched-host');
 const root = join(output, 'source');
 await rm(root, { recursive: true, force: true });
 await mkdir(root, { recursive: true });
@@ -66,4 +66,4 @@ await build({ entryPoints: [entry], outfile: join(output, 'lib/admission.mjs'), 
 });
 writeFileSync(join(output, 'admission.mjs'), "import './lib/admission.mjs';\n");
 writeFileSync(join(output, 'build.json'), JSON.stringify({ revision: baselineRevision, patches: applied, candidate: !!process.argv[3] }, null, 2) + '\n');
-console.log('PASS patched host applied, typechecked and bundled; run target/patched-host/admission.mjs for behavior acceptance');
+console.log('PASS patched host applied, typechecked and bundled; run .build/dsh/patched-host/admission.mjs for behavior acceptance');

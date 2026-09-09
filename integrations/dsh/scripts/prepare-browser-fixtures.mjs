@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
-const source = resolve(process.argv[2] ?? 'target/extension-source');
-const output = resolve('target/browser-fixtures');
+const source = resolve(process.argv[2] ?? '.build/dsh/extension-source');
+const output = resolve('.build/dsh/browser-fixtures');
 await rm(output, { recursive: true, force: true });
 const files = ['apps/web/tests/scaffold.ts', 'apps/web/tests/support.ts', 'packages/core/agent-loop/tests/mock-adapter.ts', 'snapshots/web/web-search-round'];
 for (const file of files) { await mkdir(dirname(join(output, file)), { recursive: true }); await cp(join(source, file), join(output, file), { recursive: true }); }

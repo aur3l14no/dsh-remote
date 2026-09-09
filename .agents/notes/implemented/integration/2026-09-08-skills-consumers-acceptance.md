@@ -33,4 +33,10 @@ Status: implemented
 
 按用户“高不确定性时停止”条件，本轮不扩大为默认远端工具全集：原生 child-agent 委派权限承诺尚无远端 sandbox/policy 对应，且子 Agent 只有继承 binding，skills/admission 使用的顶层 membership 尚未形成完整 lineage 准入。terminal UI、安装态发行、真实服务也未完成。继续工作前先定权限/lineage 契约；不能简单启用本地消费者。worktree 按既有约定延期。
 
-重要假设与 workaround 的唯一[验收页](../architecture/2026-09-08-assumptions-and-workarounds.md)；剩余规划继续保留 proposed 状态。
+当前契约见 [Skills](../../../../docs/skills.md)，后续 child/terminal 支持见[对应验收](2026-09-08-child-terminal-source-acceptance.md)。
+
+## 同步与取消后续验收（2026-09-08）
+
+实现新 helper 前自动同步及不重启 helper 的手动 Sync Skills；来源由宿主配置，按目标串行，已有 revision 同时验证文件内容和权限。未准入的重连等待响应取消并释放监听器/容量；本地控制传输的取消、超时和输出超限执行 TERM→500 ms→KILL。
+
+当时 npm 为 31 通过、2 个环境选择跳过，根/Web 类型检查、双 Linux SSH 部署和原生 CLI/Playwright 通过。覆盖自动同步失败阻止绑定、修正来源后重试、手动更新保持 helper PID、手动失败保留已部署内容；无需真实模型凭据。原报告为 ignored target/web-acceptance/source-install.json，仅记录历史产物位置。

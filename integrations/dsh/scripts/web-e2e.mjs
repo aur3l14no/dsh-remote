@@ -6,9 +6,10 @@ import { sshControl } from '../../../runtime/ssh/src/control.ts';
 import yaml from 'js-yaml';
 import { BindingStore } from '../packages/world/ssh-world/src/bindings.ts';
 const root = resolve('.');
-const upstream = resolve('target/browser-fixtures');
-const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');
-await mkdir('target/web-acceptance', { recursive: true });
+const upstream = resolve('.build/dsh/browser-fixtures');
+const installation = resolve(process.env.DSH_TEST_INSTALL ?? '.build/dsh/official-install');
+await mkdir('artifacts/dsh', { recursive: true });
+await mkdir('.build/dsh/e2e', { recursive: true });
 const live = process.argv[2] === '--live';
 const liveEnvironment = {};
 if (live) {
@@ -19,12 +20,12 @@ if (live) {
   liveEnvironment.DEEPSEEK_API_KEY = key;
 }
 const scenario = live ? 'remote-live.e2e.ts' : 'portable-workspace.e2e.ts';
-const resultFile = resolve(`target/web-acceptance/${live ? 'live-result' : 'result'}.json`);
+const resultFile = resolve(`artifacts/dsh/${live ? 'live-result' : 'result'}.json`);
 await rm(resultFile, { force: true });
-if (live) await rm(resolve('target/web-acceptance/live-details.json'), { force: true });
-const extension = resolve('target/plugin-home/profiles/web/node_modules/@dsh-remote/extension');
+if (live) await rm(resolve('artifacts/dsh/live-details.json'), { force: true });
+const extension = resolve('.build/dsh/plugin-home/profiles/web/node_modules/@dsh-remote/extension');
 const build = JSON.parse(await readFile(`${extension}/extension.json`, 'utf8'));
-const state = await mkdtemp(resolve('target/web-acceptance/run-'));
+const state = await mkdtemp(resolve('.build/dsh/e2e/browser-'));
 try {
   BindingStore.create(`${state}/bindings.json`);
   const selection = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, 'utf8'));
@@ -54,7 +55,7 @@ try {
     await new Promise((accept, reject) => { child.once('error', reject); child.once('exit', code => code === 0 ? accept() : reject(new Error(`Browser acceptance exited ${code}`))); });
     await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
       scenario, topology: 'host Web + Chromium; two Docker Linux/SSH Worlds',
-      ...(live ? { checks: JSON.parse(await readFile('target/web-acceptance/live-details.json', 'utf8')) } : {}),
+      ...(live ? { checks: JSON.parse(await readFile('artifacts/dsh/live-details.json', 'utf8')) } : {}),
       model: live ? 'live DeepSeek API' : 'synthetic replay and native MockAdapter', search: live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
   } finally {
     process.removeListener('SIGINT', interrupt);

@@ -37,15 +37,15 @@ jobs:
           (cd runtime/helper && cargo test --locked --target x86_64-unknown-linux-musl)
       - name: Package helper with source identity and checksum
         run: |
-          mkdir -p runtime/helper/target/prebuild
-          cp runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote runtime/helper/target/prebuild/dsh-remote
-          cp LICENSE runtime/helper/target/prebuild/LICENSE
-          git rev-parse HEAD > runtime/helper/target/prebuild/SOURCE_REVISION
-          (cd runtime/helper/target/prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
-          tar -czf runtime/helper/target/helper-linux-x86_64-musl.tar.gz -C runtime/helper/target/prebuild .
+          mkdir -p .build/runtime/helper-prebuild dist/runtime
+          cp runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote .build/runtime/helper-prebuild/dsh-remote
+          cp LICENSE .build/runtime/helper-prebuild/LICENSE
+          git rev-parse HEAD > .build/runtime/helper-prebuild/SOURCE_REVISION
+          (cd .build/runtime/helper-prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
+          tar -czf dist/runtime/helper-linux-x86_64-musl.tar.gz -C .build/runtime/helper-prebuild .
       - uses: actions/upload-artifact@v4
         with:
           name: helper-linux-x86_64-musl-${{ github.sha }}
-          path: runtime/helper/target/helper-linux-x86_64-musl.tar.gz
+          path: dist/runtime/helper-linux-x86_64-musl.tar.gz
           if-no-files-found: error
           retention-days: 14

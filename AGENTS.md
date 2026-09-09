@@ -10,3 +10,5 @@ Read README.md, docs/architecture.md and docs/execution-boundaries.md before cha
 - Workspace filesystem/process operations use the bound World. Missing routing context fails explicitly. No local fallback, cwd-based World guessing, shell-string rewriting or global Node FS monkey-patching.
 - Skill source location does not choose command execution location. Distinguish local connector APIs, local control state and remote workspace capabilities. Keep World facts visible to model/approval; do not add general host-shell authority to fix a local skill.
 - Run the focused checks in docs/development.md. Native fixture success is not Linux/SSH or browser acceptance. Do not commit private targets, credentials or runtime tokens.
+
+- Reserve target/ for Cargo under runtime/helper/. Put disposable integration builds and private test state in .build/dsh/, sanitized reports in artifacts/dsh/, and user distribution files in dist/dsh/. Keep helper release staging in .build/runtime/ and archives in dist/runtime/. Never recreate a root target/ or alias it; historical evidence retains its original paths.

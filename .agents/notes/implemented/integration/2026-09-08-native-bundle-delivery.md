@@ -23,3 +23,11 @@ Status: implemented
 - subagent 基于具体实现与上述证据复核，无明确阻断项；无文件工具，不能视为逐行/全仓审计。
 
 原始本地报告在忽略的 target/web-acceptance 与 target/native-*.log；不上传私有日志。CI 安装与上传的是同一 extension tarball。尚未 push/运行 GitHub CI，未发布 npm 或公开 Release。worktree、附件桥接、远端 OS sandbox 不在本次迁移范围。
+
+## 后续修复与验收（2026-09-09）
+
+初始化器改用官方 resolveDshHome 处理空值和字面 `~/`，并显式声明 home-paths 依赖；控制进程关闭后仍保留 500 ms SIGKILL 进程组升级，避免忽略 TERM 且提前关闭 stdio 的孙进程残留。heartbeat 负例在修复前失败、修复后通过。该本地控制清理不保证任意远端后代均已结束。
+
+当时验证：TypeScript、npm（32 通过、2 个环境选择跳过）、仓库外原生 CLI/Playwright 双 World、重复安装/错误版本拒绝/移除及官方文件摘要不变通过。review 基于主代理提供的 config/setup、同步和 control 源码，未独立读全仓；新增第三方插件拓扑不在范围内。原记录确认 helper prebuild 通过，但没有保留主 CI 的最终 run 链接，此处不补写未知结果。
+
+后续版本与预览适配见 [DSH 升级验收](2026-09-09-dsh-upgrade.md)；当前安装方式见 [install](../../../../docs/install.md)。

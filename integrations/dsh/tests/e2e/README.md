@@ -1,63 +1,42 @@
 # Two-World E2E environment
 
-The host runs DSH, the selected patches/plugins, and the test driver. Docker runs two Linux SSH servers with independent filesystems and Git repositories at the identical path `/workspace`. On macOS use OrbStack; on an Ubuntu runner use Docker Engine with Compose. The Docker daemon must be local to the host running the tests: published SSH ports bind to that host's loopback.
+Run the setup and gate commands in [development](../../../../docs/development.md#可复用双-world-环境). This page owns the environment contract and test coverage.
 
-```sh
-node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
-node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
+The host runs DSH and Vitest/Playwright Chromium. A local Docker daemon runs two Linux SSH servers with independent Git repositories at `/workspace`; use OrbStack on macOS or Docker Engine with Compose on Ubuntu. Published SSH ports bind to the test host's loopback. Node, npm dependencies, OpenSSH and ssh-keygen are host prerequisites; Linux also needs Chromium system dependencies.
 
-# Install official DSH, build/install the extension, then prepare test fixtures.
-node integrations/dsh/scripts/prepare-official.mjs
-node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" target/official-install
-node integrations/dsh/scripts/prepare-test-profile.mjs
-node --test integrations/dsh/tests/packaging/installed.test.mjs
-node integrations/dsh/scripts/prepare-browser-fixtures.mjs
-npx --no-install playwright install chromium
-node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
-node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
-```
+The first build downloads Debian/Rust images and Linux packages. The helper builds with Cargo.lock inside Linux. No host repository, home or Docker socket is mounted into the Worlds; the SSH account is unprivileged, and only sshd starts as root. Dockerfile.dockerignore restricts the build context to helper/fixture inputs.
 
-The browser lane uses this repository's pinned Vitest/Playwright dependencies and the official prebuilt frontend. On Linux install Chromium system dependencies in the host environment before running the browser lane.
+## Runner inputs, outputs and cleanup
 
-Requires Node 24+, installed npm dependencies, Docker Compose, OpenSSH client and ssh-keygen. The first run downloads Debian/Rust images and Linux packages; subsequent builds reuse Docker's cache. The helper builds inside Linux with the committed Cargo.lock. No host repository, home or Docker socket is mounted into either World. The SSH account is unprivileged; sshd alone starts as root.
+`e2e.mjs -- HOST_COMMAND ...` creates a unique Compose stack, temporary key, strict known_hosts obtained through Docker control, ephemeral ports and artifact cache. It verifies both SSH endpoints, then supplies the host command with:
 
-The runner creates a unique Compose stack, temporary SSH key, strict known_hosts obtained through Docker control, ephemeral loopback ports, and platform artifact manifest/cache. It verifies both SSH endpoints, exports the configuration below, runs the supplied **host command**, then removes its containers/network and temporary credentials on success, failure or a handled interrupt. Images/build cache remain reusable. SIGKILL or host loss cannot run cleanup: identify the owned `dsh-e2e-*` stack with `docker compose ls` and remove that stack explicitly; do not prune unrelated Docker resources.
-
-| Child environment | Contract |
+| Environment | Contract |
 | --- | --- |
-| `DSH_TEST_PORTABLE_WORKSPACE_CONFIG` | JSON `{worlds, path}`: two catalog Worlds, generated SSH configuration, `/workspace` |
-| `DSH_TEST_BOOTSTRAP_MANIFEST` | Trusted manifest for the helper and ripgrep extracted from the built Linux image |
-| `DSH_TEST_ARTIFACT_CACHE` | Content-addressed artifacts consumed by the production SSH bootstrap |
-| `DSH_TEST_WORLD_CONTAINERS` | Test-only Docker control IDs for deliberate World shutdown; never model capabilities |
+| `DSH_TEST_PORTABLE_WORKSPACE_CONFIG` | File containing JSON `{worlds, path}`: catalog targets, generated SSH configuration and `/workspace` |
+| `DSH_TEST_BOOTSTRAP_MANIFEST` | Trusted manifest for helper/ripgrep extracted from the Linux image |
+| `DSH_TEST_ARTIFACT_CACHE` | Content-addressed artifacts used by production bootstrap |
+| `DSH_TEST_RIPGREP_LICENSE` | License extracted from the image for the complete release candidate |
+| `DSH_TEST_WORLD_CONTAINERS` | JSON Docker IDs for deliberate test shutdown; never a model capability |
 
-Paths and keys live under ignored `target/e2e/run-*`. Do not upload that directory as a CI artifact. The runner does not load private `.local/` configuration or host SSH keys. Docker context is restricted by `Dockerfile.dockerignore` to the helper and fixture inputs.
+Private inputs stay under `.build/dsh/e2e/run-*`; the runner does not load personal SSH keys or `.local/` targets. Success, failure and handled interrupts remove the stack, network and temporary credentials; images/build cache remain. After SIGKILL or host loss, identify the owned `dsh-e2e-*` stack with `docker compose ls` and remove it explicitly. Never prune unrelated resources or upload private run directories.
 
-## Browser lane: follow DSH's practice
+## Gates and proof boundaries
 
-The pinned upstream uses **Vitest + the `playwright` Chromium API**, not a separate Playwright Test runner:
+| Gate | Coverage |
+| --- | --- |
+| patched-host admission | Controller creation/adoption, fork and cold activation over real SSH; separate from browser and model acceptance |
+| `portable-workspace.e2e.ts` | Product UI and providers with model replay: two same-path Worlds, remote writes, workspace management, fork, cold deep links/new runtime, child continuation, terminal/jobs ownership and cancellation, missing bindings and stopped World |
+| instructions/skills and deployment | Project/nested instructions, World catalogs and updates, file completion, deployed scripts; repeated deployment, empty directories, prerequisites and unmanaged-entry conflicts |
+| previews and migration | Host/two-World same-path isolation, range reads, Sidebar/images, symlink/out-of-root rejection and change filtering; disposable V2→V3 logs with original bytes and bindings preserved |
+| controlled Web Search | Native provider calls the host HTTP endpoint; remote Shell cannot access that loopback endpoint and lacks connector credentials |
+| `extension-install.mjs` | Official CLI installs the extension tarball and initializes through init-release, then Playwright exercises first-run welcome, Session creation, automatic/manual sync, failed-source retry and unchanged helper PIDs; no scaffold |
 
-- `vitest.web.config.ts`: dedicated Web lane, built frontend, serial local execution.
-- `apps/web/tests/scaffold.ts`: real Loader/Web composition, HTTP/WebSocket, isolated host state; `extraOverlayPath` and `extraInstallAnchors` compose downstream overlays. Model-dependent scenarios use keyless replay.
-- `apps/web/tests/workspace-management.e2e.ts`: role/label-based page interaction with assertions against durable host state.
-- `apps/web/tests/web-search-round.e2e.ts`: actual search provider wired to a controlled local HTTP endpoint; a useful reference for the mandatory local connector / remote workspace boundary case.
-- `apps/web/tests/support.ts`: English browser context and failure screenshots; scaffold supplies console tripwires and stable ARIA snapshots.
+`prepare-browser-fixtures.mjs` copies only pinned upstream tests/replay/mock assets and adds persistent-state/directory-picker options. `installed.vitest.config.mjs` resolves tests to installed official JavaScript; the frontend stays official. The product uses a native overlay and ordinary Node resolution. Replay controls model output; filesystem, processes, SSH and browser transport remain real. Controlled search does not establish external service availability.
 
-Our browser scenarios belong here, use that same Vitest/Playwright approach, and run as the host command inside this wrapper. The remote overlay must replace local workspace consumers before the scaffold creates Agents. Use the installed extension and official packages; the native bundle overlay selects the compatibility implementations. Chromium and the built Web client are host dependencies, not World image dependencies.
+## Optional live and recording lanes
 
-Both controller/SSH and browser/SSH lanes are executable. `portable-workspace.e2e.ts` runs the actual product UI, real providers and native model replay. It checks two Worlds at the same path, remote file isolation, local search network/credential boundaries, native fork, cold deep-link recovery with a new runtime, remote process cancellation, missing bindings and a stopped World. It also covers workspace management, remote project/nested instructions, World-specific skill catalogs and updates, deployed skill script execution, remote file completion, and background job ownership/cancellation. The separate deployment lane checks repeated installation, content updates, empty directories, missing prerequisites and refusal to overwrite unmanaged entries.
+`web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` and `extension-install.mjs [PRIVATE_DEEPSEEK_HOME]` read only `.credentials.yaml` → `refs.DEEPSEEK_API_KEY` into the host. They send synthetic tasks from fresh Worlds; the CLI lane verifies real-model remote execution and isolation of the other World. Commands are in [development](../../../../docs/development.md#真实模型验收). `DSH_TEST_INSTALL` selects a separate official installation.
 
-`prepare-browser-fixtures.mjs` extracts only the pinned upstream test fixtures and adds persistent-state/directory-picker options. It points composition and frontend resolution at installed official packages. `installed.vitest.config.mjs` resolves test imports to installed official JavaScript. The product uses ordinary Node resolution and a native bundle overlay, without source aliases or a preload hook. These fixture adaptations are test-only.
+Set `DSH_TEST_RELEASE_OUTPUT` to an absent directory to retain the complete candidate accepted by extension-install; otherwise its temporary candidate is removed. CI uses this for [release promotion](../../../../docs/release.md). Set `DSH_E2E_VIDEO_DIR` for a 1440×900 WebM of the CLI browser flow; default runs are unrecorded, and SSH assertions remain in the runner.
 
-The browser runner keeps host control state under `target/web-acceptance/run-*` and removes it after the test. Screenshots are written to `target/web-*.png`. Never upload temporary state, bindings, SSH keys or artifact caches. Controlled model/search responses prove integration behavior, not external service availability or live model quality.
-
-Browser acceptance must cover two Worlds at the same path, selecting/creating Sessions, independent remote writes, page reload and cold host restart, binding errors, cancellation/disconnection, and local Web Search followed by remote file operations. Replay controls model output only; filesystem/process/SSH and browser transport remain real. Remote worktree orchestration remains deferred.
-
-## Installed official CLI and live checks
-
-`web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` keeps the real model and external DeepSeek search provider; its task data are generated in fresh Docker Worlds. Only `refs.DEEPSEEK_API_KEY` is read and injected into the host. This is a manual credentialed lane, separate from keyless CI.
-
-`extension-install.mjs [PRIVATE_DEEPSEEK_HOME]` invokes the npm-installed extension launcher and official DSH CLI. It follows first-run welcome, creates a remote Session, and verifies automatic/manual Skills sync and unchanged helper PIDs. The optional credentialed variant asks the real model to write/execute a remote test and checks the other World remains unchanged. This gate does not use a scaffold. Set `DSH_TEST_INSTALL` to validate an installation outside the repository.
-
-Sanitized results are `target/web-acceptance/live-result.json`, `extension-install.json` and `extension-install-live.json`. The private CLI diagnostic log may contain its process-token URL and is never an uploaded artifact. Temporary homes and Docker resources are removed after acceptance. Local success does not claim a GitHub runner result.
-
-To record the native CLI browser flow, set `DSH_E2E_VIDEO_DIR` to an output directory when running `extension-install.mjs`. Playwright saves a 1440×900 WebM and slows UI actions for readability; the default gate remains unrecorded. The recording captures browser content only, while SSH assertions and Docker cleanup remain in the test runner.
+Browser state lives under `.build/dsh/e2e/browser-*` and is removed after the test. Sanitized screenshots/results live under `artifacts/dsh/`, including `live-result.json`, `extension-install.json` and `extension-install-live.json`. Private CLI logs may contain a process-token URL and must not be uploaded. Local acceptance does not establish a GitHub runner result; outstanding scenarios are maintained only in the [current plan](../../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).

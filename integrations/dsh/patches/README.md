@@ -23,14 +23,9 @@ Every create caller is admitted before sharing in-flight work; resume and live/r
 
 The extension adapter in ../packages/workspace/portable-workspace/src/admission.ts implements remote policy. The patched-host gate covers direct creation/adoption, concurrent conflicting selections, cold/observed/lookup activation, fork, revoked admission, missing or unavailable Worlds, and local create/resume regression. It is not full browser, upload transport, Linux/SSH or model acceptance.
 
-Run from the repository root:
+Build/run commands are maintained in [development](../../../docs/development.md#上游兼容检查升级或补丁变更).
 
-```sh
-node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
-DSH_TEST_RG="$LOCAL_RG" node target/patched-host/admission.mjs
-```
-
-The gate exports a clean pinned checkout into target/patched-host/source, applies the series and checks affected host/integration types before bundling. Original unchanged-source gates retain their revision and cleanliness checks and still reproduce the unpatched gaps. Never edit the user's upstream checkout or vendor its full tree into this directory.
+The gate exports a clean pinned checkout into .build/dsh/patched-host/source, applies the series and checks affected host/integration types before bundling. Original unchanged-source gates retain their revision and cleanliness checks and still reproduce the unpatched gaps. Never edit the user's upstream checkout or vendor its full tree into this directory.
 
 New candidates can be passed by patch filename as the build command's last argument. Add them to the series only after behavior acceptance. An upstream upgrade must reapply and retest the series before updating the supported revision.
 

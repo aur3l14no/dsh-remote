@@ -34,7 +34,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await scaffold.ctx.credentials.set(key, 'local-connector-fixture');
   browser = await chromium.launch({ headless: true });
   let page = await openPage(browser);
-  onTestFailed(async () => { if (page.isClosed()) return; console.error('PAGE', await page.locator('body').innerText()); await page.screenshot({ path: `${root}/target/web-failure.png`, fullPage: true }); });
+  onTestFailed(async () => { if (page.isClosed()) return; console.error('PAGE', await page.locator('body').innerText()); await page.screenshot({ path: `${root}/artifacts/dsh/web-failure.png`, fullPage: true }); });
   await page.goto(scaffold.authenticatedUrl);
   await page.getByLabel('World', { exact: true }).selectOption('a');
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
@@ -44,7 +44,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(2);
   await expect.poll(() => page.getByRole('button', { name: /New session in World/ }).count(), { timeout: 15000 }).toBe(2);
-  await page.screenshot({ path: `${root}/target/web-two-worlds.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/dsh/web-two-worlds.png`, fullPage: true });
   const first = scaffold.ctx.agents.list()[0]!;
   await checkFilePreview(scaffold, page, first, scaffold.ctx.agents.list()[1]!);
   const catalogA = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: first.session.header.id }, new AbortController().signal);
@@ -100,7 +100,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await other.fs.writeText(await other.fs.resolve('.agents/skills/world-skill/SKILL.md'), '---\nname: world-b\ndescription: Updated remote catalog.\n---\nUpdated');
   const refreshed = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: second.session.header.id }, new AbortController().signal);
   expect(refreshed.skills.find(skill => skill.name === 'world-b')?.description).toBe('Updated remote catalog.');
-  await page.screenshot({ path: `${root}/target/web-remote-round.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/dsh/web-remote-round.png`, fullPage: true });
   const sessionId = first.session.header.id;
   await page.getByRole('button', { name: 'Branch into a new conversation' }).last().click();
   await expect.poll(() => scaffold!.ctx.agents.list().find(agent => agent.session.header.parentSession === sessionId), { timeout: 15000 }).toBeDefined();
@@ -127,7 +127,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => scaffold!.ctx.get('worldPortableWorkspaces').list().length).toBe(2);
   expect(scaffold.ctx.get('worldPortableWorkspaces').forSession(second.session.header.id)).toBeDefined();
   await page.getByRole('button', { name: `Open session ${sessionId}`, exact: true }).click();
-  await page.screenshot({ path: `${root}/target/web-management.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/dsh/web-management.png`, fullPage: true });
   await expect.poll(() => new URL(page.url()).searchParams.get('session')).toBe(sessionId);
   const deepLink = new URL(page.url());
   const oldRuntime = owner.remoteWorld.client.info.runtime;
@@ -186,7 +186,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
     stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 500 });
   expect((await probe.done).exitCode).not.toBe(0);
   await probe.waitForExit();
-  await page.screenshot({ path: `${root}/target/web-cold-cancel.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/dsh/web-cold-cancel.png`, fullPage: true });
   await page.close();
   await scaffold.close();
   await checkChildLifecycle(async () => { scaffold = await launch(true); return scaffold; }, sessionId, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
@@ -206,7 +206,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => page.locator('body').innerText(), { timeout: 15000 }).toMatch(/WORLD_REQUIRED|Session admission failed|saved Session membership/);
   expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
   expect(scaffold.ctx.get('executionWorlds').bindings.get(sessionId)).toBeUndefined();
-  await page.screenshot({ path: `${root}/target/web-missing-binding.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/dsh/web-missing-binding.png`, fullPage: true });
   const containers = JSON.parse(process.env.DSH_TEST_WORLD_CONTAINERS!);
   execFileSync('docker', ['stop', containers.b], { stdio: 'ignore' });
   const secondId = second.session.header.id;
