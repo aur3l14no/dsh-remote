@@ -59,7 +59,7 @@ jobs:
           dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
           ```
 
-          The extension asset is the exact CI-tested tarball with a stable download filename. The complete Linux archive also contains bootstrap artifacts; follow docs/install.md at this release commit for World configuration and upgrades. init-release is for new configuration only.
+          The extension asset is the exact CI-tested tarball with a stable download filename. Start DSH, click Connect to Host, and open a remote folder. The extension automatically downloads and deploys its matching runtime. OpenSSH public-key login and known_hosts must already work. The complete Linux archive is used by automatic deployment.
 
           Other target platforms and npm publication are not included.
           EOF

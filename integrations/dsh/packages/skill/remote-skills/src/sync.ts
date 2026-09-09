@@ -17,15 +17,21 @@ export class SkillSynchronizer {
   constructor(worlds: SkillWorld[]) {
     for (const world of worlds) {
       if (this.worlds.has(world.id)) throw new Error('Duplicate skill World');
-      if (world.skills?.some(skill => !isAbsolute(skill.source))) throw new Error('Automatic skill sources require absolute local paths');
-      const key = destinationKey(world.target);
-      const previous = this.destinations.get(key);
-      if (previous && JSON.stringify(previous.skills ?? []) !== JSON.stringify(world.skills ?? [])) {
-        throw new Error('Worlds sharing a target must select the same skills');
-      }
-      this.destinations.set(key, world);
-      this.worlds.set(world.id, world);
+      this.register(world);
     }
+  }
+  register(world: SkillWorld): void {
+    const existing = this.worlds.get(world.id);
+    if (existing) {
+      if (JSON.stringify(existing) !== JSON.stringify(world)) throw new Error('Skill World changed');
+      return;
+    }
+    if (world.skills?.some(skill => !isAbsolute(skill.source))) throw new Error('Automatic skill sources require absolute local paths');
+    const key = destinationKey(world.target);
+    const previous = this.destinations.get(key);
+    if (previous && JSON.stringify(previous.skills ?? []) !== JSON.stringify(world.skills ?? [])) throw new Error('Worlds sharing a target must select the same skills');
+    this.destinations.set(key, world);
+    this.worlds.set(world.id, world);
   }
 
   async beforeConnect(definition: WorldDefinition): Promise<void> {

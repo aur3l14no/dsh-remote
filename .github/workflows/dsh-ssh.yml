@@ -78,6 +78,8 @@ jobs:
         env:
           DSH_TEST_RELEASE_OUTPUT: .build/dsh/release-candidate
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
+      - name: Clean install and automatic Connect
+        run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
       - name: Check Web plugin source and prepare test fixtures
         run: |
           node integrations/dsh/scripts/check-web-plugin.mjs
@@ -116,5 +118,6 @@ jobs:
             artifacts/dsh/web-*.png
             artifacts/dsh/result.json
             artifacts/dsh/extension-install.json
+            artifacts/dsh/connect-install.json
           if-no-files-found: ignore
           retention-days: 7

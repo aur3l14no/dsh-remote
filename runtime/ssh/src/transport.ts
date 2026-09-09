@@ -29,7 +29,7 @@ export function sshArguments(target: SshTarget, command: readonly string[]): str
     throw new RemoteError('INVALID_ARGUMENT', 'Podman transport requires the full container ID, never a reusable name');
   }
   const final = target.podmanContainer === undefined ? command : ['podman', 'exec', '-i', target.podmanContainer, ...command];
-  return ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...(target.configFile ? ['-F', target.configFile] : []), '--', target.host, final.map(quote).join(' ')];
+  return ['-T', '-o', 'BatchMode=yes', '-o', 'PreferredAuthentications=publickey', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=10', ...(target.configFile ? ['-F', target.configFile] : []), '--', target.host, final.map(quote).join(' ')];
 }
 
 /** Uses an already installed helper/socket; bootstrap owns provisioning separately. */

@@ -14,6 +14,12 @@ export class PortableWorkspaceApi extends TypertRemoteService {
     super(ctx, 'portableWorkspaceApi', { namespace: 'portableWorkspace' });
     ctx.effect(() => ctx.typert.register(contribution));
   }
+  @Remote('hosts')
+  hosts() { return this.ctx.worldPortableWorkspaces.connections.hosts(); }
+  @Remote('connect')
+  connect(request: { host: string }) { return this.ctx.worldPortableWorkspaces.connectHost(request.host); }
+  @Remote('directories')
+  directories(request: PortableWorkspaceSelection) { return this.ctx.worldPortableWorkspaces.directories(request.worldId, request.path); }
   @Remote('worlds')
   worlds(): WorldView[] { return this.ctx.worldPortableWorkspaces.worlds(); }
   @Remote('syncSkills')

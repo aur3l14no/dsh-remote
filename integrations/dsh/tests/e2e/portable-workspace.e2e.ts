@@ -38,10 +38,10 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.goto(scaffold.authenticatedUrl);
   await page.getByLabel('World', { exact: true }).selectOption('a');
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
-  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(1);
   await page.getByLabel('World', { exact: true }).selectOption('b');
-  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(2);
   await expect.poll(() => page.getByRole('button', { name: /New session in World/ }).count(), { timeout: 15000 }).toBe(2);
   await page.screenshot({ path: `${root}/artifacts/dsh/web-two-worlds.png`, fullPage: true });
@@ -123,7 +123,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.getByRole('button', { name: 'Remove World B · workspace from list', exact: true }).click();
   await expect.poll(() => scaffold!.ctx.get('worldPortableWorkspaces').list().length).toBe(1);
   expect(await other.fs.readText(await other.fs.resolve('world.txt'))).toBe('b\n');
-  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await expect.poll(() => scaffold!.ctx.get('worldPortableWorkspaces').list().length).toBe(2);
   expect(scaffold.ctx.get('worldPortableWorkspaces').forSession(second.session.header.id)).toBeDefined();
   await page.getByRole('button', { name: `Open session ${sessionId}`, exact: true }).click();

@@ -90,6 +90,10 @@ function installWorkspaceUi(ctx: Context) {
   function Workspaces() {
     const snapshot = useSyncExternalStore(subscribeWorkspaces, workspaceSnapshot);
     const sessions = useSyncExternalStore(subscribeSessions, sessionSnapshot);
+    const [host, setHost] = useState('');
+    const [hosts, setHosts] = useState<string[]>([]);
+    const [directories, setDirectories] = useState<string[]>([]);
+    const [status, setStatus] = useState('');
     const [worlds, setWorlds] = useState<WorldView[]>([]);
     const [world, setWorld] = useState('');
     const [path, setPath] = useState('');
@@ -100,6 +104,7 @@ function installWorkspaceUi(ctx: Context) {
     const [title, setTitle] = useState('');
     useEffect(() => {
       let active = true;
+      void ctx.remote.portableWorkspace.hosts().then(result => { if (active && result.ok) setHosts(result.value); }).catch(() => {});
       void ctx.remote.portableWorkspace.worlds().then(result => {
         if (!active) return;
         if (!result.ok) { setError(result.error.message); return; }
@@ -107,10 +112,16 @@ function installWorkspaceUi(ctx: Context) {
       });
       return () => { active = false; };
     }, []);
+    async function browse(next: string, selected = world) {
+      setPath(next); setDirectories([]);
+      const result = await ctx.remote.portableWorkspace.directories({ worldId: selected, path: next });
+      if (!result.ok) throw new Error(result.error.message);
+      setDirectories(result.value);
+    }
     async function perform(action: () => Promise<void>) {
       setBusy(true); setError('');
       try { await action(); } catch (error) { setError(String(error)); }
-      finally { setBusy(false); }
+      finally { setBusy(false); setStatus(''); }
     }
     return <section className="portable-workspaces" aria-label="Portable workspaces">
       <style>{`
@@ -133,7 +144,20 @@ function installWorkspaceUi(ctx: Context) {
         .portable-workspaces .workspace-actions, .portable-workspaces form, .portable-workspaces .workspace-session { display: grid; gap: 5px; }
         .portable-workspaces [role=alert] { margin: 0; color: #ba3232; overflow-wrap: anywhere; }
       `}</style>
-      <h3>Portable workspaces</h3>
+      <h3>Remote workspaces</h3>
+      <form onSubmit={event => { event.preventDefault(); void perform(async () => {
+        setStatus(`Connecting to ${host} and preparing the remote environment…`);
+        const result = await ctx.remote.portableWorkspace.connect({ host });
+        if (!result.ok) throw new Error(result.error.message);
+        setWorlds(previous => [...previous.filter(item => item.id !== result.value.world.id), result.value.world]);
+        setWorld(result.value.world.id);
+        await browse(result.value.home, result.value.world.id);
+      }); }}>
+        <label>SSH host<input aria-label="SSH host" list="ssh-hosts" placeholder="user@host or SSH alias" value={host} onChange={event => setHost(event.target.value)} /></label>
+        <datalist id="ssh-hosts">{hosts.map(value => <option key={value} value={value} />)}</datalist>
+        <button type="submit" disabled={busy || !host.trim()}>Connect to Host</button>
+      </form>
+      {status && <p role="status">{status}</p>}
       <label>World<select aria-label="World" value={world} onChange={event => setWorld(event.target.value)}>
         <option value="">Choose a World</option>
         {worlds.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -146,12 +170,17 @@ function installWorkspaceUi(ctx: Context) {
       }); }}>Sync Skills</button>
       {syncStatus && <p role="status">{syncStatus}</p>}
       <label>Remote directory<input aria-label="Remote directory" placeholder="/path/to/repository" value={path} onChange={event => setPath(event.target.value)} /></label>
+      {world && <details><summary>Browse folders</summary>
+        <button disabled={busy || !path.startsWith('/')} onClick={() => { void perform(() => browse(path)); }}>Browse</button>
+        <button disabled={busy || path === '/'} onClick={() => { void perform(() => browse(path.slice(0, path.replace(/\/$/, '').lastIndexOf('/')) || '/')); }}>Parent folder</button>
+        {directories.map(name => <button key={name} disabled={busy} onClick={() => { void perform(() => browse(path.replace(/\/$/, '') + '/' + name)); }}>{name}/</button>)}
+      </details>}
       <button disabled={!world || !path.startsWith('/') || busy} onClick={() => { void perform(async () => {
         const result = await ctx.remote.portableWorkspace.create({ worldId: world, path });
         if (!result.ok) throw new Error(result.error.message);
         const id = await navigation.connectWorkspace(result.value.workspaceId);
         sessionController.open(id);
-      }); }}>Add portable workspace</button>
+      }); }}>Open Folder</button>
       {navigation.unavailableSession && <p role="alert">The linked Session is unavailable.</p>}
       {error && <p role="alert">{error}</p>}
       {snapshot.error && <p role="alert">{snapshot.error.message}</p>}

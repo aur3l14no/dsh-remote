@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 
-const extensionVersion = '0.3.0';
+const extensionVersion = '0.3.1';
 const [sourceArg, installationArg] = process.argv.slice(2);
 if (!sourceArg || !installationArg) throw new Error('Usage: build-extension.mjs PINNED_DSH_SOURCE OFFICIAL_INSTALL');
 const source = resolve(sourceArg), installation = resolve(installationArg);

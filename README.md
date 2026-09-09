@@ -8,7 +8,9 @@ dsh-remote 为 DeepSeek Harness（DSH）提供 Remote Execution World：模型�
 dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
 ```
 
-World 配置与启动步骤见[安装指南](docs/install.md)。
+启动 DSH，点击 **Connect to Host**，选择 SSH alias 或输入 `user@host`，再打开远端文件夹。运行时会自动下载、部署和复用。连接使用已有 OpenSSH 公钥认证和 `known_hosts`；请先确保终端中的 `ssh <host>` 可正常连接。
+
+当前兼容 DSH **0.1.5-alpha.1**、Node.js **24.19+**；自动部署支持 Linux x86_64（glibc 2.36+）远端。
 
 支持 World/目录选择、Session 创建/fork/冷恢复、远端文件与搜索、前台/后台 Bash、jobs、原生子 Agent 和终端工具、文件预览，以及远端项目指令和 Skills。网络连接器仍在宿主；完整远端 sandbox、附件桥接和自动 worktree 尚未提供。完整契约见[执行边界](docs/execution-boundaries.md)，不应将默认 DSH 工具全集视为远程兼容。
 
@@ -27,7 +29,6 @@ npm test
 
 | 任务 | 文档 |
 | --- | --- |
-| 安装、升级与卸载 | [安装](docs/install.md) |
 | 配置项目指令与同步 Skills | [Skills](docs/skills.md) |
 | 理解执行位置与权限 | [执行边界](docs/execution-boundaries.md) |
 | 维护架构与第三方消费者 | [架构](docs/architecture.md)、[插件兼容](docs/plugin-compatibility.md) |

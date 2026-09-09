@@ -87,11 +87,11 @@ try {
   await page.getByLabel('Remote directory', { exact: true }).click();
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
   await rm(`${skillSource}/SKILL.md`);
-  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
   assert.equal(JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8')).sessions.length, 0);
   await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof/SKILL.md'), `${skillSource}/SKILL.md`);
-  await page.getByRole('button', { name: 'Add portable workspace', exact: true }).click();
+  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await page.locator('[data-composer-input][contenteditable=true]').first().waitFor({ timeout: 30000 });
   const bindings = JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8'));
   assert.equal(bindings.sessions.length, 1);

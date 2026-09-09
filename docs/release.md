@@ -6,7 +6,7 @@
 
 ## 产物与验证
 
-CI 的安装验收从一次性 Debian Linux World 取出实际 helper、ripgrep 及其许可，用 `pack-release.mjs` 组装到 `.build/dsh/release-candidate/`。官方 CLI 安装同一个扩展，并以 `init-release` 初始化这些产物；经过真实 SSH / 浏览器启动验收，以及后续浏览器回归后，才上传完整归档。
+CI 的安装验收从一次性 Debian Linux World 取出实际 helper、ripgrep 及其许可，用 `pack-release.mjs` 组装到 `.build/dsh/release-candidate/`。官方 CLI 安装同一个扩展，保留离线初始化验收，并在空白 profile 验证 Connect 自动下载、部署及离线重启；经过真实 SSH / 浏览器启动验收，以及后续浏览器回归后，才上传完整归档。
 
 `release.json` 记录仓库 revision、源码是否有未提交改动、上游 revision、DSH/扩展版本、扩展摘要和 runtime 平台清单。只复制清单声明的内容寻址产物，不打包整个开发 cache。bootstrap 仍会核对远端平台与产物摘要，不在宿主执行目标二进制。
 
@@ -29,6 +29,6 @@ node integrations/dsh/scripts/pack-release.mjs \
 
 各个 tag 的附件保持独立；固定的是附件文件名，不是版本 tag。不要重写旧版本附件，已有版本需要修正时发布新版本。
 
-本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令和配置迁移见 [install.md](install.md)，上游升级门槛见 [upstream-dependencies.md](upstream-dependencies.md)。
+本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令见 [README](../README.md)，维护与配置迁移见 [development.md](development.md)，上游升级门槛见 [upstream-dependencies.md](upstream-dependencies.md)。
 
-已有配置按[安装文档](install.md)升级，不重新 init；安装 GC 尚未实现。
+已有配置按[开发文档](development.md#离线产物与已有配置)升级，不重新 init；安装 GC 尚未实现。

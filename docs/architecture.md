@@ -49,4 +49,4 @@ FS、subprocess、shell 和 workdir resolver 在同一个 standing preset 隔离
 
 兼容包的运行时引用在构建期指向同一份包内文件，保留 package、client factory 和 Typert 身份。ui-chat 的浏览器模块从补丁源码单独构建；DSH 按插件文件最近的 package.json 发现浏览器模块和 inventory。普通依赖通过官方 profile fallback 解析，不使用 Node resolve hook，不修改官方安装。配置插件在兼容服务激活前校验宿主版本。
 
-安装与状态迁移见[安装指南](install.md)，overlay/preset 细节见[装配说明](../integrations/dsh/packaging/extension/README.md)。
+安装与状态迁移见[开发文档](development.md#离线产物与已有配置)，overlay/preset 细节见[装配说明](../integrations/dsh/packaging/extension/README.md)。

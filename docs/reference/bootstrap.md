@@ -1,6 +1,6 @@
 # SSH bootstrap 契约
 
-`runtime/ssh` 提供 `bootstrapSshWorld`：使用 system OpenSSH 进入选定环境，检测目标平台，将可信 manifest/cache 中的 helper 与 ripgrep 上传安装，启动 runtime，协商协议并验证远程 rg 后返回 client。未发布公共二进制下载服务；调用者负责可信 manifest 与本地产物来源。
+`runtime/ssh` 提供 `bootstrapSshWorld`：使用 system OpenSSH 进入选定环境，检测目标平台，将可信 manifest/cache 中的 helper 与 ripgrep 上传安装，启动 runtime，协商协议并验证远程 rg 后返回 client。调用者负责可信 manifest 与本地产物来源；DSH 扩展在连接时自动取得匹配版本，通用 runtime 不依赖 GitHub 或 DSH。
 
 ```ts
 const ready = await bootstrapSshWorld({
@@ -11,7 +11,7 @@ const ready = await bootstrapSshWorld({
 await ready.close();
 ```
 
-SSH 复用用户 keys、agent、ProxyJump 和 host verification。`configFile` 可显式指定配置；`podmanContainer` 可指定完整不可变容器 ID，使 probes、上传、runtime 和重连都在该最终容器进行。容器消失不能回退到 SSH 入口主机。
+SSH 复用用户 keys、agent、ProxyJump 和 known_hosts，使用非交互公钥认证并严格检查已有主机记录。`configFile` 可显式指定配置；`podmanContainer` 可指定完整不可变容器 ID，使 probes、上传、runtime 和重连都在该最终容器进行。容器消失不能回退到 SSH 入口主机。
 
 ## 安装与校验
 

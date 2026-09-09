@@ -107,6 +107,7 @@ npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
 ```
 
 Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
@@ -131,3 +132,15 @@ CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并�
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --live .local/deepseek-only
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs .local/deepseek-only
 ```
+
+## 离线产物与已有配置
+
+正常使用只需 README 中的插件安装命令，之后在 UI 点击 Connect。首次启动自动创建私有配置和绑定存储；缺失已有绑定文件时仍拒绝重建。连接只使用公钥认证和已有 known_hosts；密码、私钥口令和主机信任在终端 OpenSSH 中处理。
+
+运行时随扩展版本从对应 GitHub Release 下载到 `$DSH_HOME/remote/releases/<version>/`，校验后才通过 SSH 部署。缓存可离线复用；新扩展使用新版本目录，不替换活跃 runtime。远端不需要公网或编译器。平台选择仍由远端探测决定。
+
+离线部署和开发 fixture 可以保留显式 `bootstrap: {manifest, cacheDir}`。`dsh-remote-config init WORLD_CONFIG.json` 初始化显式配置；`init-release RELEASE_DIRECTORY WORLDS.json` 从匹配的完整包初始化。它们是维护入口，不是用户安装步骤，不覆盖已有状态。此模式的 runtime 由维护者更新，自动下载只用于未设置 bootstrap 的配置。
+
+升级前停止 DSH 并备份 DSH_HOME 与外部 binding/Session 存储，按上游兼容矩阵成对更新 DSH 和扩展。已有配置不重新 init；要从手动 runtime 管理迁移为自动下载，仅删除配置中的 bootstrap，保留 worlds、bindingFile 和绑定存储。V3 会话不能直接交给旧 DSH，回退需恢复备份。
+
+卸载使用 `dsh plugin --profile web remove @dsh-remote/extension`，保留远端配置与历史；已有远端 Session 仍需扩展才能执行。多个 profile 共享同一 DSH_HOME 时也共享远端配置。

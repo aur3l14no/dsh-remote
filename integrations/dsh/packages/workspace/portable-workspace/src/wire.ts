@@ -6,6 +6,15 @@ const codec = (name: string, schema: z.ZodType): TypertCodec => ({ mode: 'strict
 export const contribution: TypertContribution = {
   package: '@dsh-remote/portable-workspace', face: 'host', schemas: [], model: { services: [], events: [], objects: [] },
   invocations: [
+    ...[
+      { method: 'hosts', request: null, result: z.array(z.string()) },
+      { method: 'connect', request: z.object({ host: z.string().min(1).max(255) }).strict(), result: z.object({ world: z.object({ id: z.string(), name: z.string() }), home: z.string() }) },
+      { method: 'directories', request: z.object({ worldId: z.string().min(1), path: z.string().startsWith('/') }).strict(), result: z.array(z.string()) },
+    ].map(({ method, request, result }) => ({
+      id: `@dsh-remote/portable-workspace#portableWorkspace/${method}`, service: 'portableWorkspaceApi', namespace: 'portableWorkspace', method,
+      invocation: { kind: 'direct' as const }, parameters: request ? [{ name: 'request', wire: 'request', source: 'json' as const, codec: codec(method + 'Request', request) }] : [],
+      result: codec(method + 'Result', result),
+    })),
     { id: '@dsh-remote/portable-workspace#portableWorkspace/syncSkills', service: 'portableWorkspaceApi', namespace: 'portableWorkspace', method: 'syncSkills',
       invocation: { kind: 'direct' }, parameters: [{ name: 'request', wire: 'request', source: 'json',
         codec: codec('SkillWorld', z.object({ worldId: z.string().min(1) }).strict()) }],

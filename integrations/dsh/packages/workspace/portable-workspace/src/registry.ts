@@ -17,7 +17,11 @@ export interface CatalogWorld {
   target: Omit<WorldDefinition, 'id' | 'cwd'>;
   skills?: SkillInstall[];
 }
-export interface Config { worlds: CatalogWorld[] }
+export interface HostConnections {
+  hosts(): Promise<string[]>;
+  connect(host: string): Promise<{ world: CatalogWorld; home: string }>;
+}
+export interface Config { worlds: CatalogWorld[]; connections?: HostConnections }
 const targetSchema = z.unknown().transform(worldDefinition);
 const recordSchema = z.object({
   id: z.string(), worldId: z.string(), worldName: z.string(), environment: targetSchema,
@@ -79,7 +83,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   }
   private catalog = new Map<string, { name: string; environment: WorldDefinition }>();
 
-  constructor(ctx: Context, config: Config) {
+  constructor(ctx: Context, private config: Config) {
     super(ctx);
     for (const world of config.worlds) {
       if (this.catalog.has(world.id)) throw new Error('Duplicate catalog World');
@@ -98,6 +102,32 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
         || new Set(rows.map(row => JSON.stringify([row.worldId, row.path]))).size !== rows.length) {
       throw new Error('Duplicate PortableWorkspace identity');
     }
+  }
+
+  get connections(): HostConnections {
+    if (!this.config.connections) throw new Error('Connect is unavailable in this development profile');
+    return this.config.connections;
+  }
+  async connectHost(host: string) {
+    const result = await this.connections.connect(host);
+    const world = result.world;
+    const environment = worldDefinition({ ...world.target, id: world.id, cwd: '/' });
+    const previous = this.catalog.get(world.id);
+    if (previous && JSON.stringify(previous.environment) !== JSON.stringify(environment)) throw new Error('Saved SSH target changed');
+    this.catalog.set(world.id, { name: world.name, environment });
+    this.ctx.worldSkillSync.register(world);
+    await this.prepareCatalog(world.id);
+    return { world: { id: world.id, name: world.name }, home: result.home };
+  }
+  private async prepareCatalog(worldId: string) {
+    const world = this.environment(worldId);
+    const hash = createHash('sha256').update(JSON.stringify(world.environment)).digest('hex');
+    return this.ctx.executionWorlds.prepareWorld({ ...world.environment, id: `catalog-${hash}` });
+  }
+  async directories(worldId: string, path: string) {
+    const owner = await this.prepareCatalog(worldId);
+    const entries = await owner.fs.listDir(await owner.fs.resolve(path));
+    return entries.filter(entry => entry.type === 'directory').map(entry => entry.name).sort();
   }
 
   private records(): Record[] {

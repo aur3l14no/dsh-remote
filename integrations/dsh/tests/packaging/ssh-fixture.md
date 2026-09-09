@@ -2,7 +2,7 @@
 
 This private development package supplies World connections, persistent Session–World bindings, and shared FS/subprocess routing. DSH owns Agents, Session history, delegation and tool filtering. Model and UI work stay local; workspace operations use the selected remote helper.
 
-This document describes the low-level `@dsh-remote/ssh-world` development fixture, pinned by `../../patches/series.json`. It does not include the complete Web composition, helper binaries or ripgrep. User delivery is the native `@dsh-remote/extension` bundle; see [installation](../../../../docs/install.md).
+This document describes the low-level `@dsh-remote/ssh-world` development fixture, pinned by `../../patches/series.json`. It does not include the complete Web composition, helper binaries or ripgrep. User delivery is the native `@dsh-remote/extension` bundle; see [README](../../../../README.md).
 
 Cordis Loader entry points:
 

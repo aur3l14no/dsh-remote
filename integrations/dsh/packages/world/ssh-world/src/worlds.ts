@@ -11,12 +11,13 @@ import SshSubprocess from './subprocess.ts';
 
 export interface WorldConnection { client: Client; ripgrep: string; close(): Promise<void> }
 export type WorldConnector = (world: WorldDefinition) => Promise<WorldConnection>;
+export type BootstrapConfig = Pick<BootstrapOptions, 'manifest' | 'cacheDir' | 'required' | 'graceMs' | 'leaseMs' | 'connectTimeoutMs' | 'lockWaitMs'>;
 export interface Config {
   beforeConnect?: (world: WorldDefinition) => Promise<void>;
   bindingFile: string;
   /** Exact identity returned by DSH's packaged ripgrep resolver. */
   packagedRipgrep: string;
-  bootstrap: Pick<BootstrapOptions, 'manifest' | 'cacheDir' | 'required' | 'graceMs' | 'leaseMs' | 'connectTimeoutMs' | 'lockWaitMs'>;
+  bootstrap: BootstrapConfig | (() => Promise<BootstrapConfig>);
 }
 interface OpenWorld { definition: WorldDefinition; ctx: Context }
 declare module '@deepseek-ai/cordis' { interface Context { executionWorlds: ExecutionWorlds } }
@@ -35,7 +36,7 @@ export default class ExecutionWorlds extends Service {
     super(ctx, 'executionWorlds');
     this.bindings = new BindingStore(config.bindingFile);
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
-    this.connect = connector ?? (definition => bootstrapSshWorld({ ...config.bootstrap, ...definition, world: definition.id }));
+    this.connect = connector ?? (async definition => bootstrapSshWorld({ ...(typeof config.bootstrap === 'function' ? await config.bootstrap() : config.bootstrap), ...definition, world: definition.id }));
     this.beforeConnect = config.beforeConnect;
     ctx.effect(() => async () => {
       this.closed = true;

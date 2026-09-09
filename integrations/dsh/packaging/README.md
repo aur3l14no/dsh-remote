@@ -1,6 +1,6 @@
 # DSH packaging
 
-User and developer installation use the same native `@dsh-remote/extension` bundle and official DSH CLI. See [installation and upgrades](../../../docs/install.md).
+User and developer installation use the same native `@dsh-remote/extension` bundle and official DSH CLI. See [README](../../../README.md) and [maintenance](../../../docs/development.md#离线产物与已有配置).
 
 | Input | Purpose |
 | --- | --- |

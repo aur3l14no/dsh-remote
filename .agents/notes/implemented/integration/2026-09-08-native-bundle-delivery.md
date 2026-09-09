@@ -30,4 +30,4 @@ Status: implemented
 
 当时验证：TypeScript、npm（32 通过、2 个环境选择跳过）、仓库外原生 CLI/Playwright 双 World、重复安装/错误版本拒绝/移除及官方文件摘要不变通过。review 基于主代理提供的 config/setup、同步和 control 源码，未独立读全仓；新增第三方插件拓扑不在范围内。原记录确认 helper prebuild 通过，但没有保留主 CI 的最终 run 链接，此处不补写未知结果。
 
-后续版本与预览适配见 [DSH 升级验收](2026-09-09-dsh-upgrade.md)；当前安装方式见 [install](../../../../docs/install.md)。
+后续版本与预览适配见 [DSH 升级验收](2026-09-09-dsh-upgrade.md)；当前安装方式见 [README](../../../../README.md)。

@@ -38,6 +38,6 @@
 1. 检查上表接口和原生本地行为，更新 series 及官方依赖锁；在隔离源码副本验证补丁与摘要。
 2. 跑 **unchanged-source** gates，确认上游本身提供什么；再跑独立 **patched-host** gate，确认补丁提供什么。两者不能合并为一个“兼容通过”。
 3. 构建扩展，用官方 CLI 安装同一 tarball；跑双 Linux/SSH World、浏览器、冷恢复、child/terminal、日志迁移。浏览器代码另做类型检查。
-4. 通过后才形成发行候选。用户备份 DSH_HOME 和外部 binding 存储，按 [安装与升级](install.md) 成对更新。
+4. 通过后才形成发行候选。用户备份 DSH_HOME 和外部 binding 存储，按 [升级说明](development.md#离线产物与已有配置) 成对更新。
 
 具体命令见 [开发指南](development.md)；新消费者先对照 [插件兼容契约](plugin-compatibility.md)。
