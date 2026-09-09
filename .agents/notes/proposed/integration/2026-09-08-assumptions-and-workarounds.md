@@ -25,6 +25,6 @@ Status: proposed
 上一阶段终审（2026-09-08）：subagent 基于提供的最终代码片段/摘要完成静态 review，未独立读全仓或运行测试。空目录、HOME 取消、销毁后创建 provider 的问题已修复；未发现剩余确定性 P1/P2。此结论不等于独立完整审计。
 
 
-新版适配（2026-09-09，已实现与本地验收）：helper 0.1.3 用 fs.read-range 显式协商范围读取，旧 helper 明确拒绝；预览按 Session/World 路由，不引入宿主 FS fallback。目录树/文本预览限定 portable_workspace 根，图片保留 SSH 账户可读绝对路径；两者都不改变 Shell 账户权限。图片 URL 带渲染所属 Session，文件链接先远端 canonicalize，避免 `..` 在 URL 层被消去。Agent 变更提示没有 OS watcher。
+新版适配（2026-09-09，已实现与本地验收）：helper 0.1.3 用 fs.read-range 显式协商范围读取，旧 helper 明确拒绝；预览按 Session/World 路由，不引入宿主 FS fallback。目录树/文本预览限定 portable_workspace 根，图片保留 SSH 账户可读绝对路径；两者都不改变 Shell 账户权限。图片 URL 带渲染所属 Session，文件链接先远端 canonicalize，避免 `..` 在 URL 层被消去；根 workspace `/` 也强制 Session 资源地址，未知 cwd 拒绝。Agent 变更提示没有 OS watcher。
 
 迁移验收使用一次性 V2 zstd 日志（header 独立 frame），检查旧日志字节保留、V3 history 和 bindings 不变；不迁移真实用户会话，不声称覆盖所有历史日志形态。源码 fixture 使用官方 node-addon-system 预构建文件锁，移除 fs-ext；浏览器类型程序与宿主分开，额外的官方静态 UI 声明包仅是构建/测试输入。真实 DeepSeek 编码、外部搜索及远端凭据隔离已重新验收。见[本轮验收](../../implemented/integration/2026-09-09-dsh-upgrade.md)。

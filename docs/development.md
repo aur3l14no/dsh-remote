@@ -76,7 +76,7 @@ node integrations/dsh/scripts/e2e.mjs -- node target/patched-host/admission.mjs
 node integrations/dsh/scripts/prepare-official.mjs
 node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" target/official-install
 node integrations/dsh/scripts/prepare-test-profile.mjs
-node --test integrations/dsh/tests/packaging/installed.test.mjs
+node --test integrations/dsh/tests/packaging/*.test.mjs
 node integrations/dsh/scripts/check-web-plugin.mjs
 node integrations/dsh/scripts/check-preview-client.mjs
 node integrations/dsh/scripts/prepare-browser-fixtures.mjs

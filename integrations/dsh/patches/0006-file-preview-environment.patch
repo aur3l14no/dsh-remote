@@ -243,7 +243,7 @@ index 42dfb13..af24a55 100644
        if (isNotTextRefusal(error)) {
          throw new RemoteError('workspace-file/not-text', `"${path}" is not UTF-8 text`, { path }, { cause: error })
 diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
-index 2d8de50..abafabf 100644
+index 2d8de50..a644387 100644
 --- a/packages/client/ui-chat/src/client/apply.ts
 +++ b/packages/client/ui-chat/src/client/apply.ts
 @@ -1,4 +1,5 @@
@@ -252,6 +252,15 @@ index 2d8de50..abafabf 100644
  import type { Context } from '@deepseek-ai/cordis'
  import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
  import type {} from '@deepseek-ai/dsh-api-remotes/client'
+@@ -8,7 +9,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
+ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+ // The `file` entry of `SidebarRightResourceParamsMap`, which types `{ params: { line } }` below.
+ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-textpreview/client'
+-import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
++import { previewAddress } from './file-preview-address.ts'
+ // Type-only service and declaration merges used by the apply world.
+ import type {} from '@deepseek-ai/dsh-client-locale/client'
+ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 @@ -46,7 +47,7 @@ const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
  /** Services required by the Chat target and its presentation registrations. */
  export const inject = [
@@ -268,7 +277,7 @@ index 2d8de50..abafabf 100644
 -            const url = fileAddressFor(sessionId, cwd, path)
 +            const result = await ctx.remote.workspaceFiles.stat(sessionId, path)
 +            if (!result.ok) throw new Error(result.error.message)
-+            const url = fileAddressFor(sessionId, cwd, result.value.absolutePath)
++            const url = previewAddress(sessionId, cwd, result.value.absolutePath)
              if (options?.line === undefined) ctx.sidebarRight.openResource(url)
              else ctx.sidebarRight.openResource(url, { params: { line: options.line } })
              await Promise.resolve()
@@ -389,3 +398,18 @@ index 3fb8bcf..38c8f0e 100644
    cwd?: string | undefined
    openFile: (path: string, options?: OpenFileOptions) => void
    inspectCall: (callId: ToolCallId) => void
+diff --git a/packages/client/ui-chat/src/client/file-preview-address.ts b/packages/client/ui-chat/src/client/file-preview-address.ts
+new file mode 100644
+index 0000000..40c9080
+--- /dev/null
++++ b/packages/client/ui-chat/src/client/file-preview-address.ts
+@@ -0,0 +1,9 @@
++import { fileAddressFor, parseFileAddress, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
++
++/** Keep even root-workspace previews owned by the rendering Session. */
++export function previewAddress(sessionId: string, cwd: string | undefined, absolutePath: string): string {
++  if (!cwd) throw new Error('File preview requires the Session workspace')
++  const address = cwd === '/' ? sessionFileAddress(sessionId, absolutePath) : fileAddressFor(sessionId, cwd, absolutePath)
++  if (parseFileAddress(address)?.scope !== 'session') throw new Error('File preview path is outside the Session workspace')
++  return address
++}

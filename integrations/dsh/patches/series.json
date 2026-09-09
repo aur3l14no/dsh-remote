@@ -42,7 +42,7 @@
     },
     {
       "file": "0006-file-preview-environment.patch",
-      "sha256": "33f236ec9e61c6f34b9ecfd164fbc8cc0395d7aae97313210d9d15137d94f42c",
+      "sha256": "da3a1c7cfb36e97e04ffb3695d6728c79e50766a605a863194d913412068e464",
       "packages": [
         "@deepseek-ai/dsh-api-workspace-files",
         "@deepseek-ai/dsh-api-session-controller",

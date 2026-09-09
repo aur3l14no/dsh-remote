@@ -68,7 +68,7 @@ jobs:
       - name: Install Chromium
         run: npx --no-install playwright install --with-deps chromium
       - name: Installed package identity and version guards
-        run: node --test integrations/dsh/tests/packaging/installed.test.mjs
+        run: node --test integrations/dsh/tests/packaging/*.test.mjs
       - name: Native official CLI installation acceptance
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
       - name: Check Web plugin source and prepare test fixtures
