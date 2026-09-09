@@ -4,7 +4,7 @@ import { resolve, join } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
 const source = process.argv[2];
 if (!source) throw new Error('Usage: node integrations/dsh/scripts/check-composition.mjs DSH_SOURCE_CHECKOUT');
-const root = resolve(source), local = resolve('integrations/dsh/plugins/ssh-world');
+const root = resolve(source), local = resolve('integrations/dsh/packages/world/ssh-world');
 assertUnchangedSource(root);
 const upstream = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(upstream).map(([key, values]) => [key, values.map(value => {

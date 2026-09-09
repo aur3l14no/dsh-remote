@@ -29,11 +29,11 @@ import { WorkspaceId } from '@deepseek-ai/dsh-workspace';
 import { ApiSessionAgentController } from '@dsh-test/web-agent';
 import { SessionCommandController } from '@dsh-test/web-commands';
 import { installModelSelectionProjection } from '@dsh-test/web-model-selection-projection';
-import { BindingStore } from '../../plugins/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../plugins/ssh-world/src/worlds.ts';
-import * as Routing from '../../plugins/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
+import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
 import PortableWorkspaces, { type CatalogWorld } from '../../experiments/portable_workspace/registry.ts';
-import * as Admission from '../../plugins/session-admission/src/index.ts';
+import * as Admission from '../../packages/workspace/portable-workspace/src/admission.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 
 const phase = process.argv[2];

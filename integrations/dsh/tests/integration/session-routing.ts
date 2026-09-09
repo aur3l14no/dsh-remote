@@ -23,10 +23,10 @@ import * as FileTools from '@deepseek-ai/dsh-tool-fs';
 import * as SearchTools from '@deepseek-ai/dsh-tool-fs-search';
 import { startInProcessRun } from '@deepseek-ai/dsh-subagent-in-process-driver';
 import { MockAdapter, textResponse, toolCallResponse } from '@dsh-test/mock-adapter';
-import { BindingStore } from '../../plugins/ssh-world/src/bindings.ts';
-import type { WorldDefinition } from '../../plugins/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../plugins/ssh-world/src/worlds.ts';
-import * as Routing from '../../plugins/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
+import type { WorldDefinition } from '../../packages/world/ssh-world/src/bindings.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
+import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 import { runtime, fixture } from '../../../../runtime/tests/client/support.ts';
 

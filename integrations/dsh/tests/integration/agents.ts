@@ -6,7 +6,7 @@ import { SessionId } from '@deepseek-ai/dsh-session';
 import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm';
 import { startInProcessRun } from '@deepseek-ai/dsh-subagent-in-process-driver';
 import { MockAdapter, textResponse, toolCallResponse } from '@dsh-test/mock-adapter';
-import { worldContextFor } from '../../plugins/ssh-world/src/context.ts';
+import { worldContextFor } from '../../packages/world/ssh-world/src/context.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 import { remoteRuntime } from './remote-runtime.ts';
 import { presetHarness, serviceForAgent } from './preset-harness.ts';

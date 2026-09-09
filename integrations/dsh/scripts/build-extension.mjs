@@ -66,7 +66,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { index: 'extension/src/index.ts', terminal: 'terminal/src/index.ts', routing: 'ssh-world/src/routing.ts', fs: 'ssh-world/src/routed-fs.ts', subprocess: 'ssh-world/src/routed-subprocess.ts' };
+const entries = { index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -74,10 +74,10 @@ for (const browser of [false, true]) {
   packages.push(directory);
   const dest = join(output, directory);
   await mkdir(join(dest, 'lib'), { recursive: true });
-  const built = browser ? await build({ entryPoints: ['integrations/dsh/plugins/portable_workspace/src/client/index.tsx'], outfile: join(dest, 'lib/client.js'),
+  const built = browser ? await build({ entryPoints: ['integrations/dsh/packages/workspace/portable-workspace/src/client/index.tsx'], outfile: join(dest, 'lib/client.js'),
     bundle: true, metafile: true, format: 'cjs', platform: 'browser', target: 'es2022', jsx: 'automatic', external: ['@deepseek-ai/*', 'react', 'react/*'],
     banner: { js: `window.__ModuleLoader__.load({ id: "@dsh-remote/web-ui", factory: (require) => { var module = { exports: {} }; var exports = module.exports;` }, footer: { js: 'return module.exports; } });' },
-  }) : await build({ entryPoints: Object.fromEntries(Object.entries(entries).map(([key, path]) => [key, `integrations/dsh/plugins/${path}`])), outdir: join(dest, 'lib'), bundle: true, splitting: true, metafile: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external' });
+  }) : await build({ entryPoints: Object.fromEntries(Object.entries(entries).map(([key, path]) => [key, `integrations/dsh/packages/${path}`])), outdir: join(dest, 'lib'), bundle: true, splitting: true, metafile: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external' });
   for (const imported of Object.values(built.metafile.outputs).flatMap(file => file.imports)) {
     if (!imported.external || imported.path.startsWith('node:') || imported.path.startsWith('@deepseek-ai/') || imported.path.startsWith('react')) continue;
     const name = imported.path.startsWith('@') ? imported.path.split('/').slice(0, 2).join('/') : imported.path.split('/')[0];
@@ -93,7 +93,7 @@ await cp('integrations/dsh/profiles/remote', join(output, 'presets/remote'), { r
 await cp('integrations/dsh/packaging/extension', output, { recursive: true });
 await cp('integrations/dsh/profiles/remote/cordis.patch.yml', join(output, 'cordis.patch.yml'));
 await rm(join(output, 'presets/remote/cordis.patch.yml'));
-await build({ entryPoints: ['integrations/dsh/plugins/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
+await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));
 await writeFile(join(output, 'package.json'), JSON.stringify({ name: '@dsh-remote/extension', version: extensionVersion, type: 'module', license: 'MIT', engines: { node: '>=24.19.0' }, bin: { 'dsh-remote-config': './config.mjs' }, exports: { '.': './setup.mjs', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } }, dependencies }, null, 2));

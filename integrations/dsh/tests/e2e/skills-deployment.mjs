@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, writeFile, rm, cp, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { deploySkills } from '../../plugins/skills/src/deploy.ts';
+import { deploySkills } from '../../packages/skill/remote-skills/src/deploy.ts';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 const config = JSON.parse(await readFile(process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, 'utf8'));
 const directory = await mkdtemp(resolve('target/e2e/skills-'));

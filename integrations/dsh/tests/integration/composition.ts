@@ -3,9 +3,9 @@ import { readFile, copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { Context } from '@deepseek-ai/cordis';
 import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader';
 import { runRipgrep, resolveRgPath, RAW_OUTPUT_MAX_BYTES, SEARCH_GRACE_MS, SEARCH_STDERR_MAX_BYTES } from '@deepseek-ai/dsh-tool-fs-search';
-import { worldPlugin } from '../../plugins/ssh-world/src/world.ts';
-import SshFileSystem from '../../plugins/ssh-world/src/fs.ts';
-import SshSubprocess from '../../plugins/ssh-world/src/subprocess.ts';
+import { worldPlugin } from '../../packages/world/ssh-world/src/world.ts';
+import SshFileSystem from '../../packages/world/ssh-world/src/fs.ts';
+import SshSubprocess from '../../packages/world/ssh-world/src/subprocess.ts';
 import { runtime, fixture as nativeFixture } from '../../../../runtime/tests/client/support.ts';
 import { remoteRuntime } from './remote-runtime.ts';
 

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { deploySkills } from '../plugins/skills/src/deploy.ts';
+import { deploySkills } from '../packages/skill/remote-skills/src/deploy.ts';
 const file = process.argv[2];
 if (!file) throw new Error('Usage: node integrations/dsh/scripts/deploy-skills.mjs CONFIG.json');
 const config = JSON.parse(await readFile(file, 'utf8'));

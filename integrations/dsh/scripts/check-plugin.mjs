@@ -70,9 +70,9 @@ for (const name of hostPeers) {
     bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', plugins: [sourceAlias] });
 }
 const remotes = new Map([
-  [resolve('integrations/dsh/plugins/ssh-world/src/worlds.ts'), '@dsh-remote/ssh-world'],
-  [resolve('integrations/dsh/plugins/ssh-world/src/routing.ts'), '@dsh-remote/ssh-world/routing'],
-  [resolve('integrations/dsh/plugins/ssh-world/src/bindings.ts'), '@dsh-remote/ssh-world/bindings'],
+  [resolve('integrations/dsh/packages/world/ssh-world/src/worlds.ts'), '@dsh-remote/ssh-world'],
+  [resolve('integrations/dsh/packages/world/ssh-world/src/routing.ts'), '@dsh-remote/ssh-world/routing'],
+  [resolve('integrations/dsh/packages/world/ssh-world/src/bindings.ts'), '@dsh-remote/ssh-world/bindings'],
   [resolve('runtime/client/src/index.ts'), '@dsh-remote/ssh-world/client'],
 ]);
 const result = await build({ entryPoints: ['integrations/dsh/tests/integration/session-routing.ts'], outfile: join(output, 'lib/accept.mjs'),
@@ -85,7 +85,7 @@ const result = await build({ entryPoints: ['integrations/dsh/tests/integration/s
     });
   } }, sourceAlias],
 });
-if (Object.keys(result.metafile.inputs).some(file => file.includes('integrations/dsh/plugins/ssh-world/'))) throw new Error('Host fixture bundled plugin source');
+if (Object.keys(result.metafile.inputs).some(file => file.includes('integrations/dsh/packages/world/ssh-world/'))) throw new Error('Host fixture bundled plugin source');
 const external = new Set(Object.values(result.metafile.outputs).flatMap(output => output.imports.filter(i => i.external).map(i => i.path)));
 for (const name of remotes.values()) if (!external.has(name)) throw new Error(`Fixture did not consume package entry: ${name}`);
 writeFileSync(join(output, 'accept.mjs'), "import './lib/accept.mjs';\n");

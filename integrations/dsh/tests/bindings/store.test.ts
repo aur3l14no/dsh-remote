@@ -5,10 +5,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { once } from 'node:events';
-import { BindingStore } from '../../plugins/ssh-world/src/bindings.ts';
+import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
 
 const definition = { id: 'world-a', kind: 'ssh', host: 'example.invalid', cwd: '/workspace' } as const;
-const storeModule = new URL('../../plugins/ssh-world/src/bindings.ts', import.meta.url).href;
+const storeModule = new URL('../../packages/world/ssh-world/src/bindings.ts', import.meta.url).href;
 
 test('binding store preserves immutable identities across instances and process restart', async () => {
   const dir = await mkdtemp('/tmp/dsh-bindings.');

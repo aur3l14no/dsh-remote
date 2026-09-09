@@ -1,10 +1,10 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
-import { deploySkills } from '../plugins/skills/src/deploy.ts';
+import { deploySkills } from '../packages/skill/remote-skills/src/deploy.ts';
 import { sshControl } from '../../../runtime/ssh/src/control.ts';
 import yaml from 'js-yaml';
-import { BindingStore } from '../plugins/ssh-world/src/bindings.ts';
+import { BindingStore } from '../packages/world/ssh-world/src/bindings.ts';
 const root = resolve('.');
 const upstream = resolve('target/browser-fixtures');
 const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');

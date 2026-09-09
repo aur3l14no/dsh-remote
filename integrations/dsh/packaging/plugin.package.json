@@ -7,11 +7,11 @@
   "engines": { "node": ">=24.0.0" },
   "license": "MIT",
   "exports": {
-    ".": { "types": "./types/integrations/dsh/plugins/ssh-world/src/worlds.d.ts", "default": "./lib/worlds.js" },
-    "./routing": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routing.d.ts", "default": "./lib/routing.js" },
-    "./fs": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routed-fs.d.ts", "default": "./lib/fs.js" },
-    "./subprocess": { "types": "./types/integrations/dsh/plugins/ssh-world/src/routed-subprocess.d.ts", "default": "./lib/subprocess.js" },
-    "./bindings": { "types": "./types/integrations/dsh/plugins/ssh-world/src/bindings.d.ts", "default": "./lib/bindings.js" },
+    ".": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/worlds.d.ts", "default": "./lib/worlds.js" },
+    "./routing": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routing.d.ts", "default": "./lib/routing.js" },
+    "./fs": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routed-fs.d.ts", "default": "./lib/fs.js" },
+    "./subprocess": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routed-subprocess.d.ts", "default": "./lib/subprocess.js" },
+    "./bindings": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/bindings.d.ts", "default": "./lib/bindings.js" },
     "./client": { "types": "./types/runtime/client/src/index.d.ts", "default": "./lib/client.js" },
     "./package.json": "./package.json"
   },

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { observe } from '../../plugins/skills/src/lifetime.ts';
+import { observe } from '../../shared/lifetime.ts';
 
 test('cancelled Session stops waiting while another observer retains the shared lookup', async () => {
   const shared = Promise.withResolvers<string>();

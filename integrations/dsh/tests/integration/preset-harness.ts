@@ -16,10 +16,10 @@ import { resolveRgPath } from '@deepseek-ai/dsh-tool-fs-search';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import type { Client } from '../../../../runtime/client/src/index.ts';
-import { worldPlugin } from '../../plugins/ssh-world/src/world.ts';
-import * as WorldContext from '../../plugins/ssh-world/src/context.ts';
-import SshFileSystem from '../../plugins/ssh-world/src/fs.ts';
-import SshSubprocess from '../../plugins/ssh-world/src/subprocess.ts';
+import { worldPlugin } from '../../packages/world/ssh-world/src/world.ts';
+import * as WorldContext from '../../packages/world/ssh-world/src/context.ts';
+import SshFileSystem from '../../packages/world/ssh-world/src/fs.ts';
+import SshSubprocess from '../../packages/world/ssh-world/src/subprocess.ts';
 import { applyTerminalConsumers } from './terminal-consumers.ts';
 export { serviceForAgent };
 
