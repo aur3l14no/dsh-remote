@@ -89,10 +89,7 @@ for (const browser of [false, true]) {
     ...(browser ? { dsh: { client: { platform: 'web', inject: ['@deepseek-ai/dsh-api-workspace-controller', '@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-renderer'] } } } : {}),
   }, null, 2));
 }
-await cp('integrations/dsh/profiles/remote', join(output, 'presets/remote'), { recursive: true });
-await cp('integrations/dsh/packaging/extension', output, { recursive: true });
-await cp('integrations/dsh/profiles/remote/cordis.patch.yml', join(output, 'cordis.patch.yml'));
-await rm(join(output, 'presets/remote/cordis.patch.yml'));
+await cp('integrations/dsh/packaging/extension', output, { recursive: true, filter: path => !path.endsWith('/README.md') });
 await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));

@@ -15,9 +15,9 @@ const isRepositorySource = file => sourceRoots.some(root => resolve(file).starts
 const output = resolve('target/plugin');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-const manifest = JSON.parse(readFileSync('integrations/dsh/packaging/plugin.package.json', 'utf8'));
+const manifest = JSON.parse(readFileSync('integrations/dsh/tests/packaging/ssh-plugin.package.json', 'utf8'));
 writeFileSync(join(output, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
-await cp('integrations/dsh/packaging/ssh-fixture.md', join(output, 'README.md'));
+await cp('integrations/dsh/tests/packaging/ssh-fixture.md', join(output, 'README.md'));
 await cp('LICENSE', join(output, 'LICENSE'));
 // Bundle only this repository's implementation. DSH/Cordis retain their host-owned identity.
 const result = await build({
