@@ -17,13 +17,13 @@ DSH 是本地 Agent 宿主；dsh-remote 是它的远程执行与项目集成层�
 
 | DSH 概念 | 本项目实现 | 所属目录与状态 |
 | --- | --- | --- |
-| Service Provider / runtime owner | ExecutionWorlds 管理 World 连接，FS 与 subprocess 共享同一 runtime | [plugins/ssh-world](../integrations/dsh/plugins/ssh-world/)，已有 |
+| Service Provider / runtime owner | ExecutionWorlds 管理 World 连接，FS 与 subprocess 共享同一 runtime | [world/ssh-world](../integrations/dsh/packages/world/ssh-world/)，已有 |
 | FileSystem provider | resolve/stat/read/write/edit/stream，远程目标带 World 与 runtime 身份 | ssh-world/src/fs.ts，已有 |
 | SubprocessRuntime provider | argv、cwd、env、pipe、信号、取消、PTY 与输出句柄 | ssh-world/src/subprocess.ts、terminal.ts，已有 |
 | Tool Consumer | 复用原生 read/write/edit/search 和适配过的 shell/terminal 消费者 | remote Web preset 已装配文件/搜索/前台与后台 Bash及原生终端工具 |
 | Agent preset / realm | standing preset 的隔离组让 routers 与消费者看到同一服务实例；不是每个 Agent 重注册工具 | routing.ts 及集成测试，已有 |
 | Agent / Session | Session ID → binding → World；Agents 由 DSH 创建和恢复 | bindings.ts、worlds.ts，已有 |
-| Workspace / portable_workspace | portable_workspace 是 World × 远端 canonical workspace，成员关联到原生 Session | [portable_workspace plugin](../integrations/dsh/plugins/portable_workspace/)，持久 registry 与 Web UI |
+| Workspace / portable_workspace | portable_workspace 是 World × 远端 canonical workspace，成员关联到原生 Session | [portable_workspace plugin](../integrations/dsh/packages/workspace/portable-workspace/)，持久 registry 与 Web UI |
 | Tool allow/deny | 由 DSH 原生过滤决定可调用工具，不用于选择本地/远端 | 本项目验证继承，不复制过滤引擎 |
 | Jobs / terminal ownership | 原生 owner-aware 服务管理 Session 的任务；helper 管理底层进程句柄 | jobs 创建/查询/取消与 World 隔离已有 browser/SSH 验收；terminal 创建/读写/隔离也已验收 |
 | Approval | 外部审批能力使用 World、cwd、操作事实 | 已暴露执行上下文；完整审批策略不由 helper 实现 |
@@ -55,7 +55,7 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 | dsh-client-ui-chat | 图片 URL 携带渲染所属 Session；文件链接通过该 Session 的远端 stat 解析后生成资源 URL |
 | dsh-tool-fs | 处理 parent traversal 前通过已注入 FS 解析 cwd；不使用宿主同名目录 |
 
-`plugins/extension/src/index.ts` 是本地服务总装配入口，按依赖顺序挂载 World、同步服务、registry 和各消费者；overlay/preset 负责原生服务与工具域装配。`portable_workspace` 目录只保留 registry、API/feed 和浏览器导航。
+`packages/bundle/remote/src/index.ts` 是本地服务总装配入口，按依赖顺序挂载 World、同步服务、registry 和各消费者；overlay/preset 负责原生服务与工具域装配。`packages/workspace/portable-workspace` 聚合 registry、API/feed、浏览器导航、准入和文件适配。
 
 外部 `portable_workspace` plugin 替换原生 Workspace registry 与 UI/navigation，新增 World-explicit 创建 Remote 和持久状态 feed；`session-admission` 负责绑定校验与准备；`ssh-world` 负责具体能力和路由。它们复用 DSH 的 Agent/Session、对话、工具注册与执行，不复制模型循环。
 
@@ -69,7 +69,8 @@ remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 pre
 ## 目录所有权
 
 - `runtime/`：DSH 无关的 Rust helper 与 TypeScript client/SSH 库；两个 npm workspace 使用显式路径，不把 Rust crate 当成 npm 包。
-- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 有独立打包入口；session-admission 与 portable_workspace 用于固定版本兼容包与原生 bundle 装配。
+- `integrations/dsh/packages/{subsystem}/{module}/`：world/ssh-world、workspace/portable-workspace、skill/remote-skills、bundle/remote 四组源码模块，统一发行；小适配器保留为文件和独立 Cordis 入口。
+- `integrations/dsh/shared/`：少量跨模块工具；不存 World/Session 领域逻辑。
 - `integrations/dsh/patches/`：上游基线与有序补丁；不存上游完整源码或 node_modules。
 - `integrations/dsh/profiles/`：宿主装配边界；仅在真实 Loader 验证后收录可运行 profile。
 - `integrations/dsh/experiments/`：不随插件发行的可执行实验；portable_workspace 实验复用维护中的 registry，保留原生宿主的缺口负例。

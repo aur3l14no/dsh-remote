@@ -18,7 +18,7 @@ DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自
 | 浏览器兼容包 | `check-preview-client` + 构建扩展、浏览器验收 | 独立浏览器类型环境与实际 UI |
 | 纯文档 | 相对链接、路径、当前事实与历史记录一致性 | 不以无关运行测试替代文档审查 |
 
-产品装配入口为 `integrations/dsh/plugins/extension/src/index.ts`；浏览器入口仍在 `plugins/portable_workspace/src/client/index.tsx`。两者由 `build-extension.mjs` 收录，服务顺序和产物身份属于维护契约。
+产品装配入口为 `integrations/dsh/packages/bundle/remote/src/index.ts`；浏览器入口仍在 `packages/workspace/portable-workspace/src/client/index.tsx`。两者由 `build-extension.mjs` 收录，服务顺序和产物身份属于维护契约。
 
 ## 通用代码
 

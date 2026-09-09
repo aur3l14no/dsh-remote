@@ -1,6 +1,6 @@
 # Session 与 World 绑定
 
-`integrations/dsh/plugins/ssh-world/src/bindings.ts` 持久保存 World definitions 与 Session ID → World ID；JSONL 对话仍由 DSH 保存。记录不含 helper runtime ID、resume token 或对话正文。
+`integrations/dsh/packages/world/ssh-world/src/bindings.ts` 持久保存 World definitions 与 Session ID → World ID；JSONL 对话仍由 DSH 保存。记录不含 helper runtime ID、resume token 或对话正文。
 
 当前 v1 definition 包含 immutable ID、SSH host、canonical remote cwd，以及可选 SSH 配置、安装/runtime 路径和固定 Podman container ID。相同 ID 的不同定义或已绑定 Session 的改向都会拒绝。
 

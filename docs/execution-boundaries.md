@@ -15,7 +15,7 @@ DSH tools.execute(exec.agent)
   → client RPC → SSH stdio → 远端 helper 执行
 ```
 
-[routing.ts](../integrations/dsh/plugins/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/plugins/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。新增 session-admission 适配器通过宿主补丁在普通 Session 创建、恢复、接管和 fork 前执行准入；这条链路独立于工具调用的 ALS。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，instructions 和 skill lookup 已有独立身份入口；当前未自动覆盖全部初始化、上传和后台消费者。
+[routing.ts](../integrations/dsh/packages/world/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/packages/world/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。新增 session-admission 适配器通过宿主补丁在普通 Session 创建、恢复、接管和 fork 前执行准入；这条链路独立于工具调用的 ALS。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，instructions 和 skill lookup 已有独立身份入口；当前未自动覆盖全部初始化、上传和后台消费者。
 
 目前 **没有** 自动分类全部工具的黑白名单，也没有可用的通用 local-shell 工具。以下机制必须区分：
 

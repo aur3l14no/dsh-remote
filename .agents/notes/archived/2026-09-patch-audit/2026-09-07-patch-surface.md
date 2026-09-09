@@ -127,6 +127,6 @@ FS/subprocess 的 Service Definition 无需因为远程实现而重写。外部 
 - 附件：`packages/client/file-upload/src/index.ts`；`packages/attachment/attachment-local/src/index.ts`；`packages/llm/llm/src/index.ts` 的 fileReadPath；`packages/fs/fs/src/index.ts` 的 processPathFromHostPath。
 - 执行：`packages/terminal/terminal-bash/src/index.ts`；`packages/shell/bash-local/src/index.ts`。
 - 实际默认装配：`packages/bundle/web-app/cordis.patch.yml`；`packages/preset/agent-presets/presets/standard/agent.cordis.yml`。
-- 本项目证据：[portable_workspace 实验](../../../../integrations/dsh/experiments/portable_workspace/README.md)、[测试](../../../../integrations/dsh/tests/integration/portable_workspace.ts)、[Linux 两容器验收记录](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)、[terminal fixture](../../../../integrations/dsh/tests/integration/terminal-consumers.ts)、[当前路由](../../../../integrations/dsh/plugins/ssh-world/src/routing.ts)。
+- 本项目证据：[portable_workspace 实验](../../../../integrations/dsh/experiments/portable_workspace/README.md)、[测试](../../../../integrations/dsh/tests/integration/portable_workspace.ts)、[Linux 两容器验收记录](../../archived/2026-09-initial-integration/evidence/project-worlds-acceptance-results.json)、[terminal fixture](../../../../integrations/dsh/tests/integration/terminal-consumers.ts)、[当前路由](../../../../integrations/dsh/packages/world/ssh-world/src/routing.ts)。
 
 验证说明：本次是源码与既有验收证据审计，未执行补丁构建、浏览器测试或重新运行远程验收；未改动上游 checkout，也未改变已有实现。

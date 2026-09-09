@@ -21,6 +21,7 @@ archived/                   被替代的历史记录与原始验收证据
 - [Web/SSH 验收](implemented/integration/2026-09-07-web-ssh-acceptance.md) 记录受限 profile、4 包补丁、浏览器闭环与未覆盖范围。
 - [双 World E2E 环境](implemented/integration/2026-09-07-e2e-environment.md) 记录 Docker/SSH 验收及浏览器边界。
 - [Session 准入补丁](implemented/integration/2026-09-07-session-admission.md) 记录首个源码切片与验收边界。
+- [DSH 子系统目录迁移](implemented/architecture/2026-09-09-package-subsystems.md) 记录四组源码归属和兼容边界。
 - [文档与装配入口整理](implemented/architecture/2026-09-09-documentation-layout.md) 记录入口迁移、文档生命周期和本轮 review 范围。
 - [结构维护](implemented/architecture/2026-09-07-repository-layout.md) 记录本次已落地整理及验证。
 - archived/2026-09-initial-integration 保存此前分散文档及 evidence/。旧 no-patch、延期 Web 等决策已被当前方向替代，不能覆盖用户新指令。

@@ -12,15 +12,11 @@ runtime/                        与 DSH 无关的执行层
   tests/                        通用 client / SSH 验证
   scripts/                      runtime 产物准备与上传
 integrations/dsh/
-  plugins/extension/             本地扩展总装配入口
-  plugins/ssh-world/             DSH World owner、FS/subprocess providers、路由
-  plugins/session-admission/     patched host 的 Session 准入适配器
-  plugins/portable_workspace/    持久 registry、Web API/feed 与浏览器导航
-  plugins/skills/                远端指令/skill 发现及显式部署
-  plugins/terminal/             原生终端服务的远端 backend
-  plugins/account-policy/       显式 SSH 账户权限策略
-  plugins/file-references/       远端文件引用发现
-  plugins/file-preview/          按 Session 路由文件预览
+  packages/world/ssh-world/      World、绑定、执行 providers、终端与账户策略
+  packages/workspace/portable-workspace/  registry、API、UI、准入与文件适配
+  packages/skill/remote-skills/   指令/skill 发现、部署与同步
+  packages/bundle/remote/        本地扩展总装配
+  shared/                       跨模块的少量通用工具
   patches/                      固定上游基线及补丁序列
   profiles/                     DSH 应用装配约定
   experiments/portable_workspace/    unchanged-source 缺口与显式入口实验

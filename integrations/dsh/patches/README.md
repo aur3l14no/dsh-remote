@@ -21,7 +21,7 @@ The original controller creates a local directory before preset setup and resume
 
 Every create caller is admitted before sharing in-flight work; resume and live/raced adoption validate authority. Admission failures cannot be bypassed by raced-Agent fallback. When the provider owns directory preparation, the controller skips local mkdir. Without the provider, native local directory and Session behavior remain in place. The contract contains no SSH/helper or portable_workspace business logic.
 
-The source-only adapter in ../plugins/session-admission implements remote policy. The patched-host gate covers direct creation/adoption, concurrent conflicting selections, cold/observed/lookup activation, fork, revoked admission, missing or unavailable Worlds, and local create/resume regression. It is not full browser, upload transport, Linux/SSH or model acceptance.
+The extension adapter in ../packages/workspace/portable-workspace/src/admission.ts implements remote policy. The patched-host gate covers direct creation/adoption, concurrent conflicting selections, cold/observed/lookup activation, fork, revoked admission, missing or unavailable Worlds, and local create/resume regression. It is not full browser, upload transport, Linux/SSH or model acceptance.
 
 Run from the repository root:
 
