@@ -1,14 +1,12 @@
 # Repository maintenance
 
-Read README.md, docs/architecture.md and docs/execution-boundaries.md before changing execution or DSH integration. The active implementation plan is .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
+Before changing execution or DSH integration, read README.md, docs/architecture.md and docs/execution-boundaries.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
-- Keep runtime/helper/ independent of DSH. runtime/client and runtime/ssh must not import DSH APIs. DSH-specific plugins, patches, profiles, tests and packaging belong under integrations/dsh/.
-- Keep the standalone Cargo manifest and lockfile in runtime/helper/; run Cargo there and use its default target/ directory. Update imports, manifests, scripts and reproducible checks when moving code.
-- Keep subsystem tests and scripts with their owner: runtime/tests and runtime/scripts for generic execution code, integrations/dsh for DSH-specific work. Keep private local configuration in ignored .local/; root justfile optionally imports .local/justfile.
-- docs/ explains the maintained architecture and current contracts. Put plans, experiments, acceptance records and changing limitations in .agents/notes/ using its lifecycle conventions. Never describe an unbuilt patch/profile as shipped.
-- Keep the upstream revision and applied patch list in integrations/dsh/patches/series.json. Existing unchanged-source tests remain unchanged-source gates; use a separate patched-host gate when patches are implemented.
-- Workspace filesystem/process operations use the bound World. Missing routing context fails explicitly. No local fallback, cwd-based World guessing, shell-string rewriting or global Node FS monkey-patching.
-- Skill source location does not choose command execution location. Distinguish local connector APIs, local control state and remote workspace capabilities. Keep World facts visible to model/approval; do not add general host-shell authority to fix a local skill.
-- Run the focused checks in docs/development.md. Native fixture success is not Linux/SSH or browser acceptance. Do not commit private targets, credentials or runtime tokens.
-
-- Reserve target/ for Cargo under runtime/helper/. Put disposable integration builds and private test state in .build/dsh/, sanitized reports in artifacts/dsh/, and user distribution files in dist/dsh/. Keep helper release staging in .build/runtime/ and archives in dist/runtime/. Never recreate a root target/ or alias it; historical evidence retains its original paths.
+- Keep runtime/ DSH-independent; DSH-specific code, tests and packaging belong in integrations/dsh/. Generic tests and scripts belong in runtime/tests/ and runtime/scripts/.
+- When integrating with DSH, prefer composable approaches that minimize coupling to upstream internals and survive upgrades, such as plugins over patches where both meet the requirements.
+- Keep the standalone Cargo manifest and lockfile in runtime/helper/; run Cargo there with its default target/. No root target/ or compatibility alias.
+- Workspace filesystem/process operations use the bound World; missing routing context fails explicitly. No local fallback, cwd-based World guessing, shell-string rewriting or global Node FS monkey-patching.
+- Skill location grants no execution authority. Keep local connectors, local control state and remote workspace capabilities distinct, with World facts visible to model/approval. Do not add general host-shell authority for local skills.
+- Track upstream revision and applied patches in integrations/dsh/patches/series.json. Preserve unchanged-source gates; validate patches through a separate patched-host gate. Use focused checks from docs/development.md; native fixtures do not establish Linux/SSH or browser acceptance.
+- docs/ holds current contracts; plans, experiments, acceptance records and changing limitations belong in .agents/notes/ under its lifecycle conventions. Preserve historical evidence paths.
+- Private configuration belongs in ignored .local/; root justfile may import .local/justfile. Use .build/dsh/ for disposable builds and private test state, artifacts/dsh/ for sanitized reports, dist/dsh/ for distributions, .build/runtime/ for helper release staging, and dist/runtime/ for helper archives.
