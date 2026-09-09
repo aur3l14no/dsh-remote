@@ -8,9 +8,9 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 
 该地址指向最新正式 Release，自动下载并安装扩展，无需预先取得 tgz。附件名固定，包内保留实际版本；需要固定版本时，将 `latest/download` 换成 `download/v<版本号>`。下面是首次 World 配置与已有配置升级步骤。
 
-完整发行包通过 GitHub Release 提供，无需 npm 发布。CI 在安装验收成功后产出 `dsh-remote-linux-x86_64.tar.gz`，内含扩展、Linux x86_64（glibc 2.36+）helper/ripgrep、许可与校验清单。其他远端平台仍需自行准备匹配产物。完整包由 Release 工作流发布，见[发行流程](release.md)。
+完整发行包通过 GitHub Release 提供，无需 npm 发布。CI 在安装验收成功后产出 `dsh-remote-linux-x86_64.tar.gz`，内含扩展、Linux x86_64（glibc 2.36+）helper/ripgrep、许可。其他远端平台仍需自行准备匹配产物。完整包由 Release 工作流发布，见[发行流程](release.md)。
 
-从可信 CI run 或本仓库 Release 获取归档，解压到单独目录，在该目录检查 `sha256sum --check SHA256SUMS`（macOS 可用 `shasum -a 256 -c SHA256SUMS`）。校验和用于发现损坏，不认证下载来源。新配置先准备 `worlds.json`：
+从本仓库 Release 获取归档，解压到单独目录。新配置先准备 `worlds.json`：
 
 ```json
 {"worlds":[{"id":"dev","name":"Dev","target":{"kind":"ssh","host":"my-remote"}}]}

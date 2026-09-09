@@ -117,7 +117,7 @@ CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并�
 
 ## 文档与证据
 
-`Helper prebuild` workflow 在相关 PR、main 修改或手动触发时构建 Linux x86_64 musl helper，使用固定 Rust 1.85.1，检查无动态解释器并运行目标测试。通过后上传含二进制、LICENSE、源码 revision 和 SHA256SUMS 的 tar.gz，保留执行权限。这是 CI 候选产物，不是完整 bootstrap bundle：尚未包含 ripgrep、可信下载清单或公开发布入口；GitHub runner 的实际结果需在推送后确认。
+`Helper prebuild` workflow 在相关 PR、main 修改或手动触发时构建 Linux x86_64 musl helper，使用固定 Rust 1.85.1，检查无动态解释器并运行目标测试。通过后上传含二进制、LICENSE和源码 revision 的 tar.gz，保留执行权限。这是 CI 候选产物，不是完整 bootstrap bundle：尚未包含 ripgrep、可信下载清单或公开发布入口；GitHub runner 的实际结果需在推送后确认。
 
 `docs/` 保持当前概念、接口和使用方式简洁。未完成工作、试验结果和取舍放入 [.agents/notes](../.agents/notes/README.md)。原始验收 JSON 保留原字节和历史状态，路径迁移不等于重新验收。新的脱敏结果先写 `artifacts/dsh/`，需要长期保留时以新时间记录入 notes，不能覆盖旧证据。
 

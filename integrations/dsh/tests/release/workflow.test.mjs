@@ -28,10 +28,10 @@ test('release workflow promotes exact bytes and rejects corrupt or prerelease as
     });
     run();
     assert.deepEqual(await readFile(join(state, 'artifact/dsh-remote-extension.tgz')), bytes);
-    execFileSync('shasum', ['-a', '256', '-c', 'SHA256SUMS'], { cwd: join(state, 'artifact'), stdio: 'pipe' });
     const args = (await readFile(join(state, 'gh-args'), 'utf8')).trim().split('\n');
     assert.ok(args.includes('artifact/dsh-remote-extension.tgz'));
-    assert.ok(args.includes('artifact/SHA256SUMS'));
+    assert.ok(!args.includes('artifact/SHA256SUMS'));
+    await assert.rejects(access(join(state, 'artifact/SHA256SUMS')));
     assert.ok(args.includes('--draft'));
     assert.ok(!args.includes('--prerelease'));
     const publish = workflow.jobs.draft.steps.at(-1);

@@ -50,7 +50,6 @@ jobs:
           extension_sha256=$(jq -r .extension.sha256 release/release.json)
           printf '%s  %s\n' "$extension_sha256" "release/$extension" | sha256sum --check -
           cp "release/$extension" artifact/dsh-remote-extension.tgz
-          (cd artifact && sha256sum dsh-remote-extension.tgz dsh-remote-linux-x86_64.tar.gz > SHA256SUMS)
           cat > notes.md <<'EOF'
           Official DSH plus the remote extension and the Linux x86_64 bootstrap artifacts accepted together by CI. Target requires glibc 2.36 or newer. Model credentials remain on the local DSH host.
 
@@ -64,7 +63,7 @@ jobs:
 
           Other target platforms and npm publication are not included.
           EOF
-          gh release create "v$version" artifact/dsh-remote-extension.tgz artifact/dsh-remote-linux-x86_64.tar.gz artifact/SHA256SUMS --target "$source_revision" --draft --title "dsh-remote $version" --notes-file notes.md
+          gh release create "v$version" artifact/dsh-remote-extension.tgz artifact/dsh-remote-linux-x86_64.tar.gz --target "$source_revision" --draft --title "dsh-remote $version" --notes-file notes.md
       - name: Publish the verified release as latest
         if: ${{ inputs.publish }}
         env:
