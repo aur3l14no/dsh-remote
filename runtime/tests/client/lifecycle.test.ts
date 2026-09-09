@@ -3,7 +3,7 @@ import { kill as killProcess } from 'node:process';
 import assert from 'node:assert/strict';
 import { readFile as localRead } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { RemoteProcess, readFile, writeFile } from '../../client/src/index.ts';
+import { RemoteProcess, readFile, readFileRange, writeFile } from '../../client/src/index.ts';
 import { runtime, fixture } from './support.ts';
 
 test('real helper: binary files, guarded publication, ordered input and final output', { timeout: 20000 }, async () => {
@@ -118,5 +118,28 @@ test('real helper: released spill files remain available and charged to the runt
     }
     await assert.rejects(RemoteProcess.spawn(r.client, { argv: [fixture, 'argv'], cwd: r.dir,
       stdout: { mode: 'collect', maxBytes: 1024, spillBytes: 1 } }), { code: 'RESOURCE_LIMIT' });
+  } finally { await r.close(); }
+});
+
+
+test('real helper: byte ranges seek, cross stream chunks, stop at EOF and reject invalid targets', async () => {
+  const r = await runtime();
+  try {
+    const path = `${r.dir}/range.bin`;
+    const bytes = Buffer.from(Array.from({ length: 180000 }, (_, i) => i % 251));
+    await writeFile(r.client, path, bytes);
+    for (const [offset, length] of [[17, 70000], [179990, 100], [180001, 10], [0, 0]]) {
+      const result = await readFileRange(r.client, path, offset!, length!);
+      assert.deepEqual(result.data, bytes.subarray(offset, offset! + length!));
+      assert.equal(result.metadata.size, bytes.length);
+    }
+    await assert.rejects(readFile(r.client, path, 100), { code: 'TOO_LARGE' });
+    await assert.rejects(readFileRange(r.client, r.dir, 0, 1), { code: 'NOT_REGULAR_FILE' });
+    await assert.rejects(readFileRange(r.client, '/dev/null', 0, 1), { code: 'NOT_REGULAR_FILE' });
+    await assert.rejects(readFileRange(r.client, path, -1, 1), { code: 'CLIENT_RESOURCE_LIMIT' });
+    await assert.rejects(r.client.request('fs.readRange', { path, offset: -1, length: 1 }), { code: 'INVALID_ARGUMENT' });
+    await assert.rejects(r.client.request('fs.readRange', { path, length: 67108865 }), { code: 'INVALID_ARGUMENT' });
+    const signal = AbortSignal.abort();
+    await assert.rejects(readFileRange(r.client, path, 0, 10, signal));
   } finally { await r.close(); }
 });

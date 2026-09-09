@@ -27,6 +27,7 @@ use tokio::{
 
 const CAPABILITIES: &[&str] = &[
     "fs.bytes",
+    "fs.read-range",
     "fs.atomic-publish",
     "process.pipe",
     "process.pty",
@@ -555,17 +556,27 @@ impl Runtime {
                     number(p, "maxEntries", 1000, 1000)? as usize,
                 )
             }),
-            "fs.read" => {
+            "fs.read" | "fs.readRange" => {
                 let _guard = self.allocation.lock().await;
                 cancel.check()?;
                 if self.streams.lock().await.len() >= MAX_STREAMS {
                     return Err(Error::new("RESOURCE_LIMIT", "stream limit"));
                 }
-                let max = p["maxBytes"]
-                    .as_u64()
-                    .ok_or_else(|| invalid("read requires maxBytes"))?;
+                let range = method == "fs.readRange";
+                let max = if range {
+                    number(p, "length", 0, 64 * 1024 * 1024)?
+                } else {
+                    p["maxBytes"]
+                        .as_u64()
+                        .ok_or_else(|| invalid("read requires maxBytes"))?
+                };
                 let (file, metadata) = tokio::task::block_in_place(|| {
-                    fs::open_read(&fs::absolute(string(p, "path")?)?, max)
+                    let path = fs::absolute(string(p, "path")?)?;
+                    if range {
+                        fs::open_read_range(&path, number(p, "offset", 0, 9_007_199_254_740_991)?)
+                    } else {
+                        fs::open_read(&path, max)
+                    }
                 })?;
                 let id = self.resource("f");
                 let output = Output::new(
@@ -580,7 +591,7 @@ impl Runtime {
                     .lock()
                     .await
                     .insert(id.clone(), (output.clone(), Some(stop.clone())));
-                tokio::spawn(fs::read_file(file, max, output, stop));
+                tokio::spawn(fs::read_file(file, max, range, output, stop));
                 Ok(json!({"stream":id,"metadata":metadata}))
             }
             "fs.beginWrite" => {

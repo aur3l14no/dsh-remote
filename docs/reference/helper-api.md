@@ -74,6 +74,7 @@ Paths are native UTF-8, NUL-free absolute paths except `fs.resolve.path`, which 
 | `fs.stat` | `path`, optional `follow` (default true). | Metadata or null for absence. Metadata has `kind`, `size`, permission `mode`, opaque `version`; no-follow identifies symlinks. |
 | `fs.list` | `path`, optional `maxEntries` (default/max 1000). | Complete direct `entries` sorted by name, each with `name`, canonical `path`, metadata. Excess entries cause `RESOURCE_LIMIT`; there is no successful truncated listing. |
 | `fs.read` | `path`, required inclusive whole-file `maxBytes`. | An opened-file byte `stream` and initial metadata/version. Only regular files; size and growth are checked. |
+| `fs.readRange` | `path`, byte `offset` (default 0), `length` (default 0, at most 64 MiB). Requires `fs.read-range` capability (helper 0.1.3+). | Regular-file stream and initial metadata; reads only the requested window, may return fewer bytes at EOF. No whole-file size limit or local fallback. |
 | `fs.beginWrite` | `path`, optional `expected`, `maxBytes` (default 16 MiB, max 64 MiB). | Runtime-scoped `upload`. Creates missing parents and private staging on the destination filesystem. |
 | `fs.writeChunk` | `upload`, `offset`, Base64 `data` (max 32 KiB decoded). | Accepted `next` offset. Requires exactly the accepted byte count; partial I/O failure invalidates staging. |
 | `fs.commitWrite` | `upload`. | `committed:true`, `kind:create/update`, published inode metadata (null if post-commit metadata observation fails). |

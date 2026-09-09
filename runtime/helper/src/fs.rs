@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, Metadata, OpenOptions},
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Component, Path, PathBuf},
     sync::Arc,
@@ -144,7 +144,18 @@ pub fn open_read(path: &Path, max: u64) -> Result<(File, Value)> {
     }
     Ok((f, metadata(&m)))
 }
-pub async fn read_file(file: File, max: u64, output: Arc<Output>, cancel: Arc<Cancel>) {
+pub fn open_read_range(path: &Path, offset: u64) -> Result<(File, Value)> {
+    let (mut file, metadata) = open_read(path, u64::MAX)?;
+    file.seek(SeekFrom::Start(offset))?;
+    Ok((file, metadata))
+}
+pub async fn read_file(
+    file: File,
+    max: u64,
+    range: bool,
+    output: Arc<Output>,
+    cancel: Arc<Cancel>,
+) {
     use tokio::io::AsyncReadExt;
     let mut file = tokio::fs::File::from_std(file);
     let mut total = 0u64;
@@ -153,9 +164,17 @@ pub async fn read_file(file: File, max: u64, output: Arc<Output>, cancel: Arc<Ca
         loop {
             cancel.check()?;
             // Regular-file reads are bounded; no blocking special files enter here.
+            let capacity = if range {
+                (max - total).min(CHUNK as u64) as usize
+            } else {
+                CHUNK
+            };
+            if capacity == 0 {
+                return Ok(());
+            }
             let n = tokio::select! {
                 _ = cancel.cancelled() => return cancel.check(),
-                n = file.read(&mut bytes) => n?,
+                n = file.read(&mut bytes[..capacity]) => n?,
             };
             if n == 0 {
                 return Ok(());

@@ -232,6 +232,13 @@ class Suite:
         assert self.read(path) == data
         expect("TOO_LARGE", lambda: c.request("fs.read", path=path, maxBytes=len(data) - 1))
         assert self.read(path, len(data)) == data
+        assert "fs.read-range" in c.hello["capabilities"]
+        for offset, length in [(17, 70000), (len(data) - 3, 20), (len(data) + 1, 10), (0, 0)]:
+            opened = c.request("fs.readRange", path=path, offset=offset, length=length)
+            assert self.consume(opened["stream"]) == data[offset:offset + length]
+            c.request("stream.close", stream=opened["stream"])
+        expect("INVALID_ARGUMENT", lambda: c.request("fs.readRange", path=path, offset=-1, length=1))
+        expect("NOT_REGULAR_FILE", lambda: c.request("fs.readRange", path=self.root, length=1))
         expect("CREATE_CONFLICT", lambda: self.write(path, b"bad", {"kind": "absent"}))
         version = c.request("fs.stat", path=path)["version"]
         self.write(path, b"updated", {"kind": "version", "version": version})
