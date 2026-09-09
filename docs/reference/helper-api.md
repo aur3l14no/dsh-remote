@@ -79,6 +79,7 @@ Paths are native UTF-8, NUL-free absolute paths except `fs.resolve.path`, which 
 | `fs.writeChunk` | `upload`, `offset`, Base64 `data` (max 32 KiB decoded). | Accepted `next` offset. Requires exactly the accepted byte count; partial I/O failure invalidates staging. |
 | `fs.commitWrite` | `upload`. | `committed:true`, `kind:create/update`, published inode metadata (null if post-commit metadata observation fails). |
 | `fs.abortWrite` | `upload`. | Closes/removes uncommitted staging. Committed/unknown upload is not undoable. |
+| `fs.sync` | Absolute `path`; requires `fs.sync` capability. | `synced:true` after syncing the existing regular file and its ancestor directories. Rejects a symlink final component and non-regular files. Failure does not undo prior publication. |
 
 `expected` is `{"kind":"any"}`, `{"kind":"absent"}`, or `{"kind":"version","version":"opaque-token"}`. Version is SHA-256 of stat identity/freshness fields, **not** a hash of content. Reads bind to an open file but are not snapshots against unrelated writers modifying that inode. Clients must wait for successful stream EOF before returning a complete file.
 

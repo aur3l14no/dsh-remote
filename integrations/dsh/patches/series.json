@@ -48,6 +48,22 @@
         "@deepseek-ai/dsh-api-session-controller",
         "@deepseek-ai/dsh-client-ui-chat"
       ]
+    },
+    {
+      "file": "0007-session-attachments.patch",
+      "sha256": "6f402c8d68abd15ea314e8fcb0b8946a18a1c9166709e9a590a1858c6f104f80",
+      "packages": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-attachment-local",
+        "@deepseek-ai/dsh-attachment",
+        "@deepseek-ai/dsh-client-file-upload",
+        "@deepseek-ai/dsh-tool-fs",
+        "@deepseek-ai/dsh-llm-deepseek",
+        "@deepseek-ai/dsh-llm-pi-ai",
+        "@deepseek-ai/dsh-llm",
+        "@deepseek-ai/dsh-session-log-export",
+        "@deepseek-ai/dsh-subagent"
+      ]
     }
   ],
   "release": {

@@ -7,7 +7,7 @@ import { bundleKey } from './manifest.ts';
 import type { Artifact, Bundle } from './manifest.ts';
 import type { Control, ControlOptions } from './control.ts';
 
-export interface Probe { os: string; arch: string; glibc?: string; cwd: string; installRoot: string }
+export interface Probe { os: string; arch: string; glibc?: string; cwd: string; installRoot: string; home: string }
 export interface Installation { root: string; generation: string; helper: string; ripgrep: string; reused: boolean; bundle: Bundle }
 export function remotePath(value: string): string {
   if (!value.startsWith('/') || /[\0\r\n]/.test(value)) throw new RemoteError('INVALID_ARGUMENT', 'Bootstrap requires absolute paths without NUL or line breaks');
@@ -39,11 +39,11 @@ fi
 cwd=$(cd "$1" && pwd -P) || fail INVALID_WORKSPACE
 root=$2
 if [ -z "$root" ]; then root="$HOME/.cache/dsh-remote"; fi
-printf 'DSH-PROBE\n%s\n%s\n%s\n%s\n%s\n' "$os" "$arch" "$libc" "$cwd" "$root"
+printf 'DSH-PROBE\n%s\n%s\n%s\n%s\n%s\n%s\n' "$os" "$arch" "$libc" "$cwd" "$root" "$HOME"
 `, [cwd, installRoot ?? ''], { signal });
   const lines = result.split('\n');
-  if (lines.length !== 7 || lines[0] !== 'DSH-PROBE') throw new RemoteError('CONTROL_PROTOCOL', 'Unexpected platform probe response');
-  return { os: lines[1]!, arch: lines[2]!, ...(lines[3] !== 'unknown' ? { glibc: lines[3]! } : {}), cwd: remotePath(lines[4]!), installRoot: remotePath(lines[5]!) };
+  if (lines.length !== 8 || lines[0] !== 'DSH-PROBE') throw new RemoteError('CONTROL_PROTOCOL', 'Unexpected platform probe response');
+  return { os: lines[1]!, arch: lines[2]!, ...(lines[3] !== 'unknown' ? { glibc: lines[3]! } : {}), cwd: remotePath(lines[4]!), installRoot: remotePath(lines[5]!), home: remotePath(lines[6]!) };
 }
 
 const filesystem = String.raw`

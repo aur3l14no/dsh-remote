@@ -19,6 +19,8 @@ Manifest format 1 为目标 OS/arch/ABI 提供唯一 bundle，记录 helper/rg �
 
 默认 installRoot 是远端账户 `$HOME/.cache/dsh-remote`，runtimeBase 是 `/tmp`，均可显式配置。workspace 必须存在并远程规范化。不要求远端编译器、sudo、公网或 SFTP；需要 POSIX shell 和基本工具。Bash 是否存在是具体 shell consumer 的要求，不是 bootstrap 的通用假设。
 
+平台探测同时返回最终执行环境的账户 HOME（`ready.platform.home`），供集成层选取独立于安装缓存和 runtime 的持久数据目录；通用 runtime 不定义附件存储布局。
+
 安装先写私有 generation，使用 publication lock 和原子 reference 发布。修复或升级生成新版本，不替换运行中的可执行文件。旧 World 保持其精确安装路径与 runtime；新准备不重放旧命令。中断写入、被强杀后遗留锁、generation 垃圾回收不由自动修复隐藏处理。
 
 ## runtime 与连接

@@ -22,7 +22,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 
-网络连接器仍在本地运行。完整远端 sandbox、附件桥接和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。完整说明见[执行边界](docs/execution-boundaries.md)。
+上传的图片和文件持久存储在 Session 绑定的远端；模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。附件限制和旧记录兼容方式见[执行边界](docs/execution-boundaries.md)。
 
 ## 开发
 

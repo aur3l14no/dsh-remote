@@ -9,7 +9,7 @@ import { worldPlugin } from './world.ts';
 import SshFileSystem from './fs.ts';
 import SshSubprocess from './subprocess.ts';
 
-export interface WorldConnection { client: Client; ripgrep: string; close(): Promise<void> }
+export interface WorldConnection { client: Client; ripgrep: string; dataRoot?: string; close(): Promise<void> }
 export type WorldConnector = (world: WorldDefinition) => Promise<WorldConnection>;
 export type BootstrapConfig = Pick<BootstrapOptions, 'manifest' | 'cacheDir' | 'required' | 'graceMs' | 'leaseMs' | 'connectTimeoutMs' | 'lockWaitMs'>;
 export interface Config {
@@ -38,7 +38,10 @@ export default class ExecutionWorlds extends Service {
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
     const bootstrap = config.bootstrap;
     let prepared = typeof bootstrap === 'function' ? undefined : bootstrap;
-    this.connect = connector ?? (definition => bootstrapSshWorld({ ...prepared!, ...definition, world: definition.id }));
+    this.connect = connector ?? (async definition => {
+      const world = await bootstrapSshWorld({ ...prepared!, ...definition, world: definition.id });
+      return { ...world, dataRoot: `${world.platform.home}/.local/share/dsh-remote` };
+    });
     this.beforeConnect = async definition => {
       await config.beforeConnect?.(definition);
       // Download failures allocate no runtime and must remain retryable, like other preconnect preparation.
@@ -84,7 +87,7 @@ export default class ExecutionWorlds extends Service {
           this.assertOpen();
           const info = connection.client.info;
           if (info.world !== definition.id || info.cwd !== definition.cwd) throw new RemoteError('WORLD_MISMATCH', 'Negotiated World or canonical cwd differs from the binding');
-          await owner.plugin(worldPlugin(connection.client, () => connection.close())); mounted = true;
+          await owner.plugin(worldPlugin(connection.client, () => connection.close(), connection.dataRoot)); mounted = true;
           await owner.plugin(SshFileSystem, { textMaxBytes: 33554432, diffBasisMaxBytes: 1048576 });
           await owner.plugin(SshSubprocess, { executables: { [this.packagedRipgrep]: connection.ripgrep } });
           this.assertOpen();
@@ -129,6 +132,13 @@ export default class ExecutionWorlds extends Service {
     if (!current) throw new RemoteError('WORLD_REQUIRED', 'Session binding disappeared during setup');
     this.same(definition, current);
     return current;
+  }
+
+  /** Synchronous access after admission, with the same durable identity and availability checks. */
+  forSession(sessionId: string): Context {
+    const saved = this.bindings.get(sessionId);
+    if (!saved) throw new RemoteError('WORLD_REQUIRED', 'Session has no saved World binding');
+    return this.available(saved, saved.cwd);
   }
 
   private available(definition: WorldDefinition, cwd: string | undefined): Context {

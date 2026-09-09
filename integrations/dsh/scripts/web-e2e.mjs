@@ -19,8 +19,9 @@ if (live) {
   if (typeof key !== 'string' || !key) throw new Error('DeepSeek credential unavailable');
   liveEnvironment.DEEPSEEK_API_KEY = key;
 }
-const scenario = live ? 'remote-live.e2e.ts' : 'portable-workspace.e2e.ts';
-const resultFile = resolve(`artifacts/dsh/${live ? 'live-result' : 'result'}.json`);
+const attachments = process.argv[2] === '--attachments';
+const scenario = live ? 'remote-live.e2e.ts' : attachments ? 'attachments.e2e.ts' : 'portable-workspace.e2e.ts';
+const resultFile = resolve(`artifacts/dsh/${live ? 'live-result' : attachments ? 'attachments-result' : 'result'}.json`);
 await rm(resultFile, { force: true });
 if (live) await rm(resolve('artifacts/dsh/live-details.json'), { force: true });
 const extension = resolve('.build/dsh/plugin-home/profiles/web/node_modules/@dsh-remote/extension');
@@ -56,7 +57,8 @@ try {
     await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
       scenario, topology: 'host Web + Chromium; two Docker Linux/SSH Worlds',
       ...(live ? { checks: JSON.parse(await readFile('artifacts/dsh/live-details.json', 'utf8')) } : {}),
-      model: live ? 'live DeepSeek API' : 'synthetic replay and native MockAdapter', search: live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
+      model: live ? 'live DeepSeek API' : attachments ? 'image-capable MockAdapter' : 'synthetic replay and native MockAdapter',
+      search: attachments ? 'not exercised' : live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
   } finally {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', interrupt);

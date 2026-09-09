@@ -41,6 +41,8 @@ World、SSH 连接、helper runtime epoch 和 process ID 是不同身份。同�
 
 FS、subprocess、shell 和 workdir resolver 在同一个 standing preset 隔离域中；Agents 加入该域，共享原生工具实例。原生 jobs/terminal 服务负责 Session owner 生命周期；terminal backend 将创建操作交给所属 World 的 subprocess。helper 管理底层资源，不接管 Agent 或审批策略。
 
+`workspace/remote-attachments` 通过独立的 Session 身份入口选择持久源，不依赖工具 ALS。新附件存远端账户数据目录，模型转换/预览按需读回宿主；宿主仅保留可重建的请求变体。命名空间、旧宿主引用与大小限制见[附件契约](execution-boundaries.md#上传附件)。
+
 [补丁说明](../integrations/dsh/patches/README.md)维护各宿主接口；[series.json](../integrations/dsh/patches/series.json)维护上游 revision、修改包及摘要。新增消费者遵循[插件兼容契约](plugin-compatibility.md)，升级风险与补丁移除条件见[上游依赖](upstream-dependencies.md)。
 
 ## 发行结构

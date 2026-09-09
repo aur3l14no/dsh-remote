@@ -78,6 +78,8 @@ Session 准入和路径补丁有独立源码 gate：从干净基线导出隔离�
 ```sh
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
 DSH_TEST_RG="$LOCAL_RG" node .build/dsh/patched-host/admission.mjs
+node integrations/dsh/scripts/check-attachments.mjs
+DSH_TEST_RG="$LOCAL_RG" node --expose-internals .build/dsh/attachment-check/lib/attachments.mjs
 ```
 
 输出在 .build/dsh/patched-host/；build.json 记录基线和补丁摘要。开发新补丁可在命令末尾指定 patches/ 内的候选文件名，验证后再纳入 series.json。保留原来的 unchanged-source gate，避免把修改后的宿主误记为原生兼容。只有具体 fixture 目录可以声明上游 npm 包身份，不能在 `.build/` 或 `.build/dsh/` 根声明，以免影响相邻构建的模块解析。
@@ -106,6 +108,8 @@ node integrations/dsh/scripts/prepare-browser-fixtures.mjs
 npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
+node integrations/dsh/scripts/e2e.mjs -- node --expose-internals .build/dsh/attachment-check/lib/attachments.mjs
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --attachments
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
 ```

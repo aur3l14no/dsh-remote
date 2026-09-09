@@ -1,0 +1,377 @@
+diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
+index 6e42757..68a6dcc 100644
+--- a/packages/api/session-controller/src/commands.ts
++++ b/packages/api/session-controller/src/commands.ts
+@@ -354,7 +354,8 @@ export class SessionCommandController {
+           request.content,
+           receiptId => this.ctx.fileUploads.resolve(agent, receiptId),
+         )
+-        const content = await this.ctx.attachments.admitPromptContent(admission.content)
++        const store = this.ctx.attachments.forSession?.(agent.session.header.id) ?? this.ctx.attachments
++        const content = await store.admitPromptContent(admission.content)
+         const message: UserMessage = createUserMessage({ content, source })
+         if (this.ctx.agents.get(agent.id) !== agent) {
+           throw new RemoteError(
+@@ -407,7 +408,8 @@ export class SessionCommandController {
+       )
+     }
+     try {
+-      const stored = await this.ctx.attachments.readImage(ref)
++      const store = this.ctx.attachments.forSession?.(request.sessionId) ?? this.ctx.attachments
++      const stored = await store.readImage(ref)
+       return {
+         attachment: stored.ref,
+         data: Buffer.from(stored.data).toString('base64'),
+diff --git a/packages/attachment/attachment-local/src/index.ts b/packages/attachment/attachment-local/src/index.ts
+index 7415bf9..4acf66e 100644
+--- a/packages/attachment/attachment-local/src/index.ts
++++ b/packages/attachment/attachment-local/src/index.ts
+@@ -26,7 +26,8 @@ import { readRequestImageFile, requestImageVariantId } from './request-image.ts'
+ 
+ export { canPassThroughNormalization, normalizeImage } from './normalization.ts'
+ export type { NormalizedImage, NormalizationPolicy } from './normalization.ts'
+-export { commitPreparedImageFile, prepareImageFile, readImageFile, saveImageFile, validateImageFile } from './store.ts'
++export { commitPreparedImageFile, prepareImageFile, readImageFile, saveImageFile, validateImageFile, verifyImageData } from './store.ts'
++export { fileLeafName } from './file-store.ts'
+ export type { PreparedImageFile } from './store.ts'
+ export { readRequestImageFile, requestImageVariantId } from './request-image.ts'
+ 
+@@ -166,7 +167,7 @@ export class LocalAttachmentStore extends AttachmentStore {
+   readonly normalizationPolicy: Readonly<NormalizationPolicy>
+   /** Resolved instance-level compression limit. */
+   readonly imageCompressionConcurrency: number
+-  private readonly compression: CompressionLimiter
++  protected readonly compression: CompressionLimiter
+   private readonly requestInflight = new Map<string, SharedRequest<RequestImageAttachment>>()
+ 
+   constructor(ctx: Context, config: Config) {
+@@ -222,7 +223,7 @@ export class LocalAttachmentStore extends AttachmentStore {
+     return readImageFile(this.root, ref, signal)
+   }
+ 
+-  override imageHostPath(ref: ImageAttachmentRef): string {
++  override imageHostPath(ref: ImageAttachmentRef): string | undefined {
+     return normalizedImagePath(this.root, ref)
+   }
+ 
+@@ -238,7 +239,7 @@ export class LocalAttachmentStore extends AttachmentStore {
+     return readFileStreamVerbatim(this.root, ref, signal)
+   }
+ 
+-  override fileHostPath(ref: FileAttachmentRef): string {
++  override fileHostPath(ref: FileAttachmentRef): string | undefined {
+     return storedFilePath(this.root, ref)
+   }
+ 
+diff --git a/packages/attachment/attachment-local/src/store.ts b/packages/attachment/attachment-local/src/store.ts
+index 7fab679..4e4b3c1 100644
+--- a/packages/attachment/attachment-local/src/store.ts
++++ b/packages/attachment/attachment-local/src/store.ts
+@@ -434,7 +434,7 @@ export async function readImageFile(
+   signal?: AbortSignal,
+ ): Promise<StoredImageAttachment> {
+   signal?.throwIfAborted()
+-  const sha256 = ensureReference(ref)
++  ensureReference(ref)
+   let data: Uint8Array
+   try {
+     data = new Uint8Array(await readFile(normalizedImagePath(root, ref), { signal }))
+@@ -443,7 +443,13 @@ export async function readImageFile(
+     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') throw new AttachmentError('Attachment object is missing.', 'ATTACHMENT_NOT_FOUND')
+     throw new AttachmentError('Unable to read image attachment.', 'ATTACHMENT_READ_FAILED', { cause: error })
+   }
++  return verifyImageData(ref, data, signal)
++}
++
++/** Verify downloaded normalized bytes against the immutable attachment reference. */
++export async function verifyImageData(ref: ImageAttachmentRef, data: Uint8Array, signal?: AbortSignal): Promise<StoredImageAttachment> {
+   signal?.throwIfAborted()
++  const sha256 = ensureReference(ref)
+   if (digest(data) !== sha256) throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
+   // The digest proves these are the exact bytes admission fully decoded, so
+   // the read path only re-derives the header fields (no raster decode, no
+diff --git a/packages/attachment/attachment/src/error.ts b/packages/attachment/attachment/src/error.ts
+index 0aed793..1ae1bad 100644
+--- a/packages/attachment/attachment/src/error.ts
++++ b/packages/attachment/attachment/src/error.ts
+@@ -21,6 +21,7 @@ const ATTACHMENT_ERROR_CODES = [
+   'INVALID_ATTACHMENT_REF',
+   'ATTACHMENT_CORRUPT',
+   'ATTACHMENT_WRITE_FAILED',
++  'ATTACHMENT_TOO_LARGE',
+   'ATTACHMENT_NOT_FOUND',
+   'ATTACHMENT_READ_FAILED',
+   'ATTACHMENT_PROJECTION_UNSUPPORTED',
+diff --git a/packages/attachment/attachment/src/index.ts b/packages/attachment/attachment/src/index.ts
+index 5df42a8..8a9611d 100644
+--- a/packages/attachment/attachment/src/index.ts
++++ b/packages/attachment/attachment/src/index.ts
+@@ -54,6 +54,24 @@ export abstract class AttachmentStore extends Service {
+     super(ctx, 'attachments')
+   }
+ 
++  /** Select attachment capabilities for an explicit Session; local stores are unchanged. */
++  forSession(sessionId: string | undefined): AttachmentStore {
++    void sessionId
++    return this
++  }
++
++  /** Read-only path in the selected execution environment, independent of host path mapping. */
++  imageExecutionPath(ref: ImageAttachmentRef): string | undefined {
++    void ref
++    return undefined
++  }
++
++  /** Read-only path in the selected execution environment for a verbatim file. */
++  fileExecutionPath(ref: FileAttachmentRef): string | undefined {
++    void ref
++    return undefined
++  }
++
+   /** Deployment-resolved image policy used by authoritative and fast-path validation. */
+   abstract readonly imageLimits: ImageAttachmentLimits
+ 
+diff --git a/packages/client/file-upload/src/index.ts b/packages/client/file-upload/src/index.ts
+index 2520ba1..8b43043 100644
+--- a/packages/client/file-upload/src/index.ts
++++ b/packages/client/file-upload/src/index.ts
+@@ -105,7 +105,7 @@ export class FileUploads extends TypertRemoteService {
+   @Remote('upload')
+   upload(agent: Agent, request: EncodedFileUploadRequest, signal: AbortSignal): Promise<FileUploadValue> {
+     signal.throwIfAborted()
+-    return this.commit(agent, async () => this.ctx.attachments.admitEncodedFile({
++    return this.commit(agent, async () => (this.ctx.attachments.forSession?.(agent.session.header.id) ?? this.ctx.attachments).admitEncodedFile({
+       data: request.data,
+       ...(request.name === undefined ? {} : { name: request.name }),
+     }))
+@@ -123,7 +123,7 @@ export class FileUploads extends TypertRemoteService {
+     readonly name?: string
+   }): Promise<FileUploadValue> {
+     const agent = await this.resolveAgent(request.sessionId)
+-    return this.commit(agent, async () => this.ctx.attachments.saveFileStream({
++    return this.commit(agent, async () => (this.ctx.attachments.forSession?.(agent.session.header.id) ?? this.ctx.attachments).saveFileStream({
+       data: request.data,
+       ...(request.signal === undefined ? {} : { signal: request.signal }),
+       ...(request.name === undefined ? {} : { name: request.name }),
+diff --git a/packages/fs/tool-fs/src/index.ts b/packages/fs/tool-fs/src/index.ts
+index cfbec13..dbf20c5 100644
+--- a/packages/fs/tool-fs/src/index.ts
++++ b/packages/fs/tool-fs/src/index.ts
+@@ -67,7 +67,7 @@ export function apply(ctx: Context, config: Config): void {
+   // read_image is composition-conditional: without a mounted attachment store
+   // the deployment cannot durably commit image bytes, so the tool never
+   // registers; the execute body keeps a defensive re-check for direct callers.
+-  ctx.inject(['attachments'], (imageCtx) => {
++  ctx.inject(['attachments', 'fs'], (imageCtx) => {
+     applyReadImageTool(imageCtx)
+   })
+   // One escalation API shared by both mutating tools: advertisement gating,
+diff --git a/packages/fs/tool-fs/src/read-image.ts b/packages/fs/tool-fs/src/read-image.ts
+index 3115473..728fd67 100644
+--- a/packages/fs/tool-fs/src/read-image.ts
++++ b/packages/fs/tool-fs/src/read-image.ts
+@@ -250,7 +250,8 @@ export function applyReadImageTool(ctx: Context): void {
+       if (declared === undefined && extension !== '') {
+         throw new Error(`cannot read "${args.file_path}": the ${extension} extension does not declare a supported image format; read_image accepts PNG/JPEG/WebP/GIF files, including extension-less files in those formats`)
+       }
+-      const attachments = ctx.get('attachments')
++      const store = ctx.get('attachments')
++      const attachments = store?.forSession?.(exec.agent?.session.header.id) ?? store
+       if (attachments === undefined) {
+         throw new Error(`cannot read "${args.file_path}" as an image: no attachment service is mounted`)
+       }
+diff --git a/packages/llm/llm-deepseek/src/adapter.ts b/packages/llm/llm-deepseek/src/adapter.ts
+index be165c1..f780829 100644
+--- a/packages/llm/llm-deepseek/src/adapter.ts
++++ b/packages/llm/llm-deepseek/src/adapter.ts
+@@ -132,7 +132,7 @@ export interface DeepSeekAdapterOptions {
+   /** Resolve the harness-home anonymous id shared with telemetry and feedback. */
+   resolveUserId: () => AnonymousUserId
+   /** Resolve the current durable attachment service; absence rejects image input. */
+-  resolveAttachments?: () => AttachmentStore | undefined
++  resolveAttachments?: (sessionId?: string) => AttachmentStore | undefined
+   /** Bridge one attachment reference into the current model-tool execution world. */
+   resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
+   /** Resolve the process-wide upload reuse store. */
+@@ -468,7 +468,7 @@ export class DeepSeekAdapter extends LlmAdapter {
+           'UNSUPPORTED_CONTENT',
+         )
+       }
+-      attachments = this.config.resolveAttachments?.()
++      attachments = this.config.resolveAttachments?.(options.sessionId)
+       if (attachments === undefined) {
+         throw new LlmError(
+           'DeepSeek image conversion requires the durable attachment service.',
+diff --git a/packages/llm/llm-deepseek/src/index.ts b/packages/llm/llm-deepseek/src/index.ts
+index 1a865c2..4b10d76 100644
+--- a/packages/llm/llm-deepseek/src/index.ts
++++ b/packages/llm/llm-deepseek/src/index.ts
+@@ -463,7 +463,10 @@ export function apply(ctx: Context, config: Config): void {
+     options,
+     resolveApiKey,
+     resolveUserId,
+-    resolveAttachments: () => ctx.get('attachments'),
++    resolveAttachments: sessionId => {
++      const store = ctx.get('attachments')
++      return store?.forSession?.(sessionId) ?? store
++    },
+     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(
+       attachments,
+       hostPath => ctx.get('fs')?.processPathFromHostPath(hostPath),
+diff --git a/packages/llm/llm-deepseek/src/upload-index.ts b/packages/llm/llm-deepseek/src/upload-index.ts
+index d442bb5..5565fa8 100644
+--- a/packages/llm/llm-deepseek/src/upload-index.ts
++++ b/packages/llm/llm-deepseek/src/upload-index.ts
+@@ -61,7 +61,7 @@ function parseRecord(value: unknown): DeepSeekUploadRecord {
+   }
+   const record = value as Record<string, unknown>
+   if (typeof record.scope !== 'string' || !/^[0-9a-f]{64}$/u.test(record.scope)
+-    || typeof record.attachmentId !== 'string' || !/^sha256:[0-9a-f]{64}$/u.test(record.attachmentId)
++    || typeof record.attachmentId !== 'string' || (record.attachmentId.length === 0 || record.attachmentId.length > 1024 || /[\u0000-\u001f]/u.test(record.attachmentId))
+     || typeof record.variantId !== 'string' || !/^sha256:[0-9a-f]{64}$/u.test(record.variantId)
+     || typeof record.fileId !== 'string' || record.fileId.length === 0
+     || !Number.isSafeInteger(record.bytes) || (record.bytes as number) < 0
+diff --git a/packages/llm/llm-pi-ai/src/adapter.ts b/packages/llm/llm-pi-ai/src/adapter.ts
+index 41a2171..56ce8ec 100644
+--- a/packages/llm/llm-pi-ai/src/adapter.ts
++++ b/packages/llm/llm-pi-ai/src/adapter.ts
+@@ -93,7 +93,7 @@ export interface PiAiAdapterOptions {
+    */
+   auth: PiAiAuthInjection
+   /** Resolve the optional durable attachment service at request time. */
+-  resolveAttachments?: () => AttachmentStore | undefined
++  resolveAttachments?: (sessionId?: string) => AttachmentStore | undefined
+   /** Bridge one attachment reference into the current model-tool execution world. */
+   resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
+   /**
+@@ -354,7 +354,7 @@ export class PiAiAdapter extends LlmAdapter {
+       if (containsImage && !model.input.includes('image')) {
+         throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
+       }
+-      const attachments = containsImage ? this.config.resolveAttachments?.() : undefined
++      const attachments = containsImage ? this.config.resolveAttachments?.(options.sessionId) : undefined
+       if (containsImage && attachments === undefined) {
+         throw new LlmError('pi-ai image input requires the durable attachment service', 'UNSUPPORTED_CONTENT')
+       }
+diff --git a/packages/llm/llm-pi-ai/src/index.ts b/packages/llm/llm-pi-ai/src/index.ts
+index a6e13ab..2d92c52 100644
+--- a/packages/llm/llm-pi-ai/src/index.ts
++++ b/packages/llm/llm-pi-ai/src/index.ts
+@@ -199,7 +199,10 @@ export function apply(ctx: Context, config: Config): void {
+     profiles,
+     resolveApiKey,
+     auth,
+-    resolveAttachments: () => ctx.get('attachments'),
++    resolveAttachments: sessionId => {
++      const store = ctx.get('attachments')
++      return store?.forSession?.(sessionId) ?? store
++    },
+     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(
+       attachments,
+       hostPath => ctx.get('fs')?.processPathFromHostPath(hostPath),
+diff --git a/packages/llm/llm/src/content.ts b/packages/llm/llm/src/content.ts
+index c6d3a44..e0e8716 100644
+--- a/packages/llm/llm/src/content.ts
++++ b/packages/llm/llm/src/content.ts
+@@ -35,6 +35,8 @@ export function resolveImageAttachmentAccess(
+   mapHostPath: (hostPath: string) => string | undefined,
+   ref: ImageAttachmentRef,
+ ): ImageAttachmentAccess | undefined {
++  const executionPath = attachments.imageExecutionPath?.(ref)
++  if (executionPath !== undefined) return { readonlyPath: executionPath }
+   const hostPath = attachments.imageHostPath(ref)
+   if (hostPath === undefined) return undefined
+   const readonlyPath = mapHostPath(hostPath)
+diff --git a/packages/llm/llm/src/index.ts b/packages/llm/llm/src/index.ts
+index 367688c..e59b2ea 100644
+--- a/packages/llm/llm/src/index.ts
++++ b/packages/llm/llm/src/index.ts
+@@ -987,10 +987,14 @@ export class LlmRuntime extends TypertRemoteService {
+    * Resolve the current execution-world read path of one durable file
+    * reference through the mounted attachment and filesystem providers.
+    */
+-  private fileReadPath(ref: FileAttachmentRef): string | undefined {
++  private fileReadPath(ref: FileAttachmentRef, sessionId?: string): string | undefined {
+     let hostPath: string | undefined
+     try {
+-      hostPath = this.ctx.get('attachments')?.fileHostPath(ref)
++      const store = this.ctx.get('attachments')
++      const attachments = store?.forSession?.(sessionId) ?? store
++      const executionPath = attachments?.fileExecutionPath?.(ref)
++      if (executionPath !== undefined) return executionPath
++      hostPath = attachments?.fileHostPath(ref)
+     } catch {
+       // A malformed durable reference degrades this occurrence to the no-path
+       // handle instead of failing every later request over the same log.
+@@ -1043,7 +1047,7 @@ export class LlmRuntime extends TypertRemoteService {
+       // Files are never dispatched natively: every route receives handle text.
+       let projectedMessages: readonly Message[] = resolvedOptions.messages
+       if (projectedMessages.some(message => contentHasFile(message.content))) {
+-        projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref))
++        projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref, resolvedOptions.sessionId))
+       }
+       if (modelInfo.inputModalities !== undefined
+         && !modelInfo.inputModalities.includes('image')
+diff --git a/packages/session-query/session-log-export/src/archive.ts b/packages/session-query/session-log-export/src/archive.ts
+index 8728ca9..1dd6f68 100644
+--- a/packages/session-query/session-log-export/src/archive.ts
++++ b/packages/session-query/session-log-export/src/archive.ts
+@@ -336,12 +336,13 @@ export async function* sessionLogZipEntries(
+ ): AsyncGenerator<SessionLogZipEntry> {
+   const media = new Map<string, ImageAttachmentRef>()
+   const files = new Map<string, FileAttachmentRef>()
+-  const rememberAttachments = (content: string): void => {
++  const owners = new Map<ImageAttachmentRef | FileAttachmentRef, SessionId>()
++  const rememberAttachments = (content: string, owner: SessionId): void => {
+     const refs = attachmentRefsInArtifact(content)
+-    for (const [id, ref] of refs.images) media.set(id, ref)
+-    for (const [id, ref] of refs.files) files.set(id, ref)
++    for (const [id, ref] of refs.images) { media.set(id, ref); owners.set(ref, owner) }
++    for (const [id, ref] of refs.files) { files.set(id, ref); owners.set(ref, owner) }
+   }
+-  rememberAttachments(rootContent)
++  rememberAttachments(rootContent, sessionId)
+   yield { path: SESSION_LOG_FILENAME, content: rootContent }
+   if (includeDescendants) {
+     const seen = new Set<SessionId>([sessionId])
+@@ -359,7 +360,7 @@ export async function* sessionLogZipEntries(
+         if (content === undefined) {
+           throw new Error(`subagent "${id}" has no stored log`)
+         }
+-        rememberAttachments(content)
++        rememberAttachments(content, id)
+         yield {
+           path: `subagents/${safeSessionIdSegment(id)}/${SESSION_LOG_FILENAME}`,
+           content,
+@@ -373,7 +374,7 @@ export async function* sessionLogZipEntries(
+   }
+   for (const ref of media.values()) {
+     signal?.throwIfAborted()
+-    const stored = await deps.attachments.readImage(ref, signal)
++    const stored = await (deps.attachments.forSession?.(owners.get(ref)) ?? deps.attachments).readImage(ref, signal)
+     signal?.throwIfAborted()
+     yield { path: mediaEntryPath(ref), data: stored.data }
+   }
+@@ -381,7 +382,7 @@ export async function* sessionLogZipEntries(
+     signal?.throwIfAborted()
+     yield {
+       path: fileEntryPath(ref),
+-      chunks: deps.attachments.readFileStream(ref, signal),
++      chunks: (deps.attachments.forSession?.(owners.get(ref)) ?? deps.attachments).readFileStream(ref, signal),
+     }
+   }
+ }
+diff --git a/packages/subagent/subagent/src/index.ts b/packages/subagent/subagent/src/index.ts
+index 88977cd..a5b0fb2 100644
+--- a/packages/subagent/subagent/src/index.ts
++++ b/packages/subagent/subagent/src/index.ts
+@@ -440,7 +440,8 @@ export class SubagentRuntime extends TypertRemoteService {
+       if (request.content.every((part): part is { readonly type: 'text'; readonly text: string } => part.type === 'text')) {
+         content = request.content.map(part => ({ type: 'text', text: part.text }))
+       } else {
+-        const attachments = this.ctx.get('attachments')
++        const store = this.ctx.get('attachments')
++        const attachments = store?.forSession?.(parent.session.header.id) ?? store
+         if (attachments === undefined) throw new Error('subagent image prompt requires an attachment store')
+         content = await attachments.admitPromptContent(request.content)
+       }

@@ -8,11 +8,14 @@ declare module '@deepseek-ai/cordis' {
 /** A composition owns one already-negotiated runtime; each provider owns its allocations. */
 export class RemoteWorld extends Service {
   readonly client: Client;
+  /** Persistent remote account data, separate from installations and runtime cleanup. */
+  readonly dataRoot?: string;
   private owners = new Set<() => Promise<void>>();
-  constructor(ctx: Context, client: Client, close: () => Promise<void> = () => client.shutdown()) {
+  constructor(ctx: Context, client: Client, close: () => Promise<void> = () => client.shutdown(), dataRoot?: string) {
     super(ctx, 'remoteWorld');
     if (client.state !== 'ready') throw new RemoteError('WORLD_NOT_READY', 'Bind a negotiated World before loading consumers');
     this.client = client;
+    this.dataRoot = dataRoot;
     ctx.effect(() => async () => {
       const results = await Promise.allSettled([...this.owners].map(dispose => dispose()));
       await close();
@@ -29,8 +32,8 @@ export class RemoteWorld extends Service {
 }
 
 /** Embed in the same isolated Loader group as FS, subprocess and their consumers. */
-export function worldPlugin(client: Client, close?: () => Promise<void>): new (ctx: Context) => RemoteWorld {
+export function worldPlugin(client: Client, close?: () => Promise<void>, dataRoot?: string): new (ctx: Context) => RemoteWorld {
   return class BoundWorld extends RemoteWorld {
-    constructor(ctx: Context) { super(ctx, client, close); }
+    constructor(ctx: Context) { super(ctx, client, close, dataRoot); }
   };
 }

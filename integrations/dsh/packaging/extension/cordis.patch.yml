@@ -91,3 +91,36 @@
     - id: remote-ui-chat
       name: './compat/@deepseek-ai/dsh-client-ui-chat/lib/index.js'
       inject: [remoteSetup]
+
+# Attachment writes and model reads select an explicit Session environment.
+# Include patch names are assertions; replacements require disable + insert.
+- id: attachment-local
+  disabled: true
+- id: llm
+  disabled: true
+- id: llm-deepseek
+  disabled: true
+- id: llm-pi-ai
+  disabled: true
+- id: file-upload
+  disabled: true
+- id: subagent
+  disabled: true
+- id: session-log-download
+  disabled: true
+- insert:
+    - id: remote-attachments
+      name: './plugins/web/lib/attachments.js'
+      inject: [remoteSetup, executionWorlds, worldPortableWorkspaces]
+    - id: remote-llm
+      name: './compat/@deepseek-ai/dsh-llm/lib/index.js'
+    - id: remote-llm-deepseek
+      name: './compat/@deepseek-ai/dsh-llm-deepseek/lib/index.js'
+    - id: remote-llm-pi-ai
+      name: './compat/@deepseek-ai/dsh-llm-pi-ai/lib/index.js'
+    - id: remote-file-upload
+      name: './compat/@deepseek-ai/dsh-client-file-upload/lib/index.js'
+    - id: remote-subagent
+      name: './compat/@deepseek-ai/dsh-subagent/lib/index.js'
+    - id: remote-session-log-download
+      name: './compat/@deepseek-ai/dsh-session-log-export/lib/index.js'

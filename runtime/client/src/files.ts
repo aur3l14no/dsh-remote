@@ -38,15 +38,26 @@ async function readStream(client: Client, method: string, params: Params, maxByt
 }
 
 export async function writeFile(client: Client, path: string, data: Uint8Array, expected: Expected = { kind: 'any' }, signal?: AbortSignal): Promise<Published> {
-  if (data.length > client.info.limits.uploadBytes!) throw new RemoteError('CLIENT_RESOURCE_LIMIT', 'File exceeds remote upload limit');
-  const bytes = Buffer.from(data);
-  const { upload } = await client.requestWhenReady<{ upload: string }>('fs.beginWrite', { path, expected, maxBytes: Math.max(1, bytes.length) } as Params, signal);
+  return writeFileStream(client, path, (async function* () { yield data; })(), data.byteLength, expected, signal);
+}
+
+/** Publish a known-length file with bounded chunks and backpressure, without aggregating it in memory. */
+export async function writeFileStream(client: Client, path: string, data: AsyncIterable<Uint8Array>, bytes: number, expected: Expected = { kind: 'any' }, signal?: AbortSignal): Promise<Published> {
+  if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > client.info.limits.uploadBytes!) throw new RemoteError('CLIENT_RESOURCE_LIMIT', 'File exceeds remote upload limit');
+  const { upload } = await client.requestWhenReady<{ upload: string }>('fs.beginWrite', { path, expected, maxBytes: Math.max(1, bytes) } as Params, signal);
   let committed = false;
   try {
-    for (let offset = 0; offset < bytes.length; offset += client.info.limits.chunkBytes!) {
-      await client.whenReady();
-      await client.requestWhenReady('fs.writeChunk', { upload, offset, data: bytes.subarray(offset, offset + client.info.limits.chunkBytes!).toString('base64') }, signal);
+    let offset = 0;
+    for await (const chunk of data) {
+      signal?.throwIfAborted();
+      if (offset + chunk.byteLength > bytes) throw new RemoteError('INVALID_ARGUMENT', 'File stream exceeds its declared length');
+      for (let start = 0; start < chunk.byteLength; start += client.info.limits.chunkBytes!) {
+        const part = chunk.subarray(start, start + client.info.limits.chunkBytes!);
+        await client.requestWhenReady('fs.writeChunk', { upload, offset, data: Buffer.from(part).toString('base64') }, signal);
+        offset += part.byteLength;
+      }
     }
+    if (offset !== bytes) throw new RemoteError('INVALID_ARGUMENT', 'File stream ended before its declared length');
     await client.whenReady();
     const result = await client.requestWhenReady<Published>('fs.commitWrite', { upload }, signal);
     committed = result.committed;

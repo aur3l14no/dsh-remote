@@ -15,7 +15,7 @@ DSH tools.execute(exec.agent)
   → client RPC → SSH stdio → 远端 helper 执行
 ```
 
-[routing.ts](../integrations/dsh/packages/world/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/packages/world/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。新增 session-admission 适配器通过宿主补丁在普通 Session 创建、恢复、接管和 fork 前执行准入；这条链路独立于工具调用的 ALS。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，instructions 和 skill lookup 已有独立身份入口；当前未自动覆盖全部初始化、上传和后台消费者。
+[routing.ts](../integrations/dsh/packages/world/ssh-world/src/routing.ts) 在缺失路由时抛错；[worlds.ts](../integrations/dsh/packages/world/ssh-world/src/worlds.ts) 检查持久绑定、Agent 活跃绑定、cwd 与 runtime 状态。新增 session-admission 适配器通过宿主补丁在普通 Session 创建、恢复、接管和 fork 前执行准入；这条链路独立于工具调用的 ALS。工具调度之外的调用可以明确使用 `executionWorlds.forAgent(agent)`，instructions、skill lookup 和附件已有独立身份入口；当前未自动覆盖全部初始化和后台消费者。
 
 目前 **没有** 自动分类全部工具的黑白名单，也没有可用的通用 local-shell 工具。以下机制必须区分：
 
@@ -41,7 +41,7 @@ DSH tools.execute(exec.agent)
 | workspace Shell、PTY、进程、信号与输出 | provider 传 argv/cwd/env 到远端 helper | 前台/后台 Bash、jobs 查询与取消已有浏览器验收；原生终端工具已装配，独立终端面板未提供 |
 | HTTPS web search / 连接器请求 | 若装配的是本地网络客户端，请求从本地发出 | remote preset 装配原生 Web 工具和宿主 DeepSeek search provider；受控端点和真实外部搜索已验收 |
 | Shell 中 `curl`/搜索 CLI | 远端 Shell | 即使目的也是网络搜索，也不会按关键词切成本地 |
-| 上传附件的持久存储 | 本地 DSH attachment store | 可留本地；远程工具读取需显式 transfer，尚未实现 |
+| 新上传图片、文件及 `read_image` 产物 | Session 绑定远端的账户数据目录 | 宿主只做入站处理、临时文件暂存和可删除的请求图片缓存；Session 保存引用，模型/预览按需读远端 |
 | 本地用户/内置 skill 内容 | 可以通过独立本地 provider 提供文本 | 不自动获得本地执行权；选定内容可显式部署到远端；未启用宿主默认 skill 扫描 |
 | 项目 AGENTS.md / 项目 skill / @文件补全 | 应从绑定 World 读取 | instruction、skill 扫描及文件补全均通过显式 Session/Agent 选择远端 provider |
 
@@ -69,7 +69,7 @@ Skill 提供说明和资源，不选择执行主机。远程 Shell 收到本地�
 | 本地与远端 symlink、`..` 不同 | 必须远端 canonicalize；patched tool-fs 与 Bash 使用远端解析；account-policy 固定 SSH 账户权限，不声称路径 containment |
 | 本地平台与目标平台不同 | 远端可执行文件、shell、路径规则由目标决定；不能根据本地 OS 选择目标 Bash/PowerShell |
 | 远端 environment | 只传明确 spec.env，不复制 process.env；SSH 配置可能带用户显式配置的行为，应准确披露而非声称绝对禁止 forwarding |
-| tool output 文件/附件/file URL | 原生 Sidebar 文本预览和目录树按 Session 选择远端 FS，并限制在 workspace 根；Markdown 绝对路径图片按 Session 读取远端账户可读文件。缺失身份拒绝；附件上传/下载及附件入远端仍未提供通用桥接 |
+| tool output 文件/附件/file URL | 原生 Sidebar 文本预览和目录树按 Session 选择远端 FS，并限制在 workspace 根；Markdown 绝对路径图片按 Session 读取远端账户可读文件；附件模型读取、历史预览与日志导出按所属 Session 解析。缺失身份拒绝 |
 | 同名 Session 引用 | 原生 session-reference 的 sameWorkspace 只比较 cwd，适配前关闭或明确不支持 |
 | 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。只允许 danger-full-access，其他模式在写入前拒绝；原生工具名过滤不等于能力隔离（允许 Bash 就仍可执行命令）。remote overlay 禁用原生 permission/UI，不承诺逐次审批界面；暴露审批事实不等于强制执行能力 |
 
@@ -86,3 +86,15 @@ Skill 提供说明和资源，不选择执行主机。远程 Shell 收到本地�
 图片请求 `/api/file?path=...&sessionId=...` 按持久 Session membership/binding 准备 World，支持冷会话。身份缺失、绑定冲突或 World 不可用时失败，不根据浏览器当前选中项、同名 cwd 或宿主文件决定路由。图片保持官方绝对路径语义：可以读取 workspace 外但 SSH 账户有权读取的普通文件，受图片字节上限约束。它不提供任意 URL 代理或本地文件能力。
 
 文件预览不提供 OS 文件 watcher；变更提示来自 Agent FS observation，外部编辑需手动刷新。旧 helper 缺少范围读取 capability 时提示更新，不用整文件下载模拟范围读取。
+
+## 上传附件
+
+新上传的图片、原样文件以及 `read_image` 生成的图片对象，以远端为持久源。存储位于远端账户 `$HOME/.local/share/dsh-remote/attachments/v1/<World 指纹>/`，独立于项目目录、helper 安装和临时 runtime。指纹包含完整不可变绑定；不同 World 不因内容摘要相同而共享引用。Session 继续使用原生日志格式，附件 ID 携带内容摘要和 World 指纹。
+
+上传、工具、模型转换、历史预览和 Session 日志导出通过 `attachments.forSession(sessionId)` 选择后端。写入先原子发布并完成 `fs.sync`，再返回可写入日志的引用；缺少该 capability 的旧 helper 明确拒绝附件写入。模型提示里的文件/图片读取路径属于远端账户，宿主缓存路径不会作为工具路径给模型。
+
+宿主仍执行图片校验/归一化、模型请求编码，以及文件上传时的临时暂存。暂存文件在成功、失败和取消后删除；`$DSH_HOME/remote/attachment-cache/` 仅保存可重建的请求图片变体。请求图片即使有缓存，也先读取和校验远端源；断线、丢失、损坏或绑定冲突不能由宿主副本兜底。同一绑定的重启、冷预览和 fork 保留附件所有权。
+
+原样文件上限由 helper 的 `uploadBytes` 决定，当前为 64 MiB；图片仍受 DSH 的数量、字节、像素和格式策略限制。内容寻址去重不等于存储 GC，未引用的已发布对象不会自动删除。工作区隔离不限制 SSH 账户本身修改附件的权限。
+
+升级前已有的裸 `sha256:<摘要>` 引用明确归属旧宿主 attachment store，仍可用于模型读取和历史预览，不自动迁移，也不向远端工具宣称存在可读路径。旧附件需要工具处理时重新上传。自定义 profile 如直接配置被替换的附件、LLM、file-upload、subagent 或导出行，应改用 overlay 中对应的 `remote-*` 行 ID；Models 设置页与 `settings.yaml` 的 provider 配置键不变。

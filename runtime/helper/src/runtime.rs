@@ -29,6 +29,7 @@ const CAPABILITIES: &[&str] = &[
     "fs.bytes",
     "fs.read-range",
     "fs.atomic-publish",
+    "fs.sync",
     "process.pipe",
     "process.pty",
     "process.signals",
@@ -549,6 +550,11 @@ impl Runtime {
                     &fs::absolute(string(p, "path")?)?,
                     p.get("follow").and_then(Value::as_bool).unwrap_or(true),
                 )
+            }),
+            "fs.sync" => tokio::task::block_in_place(|| {
+                cancel.check()?;
+                fs::sync(&fs::absolute(string(p, "path")?)?)?;
+                Ok(json!({"synced":true}))
             }),
             "fs.list" => tokio::task::block_in_place(|| {
                 fs::list(

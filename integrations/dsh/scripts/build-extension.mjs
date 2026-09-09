@@ -66,7 +66,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
+const entries = { attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -77,9 +77,15 @@ for (const browser of [false, true]) {
   const built = browser ? await build({ entryPoints: ['integrations/dsh/packages/workspace/portable-workspace/src/client/index.tsx'], outfile: join(dest, 'lib/client.js'),
     bundle: true, metafile: true, format: 'cjs', platform: 'browser', target: 'es2022', jsx: 'automatic', external: ['@deepseek-ai/*', 'react', 'react/*'],
     banner: { js: `window.__ModuleLoader__.load({ id: "@dsh-remote/web-ui", factory: (require) => { var module = { exports: {} }; var exports = module.exports;` }, footer: { js: 'return module.exports; } });' },
-  }) : await build({ entryPoints: Object.fromEntries(Object.entries(entries).map(([key, path]) => [key, `integrations/dsh/packages/${path}`])), outdir: join(dest, 'lib'), bundle: true, splitting: true, metafile: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external' });
+  }) : await build({ entryPoints: Object.fromEntries(Object.entries(entries).map(([key, path]) => [key, `integrations/dsh/packages/${path}`])), outdir: join(dest, 'lib'), bundle: true, splitting: true, metafile: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external',
+    plugins: [{ name: 'compatibility-imports', setup(builder) {
+      builder.onResolve({ filter: /^@deepseek-ai\// }, args => compatibilityNames.has(args.path) ? {
+        path: './' + relative(join(dest, 'lib'), join(output, 'compat', args.path, 'lib/index.js')), external: true,
+      } : undefined);
+    } }],
+  });
   for (const imported of Object.values(built.metafile.outputs).flatMap(file => file.imports)) {
-    if (!imported.external || imported.path.startsWith('node:') || imported.path.startsWith('@deepseek-ai/') || imported.path.startsWith('react')) continue;
+    if (!imported.external || imported.path.startsWith('.') || imported.path.startsWith('node:') || imported.path.startsWith('@deepseek-ai/') || imported.path.startsWith('react')) continue;
     const name = imported.path.startsWith('@') ? imported.path.split('/').slice(0, 2).join('/') : imported.path.split('/')[0];
     dependencies[name] = JSON.parse(await readFile(resolve('node_modules', name, 'package.json'), 'utf8')).version;
   }

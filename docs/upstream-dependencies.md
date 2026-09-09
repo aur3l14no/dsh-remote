@@ -30,6 +30,7 @@
 | 0004 fs-cwd | 文件工具在处理 parent traversal 前，通过注入 FS 解析 cwd |
 | 0005 context-environment | instructions、skill 查询和缓存携带 Agent/Session 环境；图片读取允许显式 resolver |
 | 0006 file-preview-environment | workspace files、预览和文件链接使用 Session 所属 FS/root；浏览器资源地址携带 Session |
+| 0007 session-attachments | 附件消费者传递 Session，后端可提供执行环境路径和复用图片校验/归一化；模型上传索引接受不透明附件 ID |
 
 补丁间有顺序依赖，尤其 0005/0006 也修改 Session controller；不要把“上游出现类似接口”直接当成可以删补丁。
 

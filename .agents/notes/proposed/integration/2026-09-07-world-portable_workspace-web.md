@@ -14,7 +14,7 @@ Status: proposed
 | --- | --- |
 | 连接器鲁棒性 | 补双 Session 并发、超时/失败/取消专项验收；不改变本地连接器和远端 Shell 的分工 |
 | 远端 worktree | 明确新目录、portable_workspace、新 Agent 关系与失败清理；见下文，未授权本阶段实现 |
-| 附件桥接 | 明确本地 attachment store 与远端工具之间的显式传输；已有文件预览不等于附件传输 |
+| 附件后续 | 新附件远端持久源与按需宿主读取已实现，见[验收](../../implemented/integration/2026-09-10-remote-attachments.md)；旧引用迁移、存储 GC、跨 World 显式转移另行定界 |
 | 远端 OS sandbox | 单独立项；目前父/子 Agent 使用 SSH 账户权限 |
 | 发行完善 | 公共 npm/Release、helper 平台矩阵、ripgrep 与可信下载清单、安装 GC；现有 CI 产物不等于公开发布 |
 | 其他消费者 | sameWorkspace Session 引用、LSP/Git 扩展、跨根 Agent 消息及外部 Agent 后端需单独适配 |

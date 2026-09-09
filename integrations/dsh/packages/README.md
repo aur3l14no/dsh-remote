@@ -1,11 +1,12 @@
 # DSH source modules
 
-The four modules build into one extension bundle. Their directory boundaries do not merge Cordis lifecycles or imply independent npm publication.
+The source modules build into one extension bundle. Their directory boundaries do not merge Cordis lifecycles or imply independent npm publication.
 
 | Module | Ownership and entry points |
 | --- | --- |
 | `world/ssh-world` | Connections, Session bindings, FS/subprocess, routing and account policy. `terminal.ts` implements the runtime; `terminal-backend.ts` adapts native tools. |
 | `workspace/portable-workspace` | Registry, API/feed, admission, file references and previews; browser entry is `src/client/index.tsx`. |
+| `workspace/remote-attachments` | Session-scoped remote attachment authority, temporary host materialization and explicit legacy host references. |
 | `skill/remote-skills` | Project instructions/skill discovery, deployment and synchronization. |
 | `bundle/remote` | Host composition and activation order in `src/index.ts`. |
 

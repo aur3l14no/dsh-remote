@@ -107,6 +107,27 @@ pub fn stat(path: &Path, follow: bool) -> Result<Value> {
         Err(e) => Err(e.into()),
     }
 }
+/// Make an existing regular file and its directory entries durable, including
+/// newly created ancestors. Publication and durability are separate outcomes.
+pub fn sync(path: &Path) -> Result<()> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC | libc::O_NOFOLLOW)
+        .open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(Error::new(
+            "NOT_REGULAR_FILE",
+            "sync requires a regular file",
+        ));
+    }
+    file.sync_all()?;
+    let mut parent = path.parent();
+    while let Some(directory) = parent {
+        File::open(directory)?.sync_all()?;
+        parent = directory.parent();
+    }
+    Ok(())
+}
 pub fn list(path: &Path, limit: usize) -> Result<Value> {
     let mut entries = Vec::new();
     for entry in fs::read_dir(path)? {

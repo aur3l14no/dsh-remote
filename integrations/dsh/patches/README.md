@@ -2,7 +2,7 @@
 
 `series.json` pins the upstream revision and ordered, SHA-256 checked patches. The first patch changes only `@deepseek-ai/dsh-api-session-controller`: three existing source files and one new contract module. It does not change Agent loop, Session JSONL, subprocess or filesystem packages.
 
-The current series contains six patches across nine native packages:
+The current series contains seven patches across seventeen native packages:
 
 | Patch | Native seam |
 | --- | --- |
@@ -12,6 +12,7 @@ The current series contains six patches across nine native packages:
 | 0004 | Provider-based cwd resolution in file tools |
 | 0005 | Session-aware skill lookup/cache and Agent instruction environment |
 | 0006 | Session-owned media URLs, remote canonical file links, and Agent filesystem/root for workspace previews and change feeds |
+| 0007 | Session-scoped attachment backends and execution paths across upload, model conversion, image tools, history preview and export |
 
 `0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the patched-host and browser gates in [development](../../../docs/development.md).
 
@@ -28,6 +29,12 @@ Build/run commands are maintained in [development](../../../docs/development.md#
 The gate exports a clean pinned checkout into .build/dsh/patched-host/source, applies the series and checks affected host/integration types before bundling. Original unchanged-source gates retain their revision and cleanliness checks and still reproduce the unpatched gaps. Never edit the user's upstream checkout or vendor its full tree into this directory.
 
 New candidates can be passed by patch filename as the build command's last argument. Add them to the series only after behavior acceptance. An upstream upgrade must reapply and retest the series before updating the supported revision.
+
+## 0007: Remote attachment ownership
+
+The host seam adds optional Session selection and execution paths while preserving the native local backend, image normalization/request encoding and Session log format. The external remote-attachments plugin owns remote layout, integrity, lifetime and legacy host-reference policy. Model adapters pass the request Session into attachment resolution; generic file projection and image envelopes use the selected environment's path. DeepSeek's upload index accepts opaque IDs. The image tool's nested injection explicitly includes its filesystem dependency.
+
+The extension disables the original rows and inserts `remote-*` replacements; include patch `name` is a matching assertion, not a replacement mechanism. Provider settings retain their native section keys. Source/native and Linux/SSH attachment acceptance is separate from installed Chromium upload/fork/restart acceptance; see [development](../../../docs/development.md).
 
 
 ## 0006: File previews
