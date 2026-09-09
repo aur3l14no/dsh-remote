@@ -159,7 +159,7 @@ function installWorkspaceUi(ctx: Context) {
       </form>
       {status && <p role="status">{status}</p>}
       {worlds.length > 0 && <>
-      <label>World<select aria-label="World" value={world} onChange={event => { setWorld(event.target.value); setPath(''); setDirectories([]); }}>
+      <label>World<select aria-label="World" value={world} onChange={event => { setWorld(event.target.value); setDirectories([]); }}>
         <option value="">Choose a World</option>
         {worlds.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
