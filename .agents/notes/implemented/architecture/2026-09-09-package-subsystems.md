@@ -17,3 +17,9 @@ Status: implemented
 25 个迁移源码文件经比对，仅相对路径改变。通用 TypeScript、npm 测试（33 通过、2 个环境相关跳过）、上游 composition、低层 SSH 包构建及声明检查、Web 插件类型检查、完整扩展构建和安装/重复安装/版本拒绝/移除测试通过。新 tarball 安装后的双 Linux World SSH + Playwright 完整回归也通过；GitHub runner 结果以对应提交 CI 为准。
 
 文档更新当前目录与责任分工，历史记录保留原时点叙述；失效的可点击源码链接指向迁移后文件。先前 adversarial review 的跨领域 lifetime 依赖已消除，其余关于共享身份契约的建议未在这次目录迁移中实施。
+
+## 辅助目录收敛
+
+原 experiments 归入 tests/integration，删除仅转发 registry 的文件，测试直接引用维护模块。profile 模板归入 packaging/extension，overlay 和 preset 的源码布局与安装布局一致，构建不再二次搬运模板。低层 SSH manifest/说明归入 tests/packaging，保留原生兼容检查。justfile 保留。历史文档只更新失效链接，不改写当时结论。
+
+模板和 SSH manifest 字节不变；原生 composition、低层包声明、patched-host 构建、完整扩展构建与安装检查通过。浏览器及 GitHub runner 结果以对应执行记录为准。

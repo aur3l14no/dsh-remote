@@ -2,7 +2,7 @@
 
 > Historical record, archived 2026-09-07. Earlier no-patch/deferred-Web decisions are superseded by the active World Project plan. Paths and links were relocated; acceptance claims describe their original runs. See [current plan](../../proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
-Deferred product flow based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. A [source-only Project experiment](../../../../integrations/dsh/experiments/portable_workspace/README.md) validates the service and entry wiring. Settings/UI and transparent Web activation are not implemented, and their development is paused.
+Deferred product flow based on unchanged DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`. A [source-only Project experiment](../../../../integrations/dsh/tests/integration/README.md) validates the service and entry wiring. Settings/UI and transparent Web activation are not implemented, and their development is paused.
 
 ## User flow
 

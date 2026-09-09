@@ -5,10 +5,9 @@ DSH-specific code lives here; shared execution code and Rust stay in `../../runt
 - `packages/`: four subsystem modules: `world/ssh-world`, `workspace/portable-workspace`, `skill/remote-skills`, and `bundle/remote`. See [module ownership](packages/README.md).
 - `shared/`: small cross-module utilities; generic transport still belongs in `runtime/`.
 - `patches/`: six maintained patches across nine packages; `series.json` pins the official revision and npm release. Unchanged-source and patched-host gates remain separate.
-- `profiles/`: native bundle overlay and remote Agent preset templates. The build anchors their relative paths to installed artifacts.
-- `packaging/extension/`: native bundle configuration and initialization command. Users install through `dsh plugin add` and start the official CLI.
+- `packaging/extension/`: native bundle configuration, overlay, Agent preset and initialization command. Users install through `dsh plugin add` and start the official CLI.
 - `packaging/official/`: locked official build/test inputs, not a user installer.
 - `tests/` and `scripts/`: subsystem checks, prebuilds and Playwright/SSH acceptance.
-- `experiments/portable_workspace/`: retained source-only proof of the original upstream gap.
+- `tests/integration/`: retained unchanged-source proof of the original upstream gap; `tests/packaging/` also owns the low-level SSH package fixture.
 
 See [installation](../../docs/install.md), [architecture](../../docs/architecture.md), [execution boundaries](../../docs/execution-boundaries.md), and [development](../../docs/development.md).

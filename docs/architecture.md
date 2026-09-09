@@ -72,8 +72,8 @@ remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 pre
 - `integrations/dsh/packages/{subsystem}/{module}/`：world/ssh-world、workspace/portable-workspace、skill/remote-skills、bundle/remote 四组源码模块，统一发行；小适配器保留为文件和独立 Cordis 入口。
 - `integrations/dsh/shared/`：少量跨模块工具；不存 World/Session 领域逻辑。
 - `integrations/dsh/patches/`：上游基线与有序补丁；不存上游完整源码或 node_modules。
-- `integrations/dsh/profiles/`：宿主装配边界；仅在真实 Loader 验证后收录可运行 profile。
-- `integrations/dsh/experiments/`：不随插件发行的可执行实验；portable_workspace 实验复用维护中的 registry，保留原生宿主的缺口负例。
+- `integrations/dsh/packaging/extension/`：安装配置、宿主 overlay 和 Agent preset，源码布局对应发行布局。
+- `integrations/dsh/tests/integration/`：直接复用维护中的 registry，保留原生宿主缺口负例；低层 SSH 发行清单与说明归 tests/packaging。
 - `integrations/dsh/tests/`、`scripts/`、`packaging/`：宿主兼容验证和发行适配；通用 client/SSH 测试归入 runtime/tests/。
 - `docs/`：稳定的用户/维护者说明；`.agents/notes/`：计划、取舍、实验和按时间记录的证据。
 

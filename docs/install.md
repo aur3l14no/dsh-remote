@@ -10,7 +10,7 @@ dsh plugin --profile web exec dsh-remote-config init /absolute/path/worlds.json
 dsh --profile web
 ```
 
-`worlds.json` 使用 `worlds` 和 `bootstrap` 字段（格式见 [profile 说明](../integrations/dsh/profiles/README.md)），不填写 `bindingFile`。技能选择与依赖准备见 [Skills](skills.md)。范围读取需要 helper **0.1.3+** 的 `fs.read-range` capability；旧 helper 会明确拒绝，需更新 bootstrap manifest 和 helper 产物。helper、ripgrep 和 bootstrap manifest 必须符合远端平台，不能用宿主架构猜测。模型凭据仍由官方 DSH 配置并留在宿主。
+`worlds.json` 使用 `worlds` 和 `bootstrap` 字段（格式见 [profile 说明](../integrations/dsh/packaging/extension/README.md)），不填写 `bindingFile`。技能选择与依赖准备见 [Skills](skills.md)。范围读取需要 helper **0.1.3+** 的 `fs.read-range` capability；旧 helper 会明确拒绝，需更新 bootstrap manifest 和 helper 产物。helper、ripgrep 和 bootstrap manifest 必须符合远端平台，不能用宿主架构猜测。模型凭据仍由官方 DSH 配置并留在宿主。
 
 例如，已有 [bootstrap manifest 与本地 artifact cache](development.md) 时，可生成配置（将 `my-remote` 换成自己的 SSH alias）：
 

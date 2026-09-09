@@ -16,7 +16,7 @@ DSH owns Agents, subagents, tool filtering, Session persistence and UI. The prev
 - External JSON Session–World bindings and shared routing, with actual DSH JSONL restart validation. See [lifecycle and limits](session-routing.md).
 - Private compiled plugin tarball, Loader package entries, declarations and ordinary npm ripgrep identity mapping. See [package validation boundary](packaging.md).
 - Experimental [SSH → Podman exec](podman.md) entry for a running container pinned by full ID; the same helper runs in the final environment.
-- Separate [Project seam experiment](../../../../integrations/dsh/experiments/portable_workspace/README.md): World-qualified metadata, remote validation and explicit native Session creation/reopen. Not distributed as a Web plugin.
+- Separate [Project seam experiment](../../../../integrations/dsh/tests/integration/README.md): World-qualified metadata, remote validation and explicit native Session creation/reopen. Not distributed as a Web plugin.
 
 The source baseline remains DSH `d347e703908d0406b7a7ef80e3a0e594d86b2215`; source-alias tests do not establish installed-package compatibility. See [composition](agents.md), [upstream findings](upstream-seams.md), [bootstrap](bootstrap.md) and [helper acceptance](helper-acceptance.md).
 

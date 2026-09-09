@@ -18,11 +18,9 @@ integrations/dsh/
   packages/bundle/remote/        本地扩展总装配
   shared/                       跨模块的少量通用工具
   patches/                      固定上游基线及补丁序列
-  profiles/                     DSH 应用装配约定
-  experiments/portable_workspace/    unchanged-source 缺口与显式入口实验
-  tests/                        DSH binding 与集成验证
+  tests/                        binding、原生兼容、安装与 E2E 验证
   scripts/                      DSH 类型检查、构建、打包及验收入口
-  packaging/                    扩展发行配置与兼容测试清单
+  packaging/                    扩展配置、overlay、preset 与官方构建输入
 ```
 
 DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/解析接口，插件实现 World、portable_workspace 和远程能力。DSH 保留 Agent、Session、工具过滤、委派和通用对话。具体对应见 [架构与 DSH 关系](docs/architecture.md)。

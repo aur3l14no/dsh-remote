@@ -11,7 +11,7 @@ An external JSON map holds bindings; DSH retains Session history. Shared presets
 | Issue | Current behavior | Next step |
 | --- | --- | --- |
 | Parent-path resolution | DSH tool-fs calls local `realpath` for `..`; affected requests are refused. | Upstream bug; deferred. |
-| Web activation | Direct creation calls local `mkdir` before World admission; cold activation lacks preparation. Its owned lookup rejects a second resolver. | Reproduced in the [Project experiment](../../../../integrations/dsh/experiments/portable_workspace/README.md). Accepted limitation; no upstream-change dependency. |
+| Web activation | Direct creation calls local `mkdir` before World admission; cold activation lacks preparation. Its owned lookup rejects a second resolver. | Reproduced in the [Project experiment](../../../../integrations/dsh/tests/integration/README.md). Accepted limitation; no upstream-change dependency. |
 | Web Project integration | Replacement service supports World-qualified identity and explicit native Session create/reopen. | Full Web integration deferred. Keep experiment/evidence; stop settings, Project feed and browser work. |
 | Cross-root demo orchestration | Ordinary messaging is parent/child-only; experimental Teams also creates subagents in one shared workspace. | Defer the main-thread/multi-World demo. Cross-root messaging belongs upstream or in a separate plugin. |
 | Calls outside tool dispatch | Explicit `forAgent` lookup is available; automatic terminal/job initialization through the shared router is unverified. | Defer consumer integration; never infer a default World. |

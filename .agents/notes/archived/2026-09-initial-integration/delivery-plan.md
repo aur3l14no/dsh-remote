@@ -24,7 +24,7 @@ The next question is whether a real user can complete a remote coding task. More
 
 ## Existing seams and proposed wiring
 
-DSH's [profile composition](https://github.com/deepseek-ai/deepseek-harness/blob/d347e703908d0406b7a7ef80e3a0e594d86b2215/packages/boot/app-boot/src/profile.ts) supports external plugin packages and patch layers. Public Agent APIs expose awaited setup. The [Project experiment](../../../../integrations/dsh/experiments/portable_workspace/README.md) proves explicit binding before native creation/resume and the [terminal fixture](terminal.md) proves concrete World providers under native owner-aware terminal/jobs consumers.
+DSH's [profile composition](https://github.com/deepseek-ai/deepseek-harness/blob/d347e703908d0406b7a7ef80e3a0e594d86b2215/packages/boot/app-boot/src/profile.ts) supports external plugin packages and patch layers. Public Agent APIs expose awaited setup. The [Project experiment](../../../../integrations/dsh/tests/integration/README.md) proves explicit binding before native creation/resume and the [terminal fixture](terminal.md) proves concrete World providers under native owner-aware terminal/jobs consumers.
 
 The shipped [headless runner](https://github.com/deepseek-ai/deepseek-harness/blob/d347e703908d0406b7a7ef80e3a0e594d86b2215/packages/bundle/headless/src/index.ts) still creates a root with `process.cwd()` and no preset mount. The pinned SDK server also owns root creation without the required binding/preset setup. Neither is an already working remote entry. The proposal replaces the **entry plugin row**, not the Agent factory, loop or Session backend.
 
