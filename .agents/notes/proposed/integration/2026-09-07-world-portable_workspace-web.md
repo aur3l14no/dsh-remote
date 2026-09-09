@@ -158,3 +158,16 @@ Follow-up: [Skill synchronization and review fixes](../../implemented/integratio
 已验收安装、重复安装、版本拒绝、移除恢复、完整双 World browser/SSH 及最终 tarball 的真实模型远端执行。最终产物尚未发布 npm/公开 Release，GitHub CI 未推送运行；本地通过不代表这些交付已完成。
 
 后续保持用户已确定的边界：远端 worktree/新 portable_workspace、附件桥接和 OS sandbox 单独推进；Linux helper 平台矩阵、ripgrep 与可信发布清单继续按真实平台证据完成。不因打包迁移扩大远端或本地权限。
+
+
+## DSH 0.1.5-alpha.1 适配（2026-09-09，进行中）
+
+用户授权完成新版兼容，细粒度提交；必要时增加文件预览局部 patch。
+
+1. 通用 helper 范围读取：已提交 5049ff7；helper 0.1.3，新增 fs.read-range capability；本地 8 个生命周期测试通过。
+2. 更新官方 revision / lockfile，适配 FS provider，跑 unchanged-source 和 patched-host gates。
+3. 新文件预览必须显式以 Session 选择 World。为 workspaceFiles 增加 environment seam，图片 URL 携带 Session；禁止补回宿主 FS 或根据当前 UI/cwd 猜测 World。
+4. Session V3 使用隔离状态验证旧日志恢复、bindings、fork/child 继承；不迁移用户真实会话。
+5. 原生 plugin add、双 World Playwright、Skills/Web Search/子 Agent 回归；提交并 push 后等待 CI。
+
+当前只确认原有五补丁可应用，新版未完成 E2E。文件预览覆盖面与构建方式尚在实现验证。

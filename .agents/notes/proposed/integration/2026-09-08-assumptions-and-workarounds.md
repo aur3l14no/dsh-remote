@@ -23,3 +23,6 @@ Status: proposed
 | 真实服务与延期 | DeepSeek-only 凭据留宿主；最终原生 tarball 已通过真实模型远端执行，另有 Web Search 边界回归 | npm/公开 Release 尚未发布，CI 尚未推送运行；helper prebuild 仍需 GitHub 平台验收。附件桥接、worktree、远端 OS sandbox 延期 |
 
 终审：subagent 基于提供的最终代码片段/摘要完成静态 review，未独立读全仓或运行测试。空目录、HOME 取消、销毁后创建 provider 的问题已修复；未发现剩余确定性 P1/P2。此结论不等于独立完整审计。
+
+
+新版适配中的重要假设（2026-09-09）：新 helper 通过 fs.read-range 显式协商范围读取，旧 helper 拒绝该能力；文件预览按 Session/World 路由，不引入宿主 FS fallback。目录树范围与 SSH 账户权限分开：预览限定 portable_workspace 根，不改变 Shell 账户权限。Session V3 验收仅使用副本，保留旧日志与 bindings；真实用户会话不自动迁移。以上除范围读取外仍在实现，不能视为已交付。

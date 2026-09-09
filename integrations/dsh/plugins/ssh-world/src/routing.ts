@@ -26,6 +26,7 @@ export class RoutedFileSystem extends FileSystem {
   readText(...args: Parameters<FileSystem['readText']>) { return current().fs.readText(...args); }
   streamText(...args: Parameters<FileSystem['streamText']>) { return current().fs.streamText(...args); }
   readBytes(...args: Parameters<FileSystem['readBytes']>) { return current().fs.readBytes(...args); }
+  readByteRange(...args: Parameters<FileSystem['readByteRange']>) { return current().fs.readByteRange(...args); }
   listDir(...args: Parameters<FileSystem['listDir']>) { return current().fs.listDir(...args); }
   writeText(...args: Parameters<FileSystem['writeText']>) { return current().fs.writeText(...args); }
   editText(...args: Parameters<FileSystem['editText']>) { return current().fs.editText(...args); }

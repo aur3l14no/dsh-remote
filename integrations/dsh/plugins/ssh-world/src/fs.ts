@@ -2,7 +2,7 @@ import { Context } from '@deepseek-ai/cordis';
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs';
 import type { FsDirEntry, FsEditOutcome, FsEditRequest, FsInfo, FsPathInfo, FsTarget, FsWriteIntent, FsWriteOutcome, FsErrorCode } from '@deepseek-ai/dsh-fs';
 import { posix } from 'node:path';
-import { readFile, writeFile, rawStream, RemoteError } from '../../../../../runtime/client/src/index.ts';
+import { readFile, readFileRange, writeFile, rawStream, RemoteError } from '../../../../../runtime/client/src/index.ts';
 import type { Metadata, Expected } from '../../../../../runtime/client/src/index.ts';
 import './world.ts';
 
@@ -68,6 +68,10 @@ export default class SshFileSystem extends FileSystem {
   }
   async readBytes(target: FsTarget, signal: AbortSignal | undefined, maxBytes: number): Promise<Uint8Array> {
     try { return (await readFile(this.client, this.processPath(target), maxBytes, signal)).data; }
+    catch (error) { translate(error); }
+  }
+  async readByteRange(target: FsTarget, range: { offset: number; length: number }, signal?: AbortSignal): Promise<Uint8Array> {
+    try { return (await readFileRange(this.client, this.processPath(target), range.offset, range.length, signal)).data; }
     catch (error) { translate(error); }
   }
   async readText(target: FsTarget, signal?: AbortSignal): Promise<string> { return text(await this.readBytes(target, signal, this.config.textMaxBytes)); }
