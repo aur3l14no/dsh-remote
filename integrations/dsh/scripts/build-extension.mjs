@@ -66,7 +66,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { index: 'portable_workspace/src/index.ts', terminal: 'terminal/src/index.ts', routing: 'ssh-world/src/routing.ts', fs: 'ssh-world/src/routed-fs.ts', subprocess: 'ssh-world/src/routed-subprocess.ts' };
+const entries = { index: 'extension/src/index.ts', terminal: 'terminal/src/index.ts', routing: 'ssh-world/src/routing.ts', fs: 'ssh-world/src/routed-fs.ts', subprocess: 'ssh-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
