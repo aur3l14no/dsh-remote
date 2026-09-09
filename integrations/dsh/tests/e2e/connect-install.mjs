@@ -15,6 +15,7 @@ let child, browser, page, requests = 0;
 const server = createServer(async (request, response) => {
   if (request.url !== '/runtime') { response.writeHead(404).end(); return; }
   requests++;
+  if (requests === 1) { response.writeHead(503).end(); return; }
   try { response.end(await readFile(join(state, 'runtime.tar.gz'))); }
   catch { response.writeHead(503).end(); }
 });
@@ -66,9 +67,11 @@ try {
   await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await page.getByLabel('SSH host', { exact: true }).fill('world-a');
   await page.getByRole('button', { name: 'Connect to Host', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Runtime download failed (503)' }).waitFor();
+  await page.getByRole('button', { name: 'Connect to Host', exact: true }).click();
   await page.getByLabel('Remote directory', { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('input[aria-label="Remote directory"]')?.value.startsWith('/'), undefined, { timeout: 60000 });
-  assert.equal(requests, 1);
+  assert.equal(requests, 2);
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
   await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
   await page.locator('[data-composer-input][contenteditable=true]').first().waitFor({ timeout: 30000 });
@@ -82,10 +85,10 @@ try {
   await page.getByLabel('SSH host', { exact: true }).fill('world-a');
   await page.getByRole('button', { name: 'Connect to Host', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('input[aria-label="Remote directory"]')?.value.startsWith('/'), undefined, { timeout: 60000 });
-  assert.equal(requests, 1);
+  assert.equal(requests, 2);
   assert.equal(await readFile(join(home, 'remote/bindings.json'), 'utf8'), bindings);
   await mkdir('artifacts/dsh', { recursive: true });
-  await writeFile('artifacts/dsh/connect-install.json', JSON.stringify({ status: 'passed', checks: ['plugin-add-only startup', 'Connect via public-key OpenSSH', 'automatic runtime download and deployment', 'remote folder and Session', 'offline cache reuse after restart', 'binding preservation'] }, null, 2));
+  await writeFile('artifacts/dsh/connect-install.json', JSON.stringify({ status: 'passed', checks: ['plugin-add-only startup', 'Connect via public-key OpenSSH', 'download failure is retryable', 'automatic runtime download and deployment', 'remote folder and Session', 'offline cache reuse after restart', 'binding preservation'] }, null, 2));
   console.log('PASS clean install → Connect → automatic runtime → Open Folder → offline restart');
 } catch (error) {
   if (page) {

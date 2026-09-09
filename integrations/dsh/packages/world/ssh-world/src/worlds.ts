@@ -36,8 +36,14 @@ export default class ExecutionWorlds extends Service {
     super(ctx, 'executionWorlds');
     this.bindings = new BindingStore(config.bindingFile);
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
-    this.connect = connector ?? (async definition => bootstrapSshWorld({ ...(typeof config.bootstrap === 'function' ? await config.bootstrap() : config.bootstrap), ...definition, world: definition.id }));
-    this.beforeConnect = config.beforeConnect;
+    const bootstrap = config.bootstrap;
+    let prepared = typeof bootstrap === 'function' ? undefined : bootstrap;
+    this.connect = connector ?? (definition => bootstrapSshWorld({ ...prepared!, ...definition, world: definition.id }));
+    this.beforeConnect = async definition => {
+      await config.beforeConnect?.(definition);
+      // Download failures allocate no runtime and must remain retryable, like other preconnect preparation.
+      if (!connector && typeof bootstrap === 'function') prepared = await bootstrap();
+    };
     ctx.effect(() => async () => {
       this.closed = true;
       const results = await Promise.allSettled([...this.opening.values()].map(async pending => {
