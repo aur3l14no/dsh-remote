@@ -7,6 +7,7 @@ import ts from 'typescript';
 import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 
+const extensionVersion = '0.3.0';
 const [sourceArg, installationArg] = process.argv.slice(2);
 if (!sourceArg || !installationArg) throw new Error('Usage: build-extension.mjs PINNED_DSH_SOURCE OFFICIAL_INSTALL');
 const source = resolve(sourceArg), installation = resolve(installationArg);
@@ -83,7 +84,7 @@ for (const browser of [false, true]) {
     dependencies[name] = JSON.parse(await readFile(resolve('node_modules', name, 'package.json'), 'utf8')).version;
   }
   if (browser) await writeFile(join(dest, 'lib/index.js'), 'export function apply() {}\n');
-  await writeFile(join(dest, 'package.json'), JSON.stringify({ name: `@dsh-remote/${name}`, version: '0.2.0', type: 'module',
+  await writeFile(join(dest, 'package.json'), JSON.stringify({ name: `@dsh-remote/${name}`, version: extensionVersion, type: 'module',
     exports: browser ? { '.': './lib/index.js', './client': './lib/client.js', './package.json': './package.json' } : { ...Object.fromEntries(Object.keys(entries).map(key => [key === 'index' ? '.' : `./${key}`, `./lib/${key}.js`])), './package.json': './package.json' },
     ...(browser ? { dsh: { client: { platform: 'web', inject: ['@deepseek-ai/dsh-api-workspace-controller', '@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-renderer'] } } } : {}),
   }, null, 2));
@@ -95,7 +96,7 @@ await rm(join(output, 'presets/remote/cordis.patch.yml'));
 await build({ entryPoints: ['integrations/dsh/plugins/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));
-await writeFile(join(output, 'package.json'), JSON.stringify({ name: '@dsh-remote/extension', version: '0.2.0', type: 'module', license: 'MIT', engines: { node: '>=24.19.0' }, bin: { 'dsh-remote-config': './config.mjs' }, exports: { '.': './setup.mjs', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } }, dependencies }, null, 2));
+await writeFile(join(output, 'package.json'), JSON.stringify({ name: '@dsh-remote/extension', version: extensionVersion, type: 'module', license: 'MIT', engines: { node: '>=24.19.0' }, bin: { 'dsh-remote-config': './config.mjs' }, exports: { '.': './setup.mjs', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } }, dependencies }, null, 2));
 await mkdir('target/packages', { recursive: true });
 const packed = JSON.parse(execFileSync('npm', ['pack', output, '--json', '--ignore-scripts', '--pack-destination', resolve('target/packages'), '--cache', '/tmp/dsh-remote-npm-cache'], { encoding: 'utf8' }))[0];
 if (packed.files.some(file => file.path.includes('node_modules') || file.path.includes('.local'))) throw new Error('Unexpected extension archive entry');

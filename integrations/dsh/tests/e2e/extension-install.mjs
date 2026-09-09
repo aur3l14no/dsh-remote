@@ -10,9 +10,11 @@ import { tmpdir, homedir } from 'node:os';
 
 const root = resolve('.');
 const installation = resolve(process.env.DSH_TEST_INSTALL ?? 'target/official-install');
-const archive = resolve('target/packages/dsh-remote-extension-0.2.0.tgz');
 const build = JSON.parse(await readFile('target/packages/extension-build.json', 'utf8'));
-assert.equal(build.dshVersion, '0.1.3-alpha.2');
+const archive = resolve('target/packages', build.filename);
+const series = JSON.parse(await readFile('integrations/dsh/patches/series.json', 'utf8'));
+assert.equal(build.dshVersion, series.release.version);
+assert.equal(build.revision, series.revision);
 const credentialHome = process.argv[2];
 const videoDirectory = process.env.DSH_E2E_VIDEO_DIR && resolve(process.env.DSH_E2E_VIDEO_DIR);
 await mkdir('target/web-acceptance', { recursive: true });

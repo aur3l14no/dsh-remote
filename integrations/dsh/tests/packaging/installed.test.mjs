@@ -18,7 +18,8 @@ test('native add, repeat add, version rejection and remove preserve official ins
   const digest = () => Promise.all(files.map(async file => createHash('sha256').update(await readFile(file)).digest('hex')));
   const before = await digest();
   try {
-    const archive = resolve('target/packages/dsh-remote-extension-0.2.0.tgz');
+    const artifact = JSON.parse(await readFile('target/packages/extension-build.json', 'utf8'));
+    const archive = resolve('target/packages', artifact.filename);
     plugin('add', archive); plugin('add', archive);
     const profile = JSON.parse(await readFile(join(home, 'profiles/web/package.json'), 'utf8'));
     assert.equal(profile.dsh.profile.bundles.filter(name => name === '@dsh-remote/extension').length, 1);
