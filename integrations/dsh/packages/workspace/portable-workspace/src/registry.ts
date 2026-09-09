@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { worldDefinition, type WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
 import '../../../world/ssh-world/src/worlds.ts';
-import type {} from '../../../skill/remote-skills/src/sync.ts';
 import type { SkillInstall } from '../../../skill/remote-skills/src/deploy.ts';
 
 export interface CatalogWorld {
@@ -22,7 +21,7 @@ export interface HostConnections {
   hosts(): Promise<string[]>;
   connect(host: string): Promise<{ world: CatalogWorld; home: string }>;
 }
-export interface Config { worlds: CatalogWorld[]; connections?: HostConnections }
+export interface Config { worlds: CatalogWorld[]; connections?: HostConnections; onWorldAdded?: (world: CatalogWorld) => void }
 const targetSchema = z.unknown().transform(worldDefinition);
 const recordSchema = z.object({
   id: z.string(), worldId: z.string(), worldName: z.string(), environment: targetSchema,
@@ -116,7 +115,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     const previous = this.catalog.get(world.id);
     if (previous && JSON.stringify(previous.environment) !== JSON.stringify(environment)) throw new Error('Saved SSH target changed');
     this.catalog.set(world.id, { name: world.name, environment });
-    this.ctx.worldSkillSync.register(world);
+    this.config.onWorldAdded?.(world);
     await this.prepareCatalog(world.id);
     return { world: { id: world.id, name: world.name }, home: result.home };
   }

@@ -26,7 +26,7 @@ export async function apply(ctx: Context, config: Config) {
   await ctx.plugin(function workspaceFeed(ctx: Context) {
     ctx.provide('workspaceFeed', new PortableWorkspaceFeed(ctx));
   });
-  await ctx.plugin(Registry, { worlds: config.worlds, connections: config.connections });
+  await ctx.plugin(Registry, { worlds: config.worlds, connections: config.connections, onWorldAdded: world => sync.register(world) });
   await ctx.plugin(Admission);
   await ctx.plugin(PortableWorkspaceApi);
   await ctx.plugin(AccountPolicy);
