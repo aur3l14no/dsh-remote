@@ -11,3 +11,5 @@
 !integrations/dsh/tests/
 !integrations/dsh/tests/e2e/
 !integrations/dsh/tests/e2e/start-world.sh
+!.cargo/
+!.cargo/config.toml

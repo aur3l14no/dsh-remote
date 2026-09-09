@@ -1,6 +1,7 @@
 FROM rust:1.85.1-bookworm AS builder
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
+COPY .cargo/config.toml .cargo/config.toml
 COPY runtime/helper runtime/helper
 RUN cargo build --locked --release --bin dsh-remote
 
@@ -11,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-server 
     && passwd -d world \
     && mkdir -p /run/sshd /workspace /opt/dsh-e2e/bin \
     && chown world:world /workspace
-COPY --from=builder /src/target/release/dsh-remote /opt/dsh-e2e/bin/dsh-remote
+COPY --from=builder /src/runtime/helper/target/release/dsh-remote /opt/dsh-e2e/bin/dsh-remote
 COPY integrations/dsh/tests/e2e/start-world.sh /usr/local/bin/start-world
 EXPOSE 22
 CMD ["sh", "/usr/local/bin/start-world"]

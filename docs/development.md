@@ -4,7 +4,7 @@
 
 根目录保留 workspace 配置、lockfiles、README/LICENSE/AGENTS 和 justfile。代码、测试与脚本按所属子系统收录：通用测试在 `runtime/tests/`，产物准备/上传脚本在 `runtime/scripts/`，DSH 专用入口在 `integrations/dsh/`。
 
-私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。`target/` 与 `node_modules/` 是忽略提交的构建产物和依赖目录。
+私有配置放入忽略提交的 `.local/`；根 justfile 可选导入 `.local/justfile`。`target/`、`runtime/helper/target/` 与 `node_modules/` 是忽略提交的构建产物和依赖目录。
 
 ## 选择验证入口
 
@@ -30,12 +30,12 @@ npm run check
 npm test
 ```
 
-根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 和 target/ 保留在根目录。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
+根 Cargo.toml 是 workspace，runtime/helper/Cargo.toml 定义二进制包；Cargo.lock 保留在根目录；`.cargo/config.toml` 将 Cargo 产物统一输出到 `runtime/helper/target/`，从根目录或 helper 目录执行均适用。默认测试包含 client、bootstrap 的不需远端场景、DSH bindings 和 skill 查询取消；显式 SSH/native-bootstrap 用例会按环境配置启用。
 
 ```sh
 python3 runtime/helper/tests/acceptance.py --help
 python3 runtime/helper/tests/acceptance.py --platform macos \
-  --helper target/debug/dsh-remote --fixture target/debug/dsh-remote-fixture --rg "$LOCAL_RG"
+  --helper runtime/helper/target/debug/dsh-remote --fixture runtime/helper/target/debug/dsh-remote-fixture --rg "$LOCAL_RG"
 ```
 
 原生 macOS 只证明原生 fixture 行为。Linux build/acceptance 在对应 Linux 目标运行，必要时使用已有私有远端配置；不能把本机编译当成目标平台证明。

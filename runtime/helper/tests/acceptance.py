@@ -499,7 +499,7 @@ class Suite:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--helper", required=True)
-    parser.add_argument("--fixture", default="target/debug/dsh-remote-fixture")
+    parser.add_argument("--fixture", default="runtime/helper/target/debug/dsh-remote-fixture")
     parser.add_argument("--platform", choices=["macos", "linux-container", "linux-embedded"], required=True)
     parser.add_argument("--ssh")
     parser.add_argument("--rg")

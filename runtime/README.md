@@ -12,6 +12,6 @@ DSH plugin (integrations/dsh/)
 
 The SSH library uses the protocol client to establish a runtime connection. The caller then uses that client for workspace operations. Neither library imports DSH APIs.
 
-Package names remain `@dsh-remote/client` and `@dsh-remote/ssh`; `helper/` is a Cargo crate, not an npm package. Build commands, lockfiles and `target/` remain at the repository root. General client/bootstrap tests live in `runtime/tests/`, while DSH integration tests live under `integrations/dsh/tests/`.
+Package names remain `@dsh-remote/client` and `@dsh-remote/ssh`; `helper/` is a Cargo crate, not an npm package. Build commands and lockfiles remain at the repository root; Cargo artifacts go to `runtime/helper/target/` via `.cargo/config.toml`. General client/bootstrap tests live in `runtime/tests/`, while DSH integration tests live under `integrations/dsh/tests/`.
 
 See [architecture](../docs/architecture.md) and [development](../docs/development.md).

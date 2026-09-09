@@ -29,9 +29,9 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
   try {
     await control(['mkdir', cwd]);
     const platform = await probe(control, cwd);
-    const helperPath = process.env.DSH_BOOTSTRAP_HELPER ?? resolve('target/debug/dsh-remote');
+    const helperPath = process.env.DSH_BOOTSTRAP_HELPER ?? resolve('runtime/helper/target/debug/dsh-remote');
     const rgPath = process.env.DSH_BOOTSTRAP_RG;
-    const fixture = host ? process.env.DSH_TEST_REMOTE_FIXTURE : resolve('target/debug/dsh-remote-fixture');
+    const fixture = host ? process.env.DSH_TEST_REMOTE_FIXTURE : resolve('runtime/helper/target/debug/dsh-remote-fixture');
     assert.ok(rgPath, 'Supply the selected target-native ripgrep file in the local cache');
     assert.ok(fixture, 'Supply the target-native acceptance process fixture');
     const bundle = parseManifest({ format: 1, bundles: [{

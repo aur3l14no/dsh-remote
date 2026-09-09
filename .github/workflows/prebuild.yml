@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'runtime/helper/**'
+      - '.cargo/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/prebuild.yml'
   pull_request:
     paths:
       - 'runtime/helper/**'
+      - '.cargo/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/prebuild.yml'
@@ -32,7 +34,7 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: 1.85.1
         run: |
-          helper=target/x86_64-unknown-linux-musl/release/dsh-remote
+          helper=runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote
           "$helper" --version
           if readelf -l "$helper" | grep -q INTERP; then
             echo 'Unexpected dynamic interpreter' >&2
@@ -41,15 +43,15 @@ jobs:
           cargo test --locked --workspace --target x86_64-unknown-linux-musl
       - name: Package helper with source identity and checksum
         run: |
-          mkdir -p target/prebuild
-          cp target/x86_64-unknown-linux-musl/release/dsh-remote target/prebuild/dsh-remote
-          cp LICENSE target/prebuild/LICENSE
-          git rev-parse HEAD > target/prebuild/SOURCE_REVISION
-          (cd target/prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
-          tar -czf target/helper-linux-x86_64-musl.tar.gz -C target/prebuild .
+          mkdir -p runtime/helper/target/prebuild
+          cp runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote runtime/helper/target/prebuild/dsh-remote
+          cp LICENSE runtime/helper/target/prebuild/LICENSE
+          git rev-parse HEAD > runtime/helper/target/prebuild/SOURCE_REVISION
+          (cd runtime/helper/target/prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
+          tar -czf runtime/helper/target/helper-linux-x86_64-musl.tar.gz -C runtime/helper/target/prebuild .
       - uses: actions/upload-artifact@v4
         with:
           name: helper-linux-x86_64-musl-${{ github.sha }}
-          path: target/helper-linux-x86_64-musl.tar.gz
+          path: runtime/helper/target/helper-linux-x86_64-musl.tar.gz
           if-no-files-found: error
           retention-days: 14
