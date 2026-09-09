@@ -1,3 +1,4 @@
+import { seedLegacySession } from './remote-session-migration.ts';
 import { checkFilePreview } from './remote-file-preview.ts';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -64,6 +65,8 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   const preview = page.getByRole('img', { name: 'Remote preview', exact: true }).first();
   await expect.poll(() => preview.getAttribute('src')).toContain(`sessionId=${first.session.header.id}`);
   await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(13);
+  await page.getByText('coding-0.txt', { exact: true }).filter({ visible: true }).first().click();
+  await expect.poll(() => page.locator('[data-textpreview-body]').innerText()).toContain('after');
   expect(results).toHaveLength(17);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const history = JSON.stringify(first.session.surface.nodes.map(seq => first.session.eventAt(seq)));
@@ -130,8 +133,10 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   const oldRuntime = owner.remoteWorld.client.info.runtime;
   await page.close();
   await scaffold.close();
+  const checkMigration = await seedLegacySession(state, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
   await replay.roundScript();
   scaffold = await launch();
+  await checkMigration(scaffold);
   expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
   const coldCatalog = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId }, new AbortController().signal);
   expect(coldCatalog.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
