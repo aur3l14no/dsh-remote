@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { BindingStore } from './bindings.js';
+import { sshControl } from './control.js';
 import { parseManifest } from './manifest.js';
 import { releaseBootstrap } from './download.mjs';
 import { createConnections } from './connections.mjs';
@@ -35,7 +36,7 @@ export async function apply(ctx) {
       const temporary = configFile + '.stage';
       writeFileSync(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
       renameSync(temporary, configFile);
-    });
+    }, sshControl);
   ctx.effect(() => () => connections.dispose());
   const installed = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   config.bootstrap ??= releaseBootstrap(directory, { ...expected, version: installed.version }, parseManifest);

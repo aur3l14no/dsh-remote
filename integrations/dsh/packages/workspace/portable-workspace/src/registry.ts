@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { worldDefinition, type WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
 import '../../../world/ssh-world/src/worlds.ts';
+import type {} from '../../../skill/remote-skills/src/sync.ts';
 import type { SkillInstall } from '../../../skill/remote-skills/src/deploy.ts';
 
 export interface CatalogWorld {

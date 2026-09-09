@@ -2,14 +2,10 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execute = promisify(execFile);
 const validHost = host => typeof host === 'string' && /^[A-Za-z0-9_][A-Za-z0-9_.@:[\]-]{0,254}$/.test(host);
 
 /** Connect reuses OpenSSH's keys, agent and known_hosts; it never enrolls keys or asks for credentials. */
-export function createConnections(load, save) {
+export function createConnections(load, save, control) {
   const opening = new Map();
   const lifecycle = new AbortController();
   let saving = Promise.resolve();
@@ -25,9 +21,7 @@ export function createConnections(load, save) {
       const pending = (async () => {
         let home;
         try {
-          const { stdout } = await execute('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
-            '-o', 'PreferredAuthentications=publickey', '-o', 'ConnectTimeout=10', '--', host, 'printf "%s\\n" "$HOME"'],
-          { signal: lifecycle.signal, timeout: 15000, maxBuffer: 65536 });
+          const stdout = await control({ host })(['sh', '-c', 'printf "%s\\n" "$HOME"'], { signal: lifecycle.signal, timeoutMs: 15000 });
           home = stdout.trim();
           if (!home.startsWith('/') || /[\0\r\n]/.test(home)) throw new Error('Invalid remote home');
         } catch { throw new Error(`Could not connect to ${host}. First run ssh ${host} in your terminal and verify public-key login and known_hosts, then retry Connect.`); }

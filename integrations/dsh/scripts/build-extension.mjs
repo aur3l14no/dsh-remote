@@ -92,6 +92,7 @@ for (const browser of [false, true]) {
 await cp('integrations/dsh/packaging/extension', output, { recursive: true, filter: path => !path.endsWith('/README.md') });
 await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await build({ entryPoints: ['runtime/ssh/src/manifest.ts'], outfile: join(output, 'manifest.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
+await build({ entryPoints: ['runtime/ssh/src/control.ts'], outfile: join(output, 'control.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));
 await writeFile(join(output, 'package.json'), JSON.stringify({ name: '@dsh-remote/extension', version: extensionVersion, type: 'module', license: 'MIT', engines: { node: '>=24.19.0' }, bin: { 'dsh-remote-config': './config.mjs' }, exports: { '.': './setup.mjs', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } }, dependencies }, null, 2));

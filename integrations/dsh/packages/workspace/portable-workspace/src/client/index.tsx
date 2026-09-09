@@ -158,7 +158,8 @@ function installWorkspaceUi(ctx: Context) {
         <button type="submit" disabled={busy || !host.trim()}>Connect to Host</button>
       </form>
       {status && <p role="status">{status}</p>}
-      <label>World<select aria-label="World" value={world} onChange={event => setWorld(event.target.value)}>
+      {worlds.length > 0 && <>
+      <label>World<select aria-label="World" value={world} onChange={event => { setWorld(event.target.value); setPath(''); setDirectories([]); }}>
         <option value="">Choose a World</option>
         {worlds.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
@@ -181,6 +182,7 @@ function installWorkspaceUi(ctx: Context) {
         const id = await navigation.connectWorkspace(result.value.workspaceId);
         sessionController.open(id);
       }); }}>Open Folder</button>
+      </>}
       {navigation.unavailableSession && <p role="alert">The linked Session is unavailable.</p>}
       {error && <p role="alert">{error}</p>}
       {snapshot.error && <p role="alert">{snapshot.error.message}</p>}
