@@ -42,22 +42,24 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 
 ## 补丁与新插件的分工
 
-[series.json](../integrations/dsh/patches/series.json) 是固定上游 revision、已应用补丁及摘要的唯一来源。当前补丁涉及 **7 个原生包**；编译依赖闭包不等于修改这些依赖。
+[series.json](../integrations/dsh/patches/series.json) 是固定上游 revision、已应用补丁及摘要的唯一来源。当前补丁涉及 **9 个原生包**；编译依赖闭包不等于修改这些依赖。
 
 | 原生包（省略 @deepseek-ai/） | 补丁职责 |
 | --- | --- |
-| dsh-api-session-controller | 创建/接管/恢复/fork 前等待异步准入；保留无适配器时的原生本地行为 |
+| dsh-api-session-controller | 创建/接管/恢复/fork 前等待异步准入；图片读取接受显式 Session FS resolver；保留无适配器时的原生本地行为 |
 | dsh-api-workspace-controller | 接受可选 registry feed；继续复用原生 Remote、client store 与 rename/delete/archive/order 命令 |
 | dsh-tool-bash | 接受可选 workdir resolver；远端 profile 使用 Agent 所属 FS 解析，失败不回退宿主 |
 | dsh-agent-instructions | 非工具生命周期通过显式 Agent environment 选择 FS 和 instruction home |
 | dsh-skill / dsh-tool-skill | lookup 和缓存携带 Session 身份；可关闭 catalog 缓存；原生工具传播身份 |
+| dsh-api-workspace-files | 文件读取、目录列表与变更通知接受 Agent FS 和 workspace root |
+| dsh-client-ui-chat | 图片 URL 携带渲染所属 Session；文件链接通过该 Session 的远端 stat 解析后生成资源 URL |
 | dsh-tool-fs | 处理 parent traversal 前通过已注入 FS 解析 cwd；不使用宿主同名目录 |
 
 外部 `portable_workspace` plugin 替换原生 Workspace registry 与 UI/navigation，新增 World-explicit 创建 Remote 和持久状态 feed；`session-admission` 负责绑定校验与准备；`ssh-world` 负责具体能力和路由。它们复用 DSH 的 Agent/Session、对话、工具注册与执行，不复制模型循环。
 
 remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 preset 隔离域，只发布 `remote` preset。连接器和 Session/control state 留在宿主。feed 与 Remote namespace 有独立激活边界，必须先于依赖它们的 controller/UI 可见，不能依赖 Loader 的偶然启动顺序。
 
-交付为官方 DSH 加标准 bundle，开发者和用户共用 `dsh plugin add` 与官方启动命令。构建时仅编译 7 个兼容包与我们的插件；bundle overlay 禁用原生控制器／skill registry，按包内相对路径插入兼容实现，远端工具在 agent preset 内加载。兼容包间的运行时引用在构建期指向同一份包内文件；其余服务与 Web 前端使用官方 npm 产物。
+交付为官方 DSH 加标准 bundle，开发者和用户共用 `dsh plugin add` 与官方启动命令。构建时仅编译 9 个兼容包与我们的插件；bundle overlay 禁用原生控制器／skill registry，按包内相对路径插入兼容实现，远端工具在 agent preset 内加载。兼容包间的运行时引用在构建期指向同一份包内文件；ui-chat 的浏览器模块从补丁源码单独构建，保留官方模块身份；其余服务与 Web 前端使用官方 npm 产物。
 
 兼容目录保留原生 package、client factory 和 Typert 身份，DSH 按插件文件的最近 package.json 发现浏览器模块及 inventory。普通依赖由官方 profile fallback 解析，不使用 Node 解析 hook、不改写官方安装。配置插件在兼容服务激活前校验已验收的 DSH 版本。具体见 [安装](install.md)。
 
@@ -65,7 +67,7 @@ remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 pre
 ## 目录所有权
 
 - `runtime/`：DSH 无关的 Rust helper 与 TypeScript client/SSH 库；两个 npm workspace 使用显式路径，不把 Rust crate 当成 npm 包。
-- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 有独立打包入口；session-admission 与 portable_workspace 用于固定 patched Web 源码装配。
+- `integrations/dsh/plugins/`：可装配的 DSH 运行时实现；ssh-world 有独立打包入口；session-admission 与 portable_workspace 用于固定版本兼容包与原生 bundle 装配。
 - `integrations/dsh/patches/`：上游基线与有序补丁；不存上游完整源码或 node_modules。
 - `integrations/dsh/profiles/`：宿主装配边界；仅在真实 Loader 验证后收录可运行 profile。
 - `integrations/dsh/experiments/`：不随插件发行的可执行实验；portable_workspace 实验复用维护中的 registry，保留原生宿主的缺口负例。
@@ -73,3 +75,5 @@ remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 pre
 - `docs/`：稳定的用户/维护者说明；`.agents/notes/`：计划、取舍、实验和按时间记录的证据。
 
 `terminal` plugin 将原生 BashTerminalBackend 的创建转发给 Agent 所属远端 subprocess，保留原生 owner/关闭生命周期。`account-policy` 复用原生 policy 投影，固定为 SSH 账户权限；其他 sandbox mode 明确拒绝。两者不新增上游补丁。
+
+`file-preview` 在工具调度之外显式解析 Session/Agent 所属 World。workspaceFiles 的目录树和文本预览限定在 portable_workspace 根；图片接口保留 SSH 账户可读绝对路径的语义，但必须携带 Session，不能读取宿主同名文件。变更通知用带 World/runtime 的 FS target 过滤，不以文件名去重或匹配。

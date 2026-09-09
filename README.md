@@ -19,6 +19,7 @@ integrations/dsh/
   plugins/terminal/             原生终端服务的远端 backend
   plugins/account-policy/       显式 SSH 账户权限策略
   plugins/file-references/       远端文件引用发现
+  plugins/file-preview/          按 Session 路由文件预览
   patches/                      固定上游基线及补丁序列
   profiles/                     DSH 应用装配约定
   experiments/portable_workspace/    unchanged-source 缺口与显式入口实验
@@ -31,7 +32,7 @@ DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/
 
 ## 当前可用范围
 
-Rust helper 0.1.2、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现。SSH 后可选进入已有 Podman 容器。
+Rust helper 0.1.3、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现。SSH 后可选进入已有 Podman 容器。
 
 受限的 remote Web profile 通过真实 DSH Web、Playwright Chromium 与两个 Linux/SSH World 验收：显式选择 World 和目录、Session 创建/fork、远端读写与命令、宿主冷启动恢复和取消。宿主 Web Search 同时通过受控端点边界测试和真实 DeepSeek 模型/外部搜索验收；真实模型完成远端代码编写、测试及部署 skill 执行。
 

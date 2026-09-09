@@ -90,7 +90,7 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 | 本地与远端 symlink、`..` 不同 | 必须远端 canonicalize；patched tool-fs 与 Bash 使用远端解析；account-policy 固定 SSH 账户权限，不声称路径 containment |
 | 本地平台与目标平台不同 | 远端可执行文件、shell、路径规则由目标决定；不能根据本地 OS 选择目标 Bash/PowerShell |
 | 远端 environment | 只传明确 spec.env，不复制 process.env；SSH 配置可能带用户显式配置的行为，应准确披露而非声称绝对禁止 forwarding |
-| tool output 文件/附件/file URL | World 路径不是本地 file URL；下载、预览、附件入远端需显式桥接，当前未提供通用桥接 |
+| tool output 文件/附件/file URL | 原生 Sidebar 文本预览和目录树按 Session 选择远端 FS，并限制在 workspace 根；Markdown 绝对路径图片按 Session 读取远端账户可读文件。缺失身份拒绝；附件上传/下载及附件入远端仍未提供通用桥接 |
 | 同名 Session 引用 | 原生 session-reference 的 sameWorkspace 只比较 cwd，适配前关闭或明确不支持 |
 | 权限与 sandbox | 使用 SSH 账户权限，workspace 不是 containment；本地 sandbox policy/runner 不能自动约束远端。只允许 danger-full-access，其他模式在写入前拒绝；原生工具名过滤不等于能力隔离（允许 Bash 就仍可执行命令）。审批上下文与强制执行能力必须分开说明 |
 
@@ -103,3 +103,11 @@ Skill 是指令和资源，不是独立执行域。模型读到本地 skill 后�
 维护中 registry 的 `createInWorld` 可以登记一个已存在的远端目录；`startPortableWorkspaceSession` 可为该目录建立新绑定并创建独立 Session。Web 可登记已有远端目录并创建 Session；Git worktree 创建与登记尚未组成自动流程。普通子 Agent 的继承检查要求 cwd 和完整绑定与父级一致，不能仅传新 cwd 来实现 worktree 隔离。当前固定 DSH 基线的 Web fork 复制源 cwd；workflow 的 isolation 选项明确延期，也不能自动提供这项能力。
 
 预期语义是同一 World、不同 canonical workspace，对应两个 portable_workspace。新 Agent 的执行上下文应在启动前绑定新目录；它是否保留父子关系、复制哪些对话上下文，以及失败重试和清理规则，留待后续定界。详见[待处理的 worktree 边缘情况](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
+
+## 文件预览
+
+文本预览、目录列表和文件变更通知使用显式 Agent environment，不依赖 tools/execute 的 ALS。workspace root 来自该 Session 的 portable_workspace，不使用账户权限策略中的 `/`。路径先在远端解析；最终条目为 symlink 或解析后越根时拒绝；workspace 仍不限制 Shell 的 SSH 账户权限。
+
+图片请求 `/api/file?path=...&sessionId=...` 按持久 Session membership/binding 准备 World，支持冷会话。身份缺失、绑定冲突或 World 不可用时失败，不根据浏览器当前选中项、同名 cwd 或宿主文件决定路由。图片保持官方绝对路径语义：可以读取 workspace 外但 SSH 账户有权读取的普通文件，受图片字节上限约束。它不提供任意 URL 代理或本地文件能力。
+
+文件预览不提供 OS 文件 watcher；变更提示来自 Agent FS observation，外部编辑需手动刷新。旧 helper 缺少范围读取 capability 时提示更新，不用整文件下载模拟范围读取。

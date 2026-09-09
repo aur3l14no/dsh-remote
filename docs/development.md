@@ -29,7 +29,7 @@ python3 runtime/helper/tests/acceptance.py --platform macos \
 ```sh
 sh runtime/helper/scripts/build-linux.sh aarch64-unknown-linux-musl
 node runtime/scripts/prepare-artifacts.ts --os linux --arch aarch64 --abi musl-static \
-  --helper "$HELPER" --helper-version 0.1.2 --ripgrep "$RG" --ripgrep-version 15.2.0 \
+  --helper "$HELPER" --helper-version 0.1.3 --ripgrep "$RG" --ripgrep-version 15.2.0 \
   --cache "$CACHE" --out "$MANIFEST"
 ```
 
@@ -78,6 +78,7 @@ node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" target/official-
 node integrations/dsh/scripts/prepare-test-profile.mjs
 node --test integrations/dsh/tests/packaging/installed.test.mjs
 node integrations/dsh/scripts/check-web-plugin.mjs
+node integrations/dsh/scripts/check-preview-client.mjs
 node integrations/dsh/scripts/prepare-browser-fixtures.mjs
 npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
@@ -85,7 +86,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
 ```
 
-Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包，单独构建必需的 fs-ext addon；`build-extension` 导出固定源码并只编译补丁涉及的 7 个包和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
+Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖；新版官方文件锁不再需要本地重编译 fs-ext。`build-extension` 导出固定源码，编译补丁涉及的 9 个兼容包（含 ui-chat 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
 
 CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并以官方 CLI 验收安装包；通过后上传扩展 tarball。截图与脱敏结果保留 7 天，扩展候选产物保留 14 天。临时状态、凭据和缓存不上传。GitHub runner 的实际结果以 CI 为准。
 
@@ -109,3 +110,5 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 ```
 
 第一条读取私有配置的 `.credentials.yaml` 中 `refs.DEEPSEEK_API_KEY`，只注入宿主；发送的是新建双 World 的合成任务数据。安装 gate 通过扩展启动官方 DSH CLI，经 Playwright 创建远端 Session；提供凭据目录时还执行真实模型的远端写入/测试与另一 World 隔离检查，不使用 scaffold。安装与配置见[安装](install.md)。
+
+新版预览验收覆盖同路径宿主/双 World 隔离、范围读取、图片与原生 Sidebar、symlink 拒绝和跨 World 变更通知。迁移用例在一次性状态内植入 V2 压缩日志，检查 V3 恢复、原日志保留与 bindings 不变。浏览器补丁用独立类型程序验证，避免宿主与浏览器的 Cordis Context 声明互相污染。

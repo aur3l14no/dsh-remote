@@ -14,6 +14,7 @@ archived/                   被替代的历史记录与原始验收证据
 - [验收一页纸](proposed/integration/2026-09-08-assumptions-and-workarounds.md) 集中维护重要假设、workaround 和 review 限制。
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 是执行顺序和未决项的唯一入口。
 - [补丁审计](proposed/integration/2026-09-07-patch-surface.md) 是静态范围证据，不是实现保证。
+- [DSH 0.1.5-alpha.1 适配验收](implemented/integration/2026-09-09-dsh-upgrade.md) 记录范围读取、文件预览、V2/V3 和新版安装回归。
 - [子 Agent、终端与源码交付验收](implemented/integration/2026-09-08-child-terminal-source-acceptance.md) 记录续接、真实模型和无 scaffold 的原生 CLI 交付。
 - [Skills 与消费者验收](implemented/integration/2026-09-08-skills-consumers-acceptance.md) 记录本轮实现、测试及独立 review 的范围。
 - [Web/SSH 验收](implemented/integration/2026-09-07-web-ssh-acceptance.md) 记录受限 profile、4 包补丁、浏览器闭环与未覆盖范围。

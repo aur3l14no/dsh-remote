@@ -2,7 +2,7 @@
 
 `series.json` pins the upstream revision and ordered, SHA-256 checked patches. The first patch changes only `@deepseek-ai/dsh-api-session-controller`: three existing source files and one new contract module. It does not change Agent loop, Session JSONL, subprocess or filesystem packages.
 
-The current series contains five patches across seven native packages:
+The current series contains six patches across nine native packages:
 
 | Patch | Native seam |
 | --- | --- |
@@ -11,8 +11,9 @@ The current series contains five patches across seven native packages:
 | 0003 | Optional Bash workdir resolver |
 | 0004 | Provider-based cwd resolution in file tools |
 | 0005 | Session-aware skill lookup/cache and Agent instruction environment |
+| 0006 | Session-owned media URLs, remote canonical file links, and Agent filesystem/root for workspace previews and change feeds |
 
-`0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the native context regression command in [development](../../../docs/development.md) alongside the browser gate.
+`0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the patched-host and browser gates in [development](../../../docs/development.md).
 
 ## 0001: Session admission
 
@@ -32,3 +33,10 @@ DSH_TEST_RG="$LOCAL_RG" node target/patched-host/admission.mjs
 The gate exports a clean pinned checkout into target/patched-host/source, applies the series and checks affected host/integration types before bundling. Original unchanged-source gates retain their revision and cleanliness checks and still reproduce the unpatched gaps. Never edit the user's upstream checkout or vendor its full tree into this directory.
 
 New candidates can be passed by patch filename as the build command's last argument. Add them to the series only after behavior acceptance. An upstream upgrade must reapply and retest the series before updating the supported revision.
+
+
+## 0006: File previews
+
+The official workspace-files controller reads the host FS and takes its root from sandbox policy. The media route has only an absolute path. The patch supplies optional environment seams; our plugin selects the committed World, while the Chat browser module carries the rendering Session in image URLs and resolves file links through that Session before constructing resource addresses. This avoids both cross-World collisions and URL normalization of `..` before remote filesystem resolution.
+
+The patch adds two packages to the compatibility set: workspace-files and ui-chat. Session-controller was already patched. The Chat client is rebuilt as an official-identity module factory; the static Web frontend stays official. Source client types and installed browser behavior have separate gates. Preview root containment does not restrict the SSH account's shell permissions or the image endpoint's account-readable absolute paths.

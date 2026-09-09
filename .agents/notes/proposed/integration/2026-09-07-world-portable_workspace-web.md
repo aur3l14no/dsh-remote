@@ -160,14 +160,8 @@ Follow-up: [Skill synchronization and review fixes](../../implemented/integratio
 后续保持用户已确定的边界：远端 worktree/新 portable_workspace、附件桥接和 OS sandbox 单独推进；Linux helper 平台矩阵、ripgrep 与可信发布清单继续按真实平台证据完成。不因打包迁移扩大远端或本地权限。
 
 
-## DSH 0.1.5-alpha.1 适配（2026-09-09，进行中）
+## DSH 0.1.5-alpha.1 适配（2026-09-09，已实现）
 
-用户授权完成新版兼容，细粒度提交；必要时增加文件预览局部 patch。
+已完成 helper 0.1.3 范围读取、官方版本与锁文件更新、文件预览 Session/World 路由以及 V2/V3 迁移验收。扩展版本为 0.3.0，6 个补丁覆盖 9 个官方包；只新增 workspace-files 和 ui-chat 两个覆盖包，不构建完整宿主或前端。
 
-1. 通用 helper 范围读取：已提交 5049ff7；helper 0.1.3，新增 fs.read-range capability；本地 8 个生命周期测试通过。
-2. 更新官方 revision / lockfile，适配 FS provider，跑 unchanged-source 和 patched-host gates。
-3. 新文件预览必须显式以 Session 选择 World。为 workspaceFiles 增加 environment seam，图片 URL 携带 Session；禁止补回宿主 FS 或根据当前 UI/cwd 猜测 World。
-4. Session V3 使用隔离状态验证旧日志恢复、bindings、fork/child 继承；不迁移用户真实会话。
-5. 原生 plugin add、双 World Playwright、Skills/Web Search/子 Agent 回归；提交并 push 后等待 CI。
-
-当前只确认原有五补丁可应用，新版未完成 E2E。文件预览覆盖面与构建方式尚在实现验证。
+本地通过：原生 composition/声明门禁、patched-host 真 SSH、官方 CLI 安装、双 World Playwright（含预览/迁移/冷恢复/子 Agent）、Skills 部署，以及真实 DeepSeek 编码与外部搜索。以细粒度提交推进，GitHub runner 结果在推送后确认。详见[本轮验收](../../implemented/integration/2026-09-09-dsh-upgrade.md)。用户实际 DSH home 和会话没有迁移；OS sandbox、附件传输、worktree 编排仍保持延期。
