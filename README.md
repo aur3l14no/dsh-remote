@@ -1,6 +1,12 @@
-# dsh-remote
+# dsh-remote (experimental)
 
-dsh-remote 为 DeepSeek Harness（DSH）提供 Remote Execution World：模型调用、Agent 循环、对话历史和 Web 控制面留在本地，项目文件、搜索和进程在选定 SSH 主机或容器中执行。项目身份是 **World × Workspace**，Session 固定绑定该项目；连接失败不会切回本地。
+[![Tested with DSH 0.1.5-alpha.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--alpha.1-blue?style=flat)](docs/upstream-dependencies.md)
+
+为 DeepSeek Harness（DSH）提供远程工作区。模型调用、对话历史和 Web 界面留在本地，项目文件、搜索和命令在选定的 SSH 主机或容器中执行。
+
+## 快速开始
+
+远端要求：**Linux x86_64（glibc 2.36+）**，并已配置 OpenSSH 公钥认证。请先确保终端中的 `ssh <host>` 可正常连接；扩展复用已有 SSH 配置和 `known_hosts`。
 
 已有 DSH，运行一条命令安装扩展：
 
@@ -8,11 +14,15 @@ dsh-remote 为 DeepSeek Harness（DSH）提供 Remote Execution World：模型�
 dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
 ```
 
-启动 DSH，点击 **Connect to Host**，选择 SSH alias 或输入 `user@host`，再打开远端文件夹。运行时会自动下载、部署和复用。连接使用已有 OpenSSH 公钥认证和 `known_hosts`；请先确保终端中的 `ssh <host>` 可正常连接。
+启动 DSH，点击 **Connect to Host**，选择 SSH alias 或输入 `user@host`，再打开远端文件夹。所需运行组件会自动下载并通过 SSH 安装到远端，后续连接会复用已有安装。
 
-当前兼容 DSH **0.1.5-alpha.1**、Node.js **24.19+**；自动部署支持 Linux x86_64（glibc 2.36+）远端。
+## 能力与边界
 
-支持 World/目录选择、Session 创建/fork/冷恢复、远端文件与搜索、前台/后台 Bash、jobs、原生子 Agent 和终端工具、文件预览，以及远端项目指令和 Skills。网络连接器仍在宿主；完整远端 sandbox、附件桥接和自动 worktree 尚未提供。完整契约见[执行边界](docs/execution-boundaries.md)，不应将默认 DSH 工具全集视为远程兼容。
+- 远端文件读写、搜索与预览，以及项目指令和 Skills。
+- 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
+- World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
+
+网络连接器仍在本地运行。完整远端 sandbox、附件桥接和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。完整说明见[执行边界](docs/execution-boundaries.md)。
 
 ## 开发
 
