@@ -55,6 +55,8 @@ World 身份、SSH 连接、helper runtime epoch、process ID 是不同层次。
 | dsh-client-ui-chat | 图片 URL 携带渲染所属 Session；文件链接通过该 Session 的远端 stat 解析后生成资源 URL |
 | dsh-tool-fs | 处理 parent traversal 前通过已注入 FS 解析 cwd；不使用宿主同名目录 |
 
+`plugins/extension/src/index.ts` 是本地服务总装配入口，按依赖顺序挂载 World、同步服务、registry 和各消费者；overlay/preset 负责原生服务与工具域装配。`portable_workspace` 目录只保留 registry、API/feed 和浏览器导航。
+
 外部 `portable_workspace` plugin 替换原生 Workspace registry 与 UI/navigation，新增 World-explicit 创建 Remote 和持久状态 feed；`session-admission` 负责绑定校验与准备；`ssh-world` 负责具体能力和路由。它们复用 DSH 的 Agent/Session、对话、工具注册与执行，不复制模型循环。
 
 remote profile 将 FS、subprocess、shell 和 workdir resolver 放入同一 preset 隔离域，只发布 `remote` preset。连接器和 Session/control state 留在宿主。feed 与 Remote namespace 有独立激活边界，必须先于依赖它们的 controller/UI 可见，不能依赖 Loader 的偶然启动顺序。

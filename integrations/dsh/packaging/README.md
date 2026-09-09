@@ -1,47 +1,16 @@
-# SSH Execution World for DSH
+# DSH packaging
 
-This private development package supplies World connections, persistent Session–World bindings, and shared FS/subprocess routing. DSH owns Agents, Session history, delegation and tool filtering. Model and UI work stay local; workspace operations use the selected remote helper.
+User and developer installation use the same native `@dsh-remote/extension` bundle and official DSH CLI. See [installation and upgrades](../../../docs/install.md).
 
-This document describes the low-level `@dsh-remote/ssh-world` development fixture, pinned by `../patches/series.json`. It does not include the complete Web composition, helper binaries or ripgrep. User delivery is the native `@dsh-remote/extension` bundle; see [installation](../../../docs/install.md).
-
-Cordis Loader entry points:
-
-| Module | Responsibility |
+| Input | Purpose |
 | --- | --- |
-| `@dsh-remote/ssh-world` | Shared `executionWorlds` service; configured with bindingFile, packagedRipgrep and trusted bootstrap manifest/cache. |
-| `@dsh-remote/ssh-world/fs` | Filesystem router in the standing preset. |
-| `@dsh-remote/ssh-world/subprocess` | Subprocess router in the standing preset. |
-| `@dsh-remote/ssh-world/routing` | Tool dispatch, World context and binding checks in that same preset. |
-| `@dsh-remote/ssh-world/bindings` | Explicit local `BindingStore.create` initialization. |
-| `@dsh-remote/ssh-world/client` | Protocol client for an explicit custom resolver; use this copy with `executionWorldsPlugin`. |
+| `extension/config.mjs` | Validate the supported host/package versions and load private remote configuration |
+| `extension/setup.mjs` | Implement the explicit configuration initialization command |
+| `official/package.json` and lockfile | Pin official build/test dependencies; not a user installer |
+| `plugin.package.json` | Manifest for the separate low-level SSH compatibility fixture |
+| `../profiles/remote/` | Source templates for the installed bundle overlay and Agent preset |
+| `../patches/series.json` | Authoritative upstream revision and ordered patch list |
 
-Before normal DSH creation, the host calls `await ctx.executionWorlds.bind(sessionId, { id: worldId, kind: 'ssh', host, cwd })`. Cwd must be the canonical remote workspace. Before normal DSH resume, it calls `await ctx.executionWorlds.prepare(sessionId)`. The host then uses DSH's usual preset mount and Agent APIs. The plugin neither chooses Agent behavior nor installs a replacement factory.
+`../scripts/build-extension.mjs` builds our plugins and patched compatibility packages into `target/extension/` and emits the tarball described by `target/packages/extension-build.json`. It does not build the complete DSH host. CI uploads the extension and separately builds Linux helper candidates; public registry/release publishing is not implemented.
 
-In alpha.2, optional `podmanContainer` selects a running container on the SSH host using its full 64-character lowercase hexadecimal ID. Control, artifact upload and helper protocol all run through `podman exec -i`; container SSH is unnecessary. Paths refer to the container. Names/short IDs are refused, and container removal never selects the host or a replacement container. The caller owns container lifecycle; this is one optional Podman step, not a general resolver system.
-
-Load the routers and existing DSH file/search tools together in an isolated standing preset. The shared World service stays outside that preset, so many Worlds use one preset. `executionWorldContext(ctx, agentOrExecution)` supplies the same World facts to model context and approval. Calls outside tool dispatch must explicitly select a bound Agent's concrete providers.
-
-The shared `agent.cordis.yml` contains:
-
-```yaml
-- id: world-tools
-  name: cordis:group
-  isolate:
-    fs: true
-    subprocess: true
-  config:
-    - id: fs
-      name: '@dsh-remote/ssh-world/fs'
-    - id: subprocess
-      name: '@dsh-remote/ssh-world/subprocess'
-    - id: world-context
-      name: '@dsh-remote/ssh-world/routing'
-    - id: files
-      name: '@deepseek-ai/dsh-tool-fs'
-    - id: search
-      name: '@deepseek-ai/dsh-tool-fs-search'
-```
-
-The host must supply DSH's normal core services and register `cordis:group` as usual. It resolves its own packaged ripgrep identity with `resolveRgPath()`; the World service maps that identity to each remote installation. This applies to both bundled-sidecar and ordinary npm-package resolution.
-
-Known limits: parent-path requests are refused due to upstream local realpath use; child binding commit failure can leave a published but execution-blocked Agent; interrupted mapping writes may need verified manual lock cleanup. The full extension separately covers shared-router terminal/jobs and native installed-package acceptance. OpenSSH retains its normal configuration, authentication and host verification behavior.
+The [SSH fixture](ssh-fixture.md) exists for unchanged-source package/import checks. It is not a second user delivery scheme. Build and validation commands are in the [development guide](../../../docs/development.md).

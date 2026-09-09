@@ -12,6 +12,7 @@ runtime/                        与 DSH 无关的执行层
   tests/                        通用 client / SSH 验证
   scripts/                      runtime 产物准备与上传
 integrations/dsh/
+  plugins/extension/             本地扩展总装配入口
   plugins/ssh-world/             DSH World owner、FS/subprocess providers、路由
   plugins/session-admission/     patched host 的 Session 准入适配器
   plugins/portable_workspace/    持久 registry、Web API/feed 与浏览器导航
@@ -25,7 +26,7 @@ integrations/dsh/
   experiments/portable_workspace/    unchanged-source 缺口与显式入口实验
   tests/                        DSH binding 与集成验证
   scripts/                      DSH 类型检查、构建、打包及验收入口
-  packaging/                    SSH plugin 发行清单
+  packaging/                    扩展发行配置与兼容测试清单
 ```
 
 DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/解析接口，插件实现 World、portable_workspace 和远程能力。DSH 保留 Agent、Session、工具过滤、委派和通用对话。具体对应见 [架构与 DSH 关系](docs/architecture.md)。
@@ -34,7 +35,7 @@ DSH 集成采用下游补丁与外部插件配合：补丁提供缺失的准备/
 
 Rust helper 0.1.3、协议客户端、SSH bootstrap、FS/subprocess/PTY providers 与持久 Session 绑定已有实现。SSH 后可选进入已有 Podman 容器。
 
-受限的 remote Web profile 通过真实 DSH Web、Playwright Chromium 与两个 Linux/SSH World 验收：显式选择 World 和目录、Session 创建/fork、远端读写与命令、宿主冷启动恢复和取消。宿主 Web Search 同时通过受控端点边界测试和真实 DeepSeek 模型/外部搜索验收；真实模型完成远端代码编写、测试及部署 skill 执行。
+remote Web profile 支持显式 World/目录选择、Session 创建/fork、远端文件与进程、冷启动恢复、本地 Web Search，以及原生子 Agent 和终端工具。安装态验证使用两个同路径 Linux/SSH World 和 Playwright；具体方法见[开发指南](docs/development.md)，按时间保存的结果见 [Agent Notes](.agents/notes/README.md)。
 
 通过[扩展安装与启动入口](docs/install.md)使用，安装官方 DSH 与预构建扩展 tarball；尚未发布到公共 npm registry。remote preset 装配文件、搜索、前台/后台 Bash、jobs、文件补全、Web 工具以及远端项目 instructions/skills；原生子 Agent（含重启后 continuation）和终端工具已接入；独立终端面板与完整远程 sandbox 尚未提供。不能将默认 DSH Web 的工具全集视为远程兼容。
 

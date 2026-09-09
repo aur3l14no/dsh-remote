@@ -1,6 +1,6 @@
 # Remote Session admission
 
-Source-only adapter for the `apiSessionAdmission` interface added by patch 0001. It uses `ssh-world` and the experimental portable_workspace registry; it is not included in the published SSH plugin tarball or a runnable Web profile.
+Adapter for the `apiSessionAdmission` interface added by patch 0001. The native extension mounts it with `ssh-world` and the maintained portable_workspace registry before exposing the patched Session controller. The separate low-level SSH fixture does not include it.
 
 Mount the World owner, portable_workspace registry and this adapter before exposing the patched Session controller. The adapter rejects missing context; it does not infer a World from cwd or grant local-shell access.
 

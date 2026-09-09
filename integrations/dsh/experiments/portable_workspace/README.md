@@ -6,7 +6,7 @@ Source-only experiment against the unchanged DSH revision pinned in [series.json
 
 It replaces the local Workspace registry, persists World-qualified portable_workspace in a separate storage domain, validates paths through remote providers, and prepares bindings before ordinary Agent create/resume. Two Worlds with the same path remain distinct. The fixture also proves unchanged Web can adopt prepared live Sessions and reproduces direct creation's local mkdir and unprepared cold activation failure.
 
-The experiment is input to the [active patched-Web plan](../../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md). Rename/delete/reorder/archive, live membership/feed, UI and transparent activation are incomplete. Keep native Agent/Session ownership; do not turn this experiment into an independent harness.
+The registry module re-exports the maintained plugin implementation; there is no second registry. The experiment preserves unchanged-source creation and cold-activation failure cases. The shipped extension supplies management UI/feed and admission through plugins and patches; this fixture does not establish those capabilities or browser acceptance. Keep it as an upstream compatibility gate, not an alternative installation path.
 
 Run from the repository root:
 
