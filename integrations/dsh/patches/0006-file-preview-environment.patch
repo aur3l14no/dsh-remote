@@ -242,6 +242,36 @@ index 42dfb13..af24a55 100644
      } catch (error: unknown) {
        if (isNotTextRefusal(error)) {
          throw new RemoteError('workspace-file/not-text', `"${path}" is not UTF-8 text`, { path }, { cause: error })
+diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
+index 2d8de50..abafabf 100644
+--- a/packages/client/ui-chat/src/client/apply.ts
++++ b/packages/client/ui-chat/src/client/apply.ts
+@@ -1,4 +1,5 @@
+ /** Register the Chat Conversation target, renderers, stats, and details surface. */
++import type {} from '@deepseek-ai/dsh-api-workspace-files/remote'
+ import type { Context } from '@deepseek-ai/cordis'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+ import type {} from '@deepseek-ai/dsh-api-remotes/client'
+@@ -46,7 +47,7 @@ const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
+ /** Services required by the Chat target and its presentation registrations. */
+ export const inject = [
+   'slots', 'sessions', 'uiSession', 'uiConversation', 'locale',
+-  'settingsScope', 'remote', 'remote.session', 'sidebarRight',
++  'settingsScope', 'remote', 'remote.session', 'remote.workspaceFiles', 'sidebarRight',
+ ]
+ 
+ /**
+@@ -131,7 +132,9 @@ export function apply(ctx: Context): void {
+           // to land.
+           openFile: async (path, options) => {
+             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
+-            const url = fileAddressFor(sessionId, cwd, path)
++            const result = await ctx.remote.workspaceFiles.stat(sessionId, path)
++            if (!result.ok) throw new Error(result.error.message)
++            const url = fileAddressFor(sessionId, cwd, result.value.absolutePath)
+             if (options?.line === undefined) ctx.sidebarRight.openResource(url)
+             else ctx.sidebarRight.openResource(url, { params: { line: options.line } })
+             await Promise.resolve()
 diff --git a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx b/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
 index 3212801..6f5da31 100644
 --- a/packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx
