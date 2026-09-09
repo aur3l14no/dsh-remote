@@ -74,6 +74,7 @@ jobs:
       - name: Check Web plugin source and prepare test fixtures
         run: |
           node integrations/dsh/scripts/check-web-plugin.mjs
+          node integrations/dsh/scripts/check-preview-client.mjs
           node integrations/dsh/scripts/prepare-browser-fixtures.mjs
       - name: Skill deployment over two Linux Worlds
         run: node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
@@ -84,7 +85,7 @@ jobs:
         with:
           name: dsh-remote-extension-${{ github.sha }}
           path: |
-            target/packages/dsh-remote-extension-0.2.0.tgz
+            target/packages/dsh-remote-extension-*.tgz
             target/packages/extension-build.json
           if-no-files-found: error
           retention-days: 14
