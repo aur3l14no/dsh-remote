@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "completedAt": "2026-09-10T07:49:10.705Z",
+  "revision": "183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
+  "dshVersion": "0.1.5-rc.1",
+  "extensionVersion": "0.3.1",
+  "sourceRevision": "ce77820b5f1ccb0b4accb1b6f2975aa3a0fef33a",
+  "sourceDirty": true,
+  "integrity": "sha512-i6ggcFcQ6hQJJO25SraXe6b/fRim7QG5ptIgIjJas5vd8KYKXKgnBpmQ/lQxj9pTYRw26kGKBYYp3yAuobFcWQ==",
+  "filename": "dsh-remote-extension-0.3.1.tgz",
+  "host": "native DSH CLI, no scaffold",
+  "liveRemoteExecution": false,
+  "checks": [
+    "exclusive initialization",
+    "native first-run welcome",
+    "profile and browser module loading",
+    "remote workspace bootstrap",
+    "session binding before composer",
+    "failed preconnect sync blocks binding and allows retry",
+    "automatic skill sync",
+    "manual skill sync without helper restart",
+    "failed sync preserves deployed skill",
+    "World color and skill selection survive browser reload",
+    "deselected skills skip deployment and retain installed content",
+    "three-line session card"
+  ]
+}

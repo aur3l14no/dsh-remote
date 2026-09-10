@@ -77,7 +77,7 @@ jobs:
       - name: Install Chromium
         run: npx --no-install playwright install --with-deps chromium
       - name: Installed package identity and version guards
-        run: node --test integrations/dsh/tests/packaging/*.test.mjs
+        run: node --test integrations/dsh/tests/packaging/*.test.mjs integrations/dsh/tests/client/*.test.mjs
       - name: Native official CLI installation acceptance
         env:
           DSH_TEST_RELEASE_OUTPUT: .build/dsh/release-candidate

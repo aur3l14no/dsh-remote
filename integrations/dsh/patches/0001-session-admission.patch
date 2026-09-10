@@ -1,174 +1,6 @@
-diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
---- a/packages/api/session-controller/src/agent.ts
-+++ b/packages/api/session-controller/src/agent.ts
-@@ -15,6 +15,8 @@
- import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
- import type {} from '@deepseek-ai/dsh-typert-registry'
- import type { ModelSelection } from './types.ts'
-+import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
-+import { ApiSessionAdmissionError, type ApiSessionAdmissionRequest } from './admission.ts'
- 
- /** Cold Session identity absent from persistence. */
- export class ApiSessionNotFound extends Error {}
-@@ -184,7 +186,7 @@
-     sessionId: SessionId,
-     observation?: SessionObservation,
-   ): Promise<ApiSessionAgentResult> {
--    const live = this.liveAgent(sessionId)
-+    const live = await this.liveAgent(sessionId)
-     if (live !== undefined) return live
-     const attached = this.ctx.sessions.get(sessionId)
-     if (attached !== undefined && hasApiSessionSubagentOwner(this.ctx, attached, undefined)) {
-@@ -205,7 +207,10 @@
-       if (error instanceof ApiSessionSubagentOwnership) {
-         return { error: apiSessionSubagentOwnershipError(error.sessionId) }
-       }
--      const raced = this.liveAgent(sessionId)
-+      if (error instanceof ApiSessionAdmissionError) {
-+        return { error: new RemoteError('gateway/internal', error.message, {}) }
-+      }
-+      const raced = await this.liveAgent(sessionId)
-       if (raced !== undefined) return raced
-       const racedSession = this.ctx.sessions.get(sessionId)
-       if (racedSession !== undefined && hasApiSessionSubagentOwner(this.ctx, racedSession, undefined)) {
-@@ -234,11 +239,16 @@
-     cwd: string,
-     checkPersistedIdentity: boolean,
-     presetId?: string,
-+    workspaceId?: WorkspaceId,
-   ): Promise<Agent> {
-+    // Every caller validates its selection, including callers sharing an in-flight creation.
-+    const managedDirectory = await this.prepareSession({ operation: 'create', sessionId, cwd,
-+      ...(workspaceId === undefined ? {} : { workspaceId }), checkPersistedIdentity })
-     let creation = this.creations.get(sessionId)
-     if (creation === undefined) {
--      creation = this.createOrAdopt(sessionId, cwd, checkPersistedIdentity, presetId)
-+      creation = this.createOrAdopt(sessionId, cwd, checkPersistedIdentity, presetId, managedDirectory)
-         .catch((error: unknown) => {
-+          if (error instanceof ApiSessionAdmissionError) throw error
-           const live = this.ctx.agents.get(sessionId)
-           if (live !== undefined) {
-             if (hasApiSessionSubagentOwner(this.ctx, live.session, live)) {
-@@ -265,7 +275,20 @@
-     if (agent.session.header.cwd !== cwd) {
-       throw new ApiSessionCwdConflict(sessionId, cwd, agent.session.header.cwd)
-     }
-+    const stillManaged = await this.prepareSession({ operation: 'adopt', sessionId, cwd,
-+      ...(workspaceId === undefined ? {} : { workspaceId }) })
-+    if (managedDirectory && !stillManaged) throw new ApiSessionAdmissionError('Admission provider was removed')
-+    if (this.ctx.agents.get(sessionId) !== agent) throw new ApiSessionAdmissionError('Agent changed during admission')
-     return agent
-+  }
-+
-+  /** Await optional environment policy. True means it owns directory preparation. */
-+  async prepareSession(request: ApiSessionAdmissionRequest): Promise<boolean> {
-+    const admission = this.ctx.get('apiSessionAdmission')
-+    if (admission === undefined) return false
-+    try { await admission.prepare(request) }
-+    catch (error) { throw new ApiSessionAdmissionError(error) }
-+    return true
-   }
- 
-   /**
-@@ -387,12 +410,19 @@
-     }
-   }
- 
--  private liveAgent(sessionId: SessionId): ApiSessionAgentResult | undefined {
-+  private async liveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult | undefined> {
-     const agent = this.ctx.agents.get(sessionId)
-     if (agent === undefined) return undefined
--    return hasApiSessionSubagentOwner(this.ctx, agent.session, agent)
--      ? { error: apiSessionSubagentOwnershipError(sessionId) }
--      : { agent }
-+    if (hasApiSessionSubagentOwner(this.ctx, agent.session, agent)) {
-+      return { error: apiSessionSubagentOwnershipError(sessionId) }
-+    }
-+    try {
-+      await this.prepareSession({ operation: 'adopt', sessionId, cwd: agent.session.header.cwd })
-+      if (this.ctx.agents.get(sessionId) !== agent) return undefined
-+      return { agent }
-+    } catch (error) {
-+      return { error: new RemoteError('gateway/internal', String(error), {}) }
-+    }
-   }
- 
-   private async resume(sessionId: SessionId, supplied?: SessionObservation): Promise<Agent> {
-@@ -419,6 +449,7 @@
-     if (hasApiSessionSubagentOwner(this.ctx, { header: observation.header }, undefined)) {
-       throw new ApiSessionSubagentOwnership(sessionId)
-     }
-+    await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
-     const composition = await this.composeAgent(this.presetForObservation(observation))
-     const published = this.ctx.sessions.get(sessionId)
-     const live = this.ctx.agents.get(sessionId)
-@@ -437,6 +468,7 @@
-     cwd: string,
-     checkPersistedIdentity: boolean,
-     presetId: string | undefined,
-+    managedDirectory: boolean,
-   ): Promise<Agent> {
-     const attached = this.ctx.sessions.get(sessionId)
-     const live = this.ctx.agents.get(sessionId)
-@@ -456,6 +488,7 @@
-         }
-         const storedPreset = this.presetForObservation(observation)
-         this.assertPresetUnchanged(sessionId, presetId, storedPreset)
-+        await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
-         const composition = await this.composeAgent(storedPreset)
-         return (await this.ctx.agents.resume({
-           resumeSessionId: sessionId,
-@@ -469,7 +502,7 @@
-     }
- 
-     try {
--      await mkdir(cwd, { recursive: true })
-+      if (!managedDirectory) await mkdir(cwd, { recursive: true })
-     } catch (error: unknown) {
-       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
-     }
-diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
---- a/packages/api/session-controller/src/commands.ts
-+++ b/packages/api/session-controller/src/commands.ts
-@@ -97,6 +97,7 @@
-         cwd,
-         request.sessionId !== undefined,
-         request.agentPreset,
-+        request.workspaceId,
-       )
-     } catch (error) {
-       this.rejectCreation(sessionId, error)
-@@ -246,6 +247,9 @@
-       )
-     }
-     const childId = brandString<SessionId>(`session-${randomUUID()}`)
-+    await this.agents.prepareSession({ operation: 'fork', sessionId: childId,
-+      sourceSessionId: source.header.id, cwd: source.header.cwd,
-+      ...(workspace === undefined ? {} : { workspaceId: workspace.id }) })
-     const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
-     try {
-       const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
-diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
---- a/packages/api/session-controller/src/index.ts
-+++ b/packages/api/session-controller/src/index.ts
-@@ -54,6 +54,7 @@
- } from './types.ts'
- 
- export type * from './types.ts'
-+export type { ApiSessionAdmission, ApiSessionAdmissionRequest } from './admission.ts'
- export { ApiSessionNotFound } from './agent.ts'
- export { SessionFileReferences } from './file-references.ts'
- export { SessionSkillCatalog } from './skill-catalog.ts'
-@@ -286,6 +287,7 @@
-       )
-     }
-     signal.throwIfAborted()
-+    if (!this.canOpenPath()) throw new RemoteError('gateway/bad-request', 'Native workspace opening is disabled for this host', {})
-     try {
-       await this.openPath(request.path, signal)
-       return { opened: true }
 diff --git a/packages/api/session-controller/src/admission.ts b/packages/api/session-controller/src/admission.ts
 new file mode 100644
+index 0000000..eebb1b3
 --- /dev/null
 +++ b/packages/api/session-controller/src/admission.ts
 @@ -0,0 +1,28 @@
@@ -200,7 +32,182 @@ new file mode 100644
 +    super(`Session admission failed: ${String(cause)}`, { cause })
 +  }
 +}
+diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
+index dd41090..e063b75 100644
+--- a/packages/api/session-controller/src/agent.ts
++++ b/packages/api/session-controller/src/agent.ts
+@@ -15,6 +15,8 @@ import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-ses
+ import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+ import type {} from '@deepseek-ai/dsh-typert-registry'
+ import type { ModelSelection } from './types.ts'
++import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
++import { ApiSessionAdmissionError, type ApiSessionAdmissionRequest } from './admission.ts'
+ 
+ /** Cold Session identity absent from persistence. */
+ export class ApiSessionNotFound extends Error {}
+@@ -184,7 +186,7 @@ export class ApiSessionAgentController {
+     sessionId: SessionId,
+     observation?: SessionObservation,
+   ): Promise<ApiSessionAgentResult> {
+-    const live = this.liveAgent(sessionId)
++    const live = await this.liveAgent(sessionId)
+     if (live !== undefined) return live
+     const attached = this.ctx.sessions.get(sessionId)
+     if (attached !== undefined && hasApiSessionSubagentOwner(this.ctx, attached, undefined)) {
+@@ -205,7 +207,10 @@ export class ApiSessionAgentController {
+       if (error instanceof ApiSessionSubagentOwnership) {
+         return { error: apiSessionSubagentOwnershipError(error.sessionId) }
+       }
+-      const raced = this.liveAgent(sessionId)
++      if (error instanceof ApiSessionAdmissionError) {
++        return { error: new RemoteError('gateway/internal', error.message, {}) }
++      }
++      const raced = await this.liveAgent(sessionId)
+       if (raced !== undefined) return raced
+       const racedSession = this.ctx.sessions.get(sessionId)
+       if (racedSession !== undefined && hasApiSessionSubagentOwner(this.ctx, racedSession, undefined)) {
+@@ -234,11 +239,16 @@ export class ApiSessionAgentController {
+     cwd: string,
+     checkPersistedIdentity: boolean,
+     presetId?: string,
++    workspaceId?: WorkspaceId,
+   ): Promise<Agent> {
++    // Every caller validates its selection, including callers sharing an in-flight creation.
++    const managedDirectory = await this.prepareSession({ operation: 'create', sessionId, cwd,
++      ...(workspaceId === undefined ? {} : { workspaceId }), checkPersistedIdentity })
+     let creation = this.creations.get(sessionId)
+     if (creation === undefined) {
+-      creation = this.createOrAdopt(sessionId, cwd, checkPersistedIdentity, presetId)
++      creation = this.createOrAdopt(sessionId, cwd, checkPersistedIdentity, presetId, managedDirectory)
+         .catch((error: unknown) => {
++          if (error instanceof ApiSessionAdmissionError) throw error
+           const live = this.ctx.agents.get(sessionId)
+           if (live !== undefined) {
+             if (hasApiSessionSubagentOwner(this.ctx, live.session, live)) {
+@@ -265,9 +275,22 @@ export class ApiSessionAgentController {
+     if (agent.session.header.cwd !== cwd) {
+       throw new ApiSessionCwdConflict(sessionId, cwd, agent.session.header.cwd)
+     }
++    const stillManaged = await this.prepareSession({ operation: 'adopt', sessionId, cwd,
++      ...(workspaceId === undefined ? {} : { workspaceId }) })
++    if (managedDirectory && !stillManaged) throw new ApiSessionAdmissionError('Admission provider was removed')
++    if (this.ctx.agents.get(sessionId) !== agent) throw new ApiSessionAdmissionError('Agent changed during admission')
+     return agent
+   }
+ 
++  /** Await optional environment policy. True means it owns directory preparation. */
++  async prepareSession(request: ApiSessionAdmissionRequest): Promise<boolean> {
++    const admission = this.ctx.get('apiSessionAdmission')
++    if (admission === undefined) return false
++    try { await admission.prepare(request) }
++    catch (error) { throw new ApiSessionAdmissionError(error) }
++    return true
++  }
++
+   /**
+    * Install or return the Session-local model selection used by prompt assembly.
+    * @param agent - live Agent that owns the selection.
+@@ -389,12 +412,19 @@ export class ApiSessionAgentController {
+     }
+   }
+ 
+-  private liveAgent(sessionId: SessionId): ApiSessionAgentResult | undefined {
++  private async liveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult | undefined> {
+     const agent = this.ctx.agents.get(sessionId)
+     if (agent === undefined) return undefined
+-    return hasApiSessionSubagentOwner(this.ctx, agent.session, agent)
+-      ? { error: apiSessionSubagentOwnershipError(sessionId) }
+-      : { agent }
++    if (hasApiSessionSubagentOwner(this.ctx, agent.session, agent)) {
++      return { error: apiSessionSubagentOwnershipError(sessionId) }
++    }
++    try {
++      await this.prepareSession({ operation: 'adopt', sessionId, cwd: agent.session.header.cwd })
++      if (this.ctx.agents.get(sessionId) !== agent) return undefined
++      return { agent }
++    } catch (error) {
++      return { error: new RemoteError('gateway/internal', String(error), {}) }
++    }
+   }
+ 
+   private async resume(sessionId: SessionId, supplied?: SessionObservation): Promise<Agent> {
+@@ -421,6 +451,7 @@ export class ApiSessionAgentController {
+     if (hasApiSessionSubagentOwner(this.ctx, { header: observation.header }, undefined)) {
+       throw new ApiSessionSubagentOwnership(sessionId)
+     }
++    await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
+     const composition = await this.composeAgent(this.presetForObservation(observation))
+     const published = this.ctx.sessions.get(sessionId)
+     const live = this.ctx.agents.get(sessionId)
+@@ -439,6 +470,7 @@ export class ApiSessionAgentController {
+     cwd: string,
+     checkPersistedIdentity: boolean,
+     presetId: string | undefined,
++    managedDirectory: boolean,
+   ): Promise<Agent> {
+     const attached = this.ctx.sessions.get(sessionId)
+     const live = this.ctx.agents.get(sessionId)
+@@ -458,6 +490,7 @@ export class ApiSessionAgentController {
+         }
+         const storedPreset = this.presetForObservation(observation)
+         this.assertPresetUnchanged(sessionId, presetId, storedPreset)
++        await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
+         const composition = await this.composeAgent(storedPreset)
+         return (await this.ctx.agents.resume({
+           resumeSessionId: sessionId,
+@@ -471,7 +504,7 @@ export class ApiSessionAgentController {
+     }
+ 
+     try {
+-      await mkdir(cwd, { recursive: true })
++      if (!managedDirectory) await mkdir(cwd, { recursive: true })
+     } catch (error: unknown) {
+       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+     }
+diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
+index 35fc113..6e42757 100644
+--- a/packages/api/session-controller/src/commands.ts
++++ b/packages/api/session-controller/src/commands.ts
+@@ -106,6 +106,7 @@ export class SessionCommandController {
+         cwd,
+         request.sessionId !== undefined,
+         request.agentPreset,
++        request.workspaceId,
+       )
+     } catch (error) {
+       this.rejectCreation(sessionId, error)
+@@ -255,6 +256,9 @@ export class SessionCommandController {
+       )
+     }
+     const childId = brandString<SessionId>(`session-${randomUUID()}`)
++    await this.agents.prepareSession({ operation: 'fork', sessionId: childId,
++      sourceSessionId: source.header.id, cwd: source.header.cwd,
++      ...(workspace === undefined ? {} : { workspaceId: workspace.id }) })
+     const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
+     try {
+       const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
+diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
+index b5e92ec..7c09086 100644
+--- a/packages/api/session-controller/src/index.ts
++++ b/packages/api/session-controller/src/index.ts
+@@ -56,6 +56,7 @@ import type {
+ } from './types.ts'
+ 
+ export type * from './types.ts'
++export type { ApiSessionAdmission, ApiSessionAdmissionRequest } from './admission.ts'
+ export { ApiSessionNotFound } from './agent.ts'
+ export { SessionFileReferences } from './file-references.ts'
+ export { SessionSkillCatalog } from './skill-catalog.ts'
+@@ -302,6 +303,7 @@ export class SessionController extends TypertRemoteService {
+       )
+     }
+     signal.throwIfAborted()
++    if (!this.canOpenPath()) throw new RemoteError('gateway/bad-request', 'Native workspace opening is disabled for this host', {})
+     try {
+       if (request.action === 'reveal') await this.revealPath(request.path, signal)
+       else await this.openPath(request.path, signal)
 diff --git a/packages/api/session-controller/tsconfig.host.json b/packages/api/session-controller/tsconfig.host.json
+index 45a22e9..f2c6a94 100644
 --- a/packages/api/session-controller/tsconfig.host.json
 +++ b/packages/api/session-controller/tsconfig.host.json
 @@ -10,6 +10,7 @@

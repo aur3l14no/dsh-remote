@@ -1,0 +1,65 @@
+diff --git a/packages/client/ui-sidebar-right/src/client/tab-registry.ts b/packages/client/ui-sidebar-right/src/client/tab-registry.ts
+index 1b93096..eb8885f 100644
+--- a/packages/client/ui-sidebar-right/src/client/tab-registry.ts
++++ b/packages/client/ui-sidebar-right/src/client/tab-registry.ts
+@@ -201,9 +201,16 @@ function matcherFor(pattern: string): (address: string) => boolean {
+   // `basename: true` is what makes `*.md` match at any depth; it applies only to
+   // patterns without a separator, which is exactly the path case.
+   const whole = pattern.includes(':')
++  // A literal URI subtree is a namespace claim, not a filesystem glob: its
++  // suffix may contain `.` or `..`, which picomatch's globstar excludes even
++  // with dot:true. Match that prefix without resolving the resource path;
++  // canOpen and contentId must retain the Session and target-FS path semantics.
++  const prefix = whole && pattern.endsWith('/**') && picomatch.scan(pattern).base === pattern.slice(0, -3)
++    ? pattern.slice(0, -2).toLowerCase()
++    : undefined
+   const match = picomatch(pattern, { nocase: true, dot: true, ...whole ? {} : { basename: true } })
+   return (address) => {
+-    if (whole) return match(address)
++    if (whole) return (prefix !== undefined && address.toLowerCase().startsWith(prefix)) || match(address)
+     const path = pathOf(address)
+     return path !== undefined && match(path)
+   }
+diff --git a/packages/client/ui-sidebar-right/tests/tab-registry.client.spec.ts b/packages/client/ui-sidebar-right/tests/tab-registry.client.spec.ts
+index 3cfca82..a48dde1 100644
+--- a/packages/client/ui-sidebar-right/tests/tab-registry.client.spec.ts
++++ b/packages/client/ui-sidebar-right/tests/tab-registry.client.spec.ts
+@@ -42,6 +42,38 @@ describe('SidebarRightTabRegistry — recognition', () => {
+     expect(ranked(registry, 'sidebar://files')).toEqual([])
+   })
+ 
++  it.each([
++    'dsh-resource://file/session/id/../workspace/coding-0.txt',
++    'dsh-resource://file/session/id/link/../coding-0.txt',
++    'dsh-resource://file/session/id/./coding-0.txt',
++    'dsh-resource://file/session/id//workspace/coding-0.txt',
++    'dsh-resource://file/absolute/workspace/link/../coding-0.txt',
++    'dsh-resource://file/absolute/workspace/coding-0.txt',
++    'dsh-resource://file/session/id/notes/coding-0.txt',
++  ])('routes a URI subtree without resolving dot segments: %s', (address) => {
++    const registry = new SidebarRightTabRegistry(new Context())
++    const canOpen = vi.fn(() => true)
++    registry.register(typeFor('document', ['dsh-resource://file/**'], { canOpen }))
++    expect(registry.claim(address)).toEqual({ kind: 'document', contentId: address, title: `document:${address}` })
++    expect(canOpen).toHaveBeenCalledWith(address)
++  })
++
++  it('keeps URI subtree namespace boundaries and predicate vetoes', () => {
++    const registry = new SidebarRightTabRegistry(new Context())
++    registry.register(typeFor('document', ['dsh-resource://file/**'], { canOpen: address => !address.endsWith('.bin') }))
++    expect(ranked(registry, 'dsh-resource://file-other/session/id/../a.txt')).toEqual([])
++    expect(ranked(registry, 'other://file/session/id/../a.txt')).toEqual([])
++    expect(ranked(registry, 'dsh-resource://file/session/id/../a.bin')).toEqual([])
++    expect(registry.claim('DSH-RESOURCE://FILE/session/id/../a.txt').kind).toBe('document')
++  })
++
++  it('preserves wildcard-prefix matching instead of treating it as a literal URI subtree', () => {
++    const registry = new SidebarRightTabRegistry(new Context())
++    registry.register(typeFor('document', ['dsh-resource://*/notes/**']))
++    expect(registry.claim('dsh-resource://file/notes/a.txt').kind).toBe('document')
++    expect(ranked(registry, 'dsh-resource://file/other/a.txt')).toEqual([])
++  })
++
+   it('matches a pattern without ":" against the URI path at any depth, ignoring case', () => {
+     const registry = new SidebarRightTabRegistry(new Context())
+     registry.register(typeFor('image', ['*.png']))

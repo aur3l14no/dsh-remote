@@ -2,12 +2,16 @@
   "name": "dsh-remote-official-build-input",
   "private": true,
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-client-store": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-llm-replay": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-session-snapshot": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-tool-terminal": "0.1.5-alpha.1"
+    "@deepseek-ai/dsh": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-store": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-dockkit": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-llm-replay": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-session-snapshot": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-tool-terminal": "0.1.5-rc.1",
+    "@types/picomatch": "4.0.2",
+    "immer": "10.2.0",
+    "zustand": "4.4.7"
   }
 }

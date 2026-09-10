@@ -29,8 +29,10 @@
 | 0003 bash-workdir | Bash 的 cwd 通过显式 Agent 所属 FS resolver 解析，失败不走宿主路径 |
 | 0004 fs-cwd | 文件工具在处理 parent traversal 前，通过注入 FS 解析 cwd |
 | 0005 context-environment | instructions、skill 查询和缓存携带 Agent/Session 环境；图片读取允许显式 resolver |
-| 0006 file-preview-environment | workspace files、预览和文件链接使用 Session 所属 FS/root；浏览器资源地址携带 Session |
+| 0006 file-preview-environment | workspace files 与媒体使用 Session 所属 FS/root；原生地址已携带 Session，无需另造文件地址协议 |
 | 0007 session-attachments | 附件消费者传递 Session，后端可提供执行环境路径和复用图片校验/归一化；模型上传索引接受不透明附件 ID |
+| 0008 sidebar-resource-dot-segments | 原生侧栏 URI glob 能识别包含 `.` / `..` 的地址，且保留 Session 与路径原文 |
+| 0009 present-desktop-availability | 禁用宿主打开时，交付文件 HTTP 元数据与拒绝入口不再依赖宿主 FS / sandboxPolicy |
 
 补丁间有顺序依赖，尤其 0005/0006 也修改 Session controller；不要把“上游出现类似接口”直接当成可以删补丁。
 

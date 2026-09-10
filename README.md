@@ -1,6 +1,6 @@
 # dsh-remote (experimental)
 
-[![Tested with DSH 0.1.5-alpha.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--alpha.1-blue?style=flat)](docs/reference/upstream-upgrades.md)
+[![Tested with DSH 0.1.5-rc.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--rc.1-blue?style=flat)](docs/reference/upstream-upgrades.md)
 
 为 DeepSeek Harness（DSH）提供远程工作区。模型调用、对话历史和 Web 界面留在本地，项目文件、搜索和命令在选定的 SSH 主机或容器中执行。
 

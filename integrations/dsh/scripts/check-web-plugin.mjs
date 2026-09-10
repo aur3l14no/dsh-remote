@@ -10,7 +10,7 @@ const paths = Object.fromEntries(Object.entries(raw).map(([name, values]) => [na
   return existsSync(file) && statSync(file).isDirectory() ? join(file, 'index.ts') : file;
 })]));
 // Published subpaths not present in the upstream source-mode facade.
-for (const name of ['ui-workspace', 'ui-sidebar']) {
+for (const name of ['ui-workspace', 'ui-sidebar', 'ui-layout']) {
   paths[`@deepseek-ai/dsh-client-${name}/client`] = [join(upstream, `packages/client/${name}/src/client/index.ts`)];
 }
 paths.react = [join(root, 'node_modules/@types/react/index.d.ts')];

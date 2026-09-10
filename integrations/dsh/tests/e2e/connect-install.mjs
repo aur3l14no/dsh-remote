@@ -83,6 +83,7 @@ try {
   await stop();
   await rm(join(state, 'runtime.tar.gz')); // Restart must use the private cache, even offline.
   await page.goto(await start());
+  await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   if (!(await page.getByLabel('SSH host', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
   await page.getByLabel('SSH host', { exact: true }).fill('world-a');
   await page.getByRole('button', { name: 'Connect to Host', exact: true }).click();

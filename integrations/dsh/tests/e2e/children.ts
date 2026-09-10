@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
+import type { Agent } from '@deepseek-ai/dsh-agent';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm';
 import { MockAdapter, textResponse, toolCallResponse } from '../../../packages/core/agent-loop/tests/mock-adapter.ts';
@@ -44,6 +45,7 @@ export async function checkChildLifecycle(launch: () => Promise<WebScaffold>, pa
       childId = started.childId;
     } else {
       expect(host.ctx.agents.get(childId)).toBeUndefined();
+      expect(host.ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog?.filter(entry => entry.id === childId)).toEqual([expect.objectContaining({ id: childId, mode: 'continuable', label: 'Durable remote child' })]);
       expect((await host.ctx.get('sessionSkillCatalog').list({ sessionId: childId }, AbortSignal.timeout(15000))).skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
       await api.create({ sessionId: otherId, workspaceId: registry.forSession(otherId)!.id });
       await expect(subagents.sendMessage(host.ctx.agents.get(otherId)!, childId, [{ type: 'text', text: 'Wrong parent' }], { signal: AbortSignal.timeout(15000) })).rejects.toThrow();
@@ -53,6 +55,8 @@ export async function checkChildLifecycle(launch: () => Promise<WebScaffold>, pa
     await expect.poll(() => host.ctx.agents.get(childId!), { timeout: 15000 }).toBeUndefined();
     await expect.poll(() => adapter.requests.some(request => request.sessionId === parentId), { timeout: 15000 }).toBe(true);
     await parent.whenIdle();
+    expect(host.ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog?.filter(entry => entry.id === childId)).toEqual([expect.objectContaining({ id: childId, mode: 'continuable', label: 'Durable remote child' })]);
+    expect(parent.session.snapshotEvents().filter(event => event.type === 'subagent/catalog' && event.data.childId === childId)).toHaveLength(1);
     const childRequests = adapter.requests.filter(request => request.sessionId === childId);
     expect(JSON.stringify(childRequests)).toContain('WORLD_INSTRUCTIONS_A');
     expect(JSON.stringify(childRequests)).toContain('remote-proof');
@@ -63,6 +67,7 @@ export async function checkChildLifecycle(launch: () => Promise<WebScaffold>, pa
     expect(await owner.fs.readText(await owner.fs.resolve('continuation-proof.txt'))).toBe(epoch === 0 ? '0\n' : '0\n1\n');
     expect(denied).toEqual([true]);
     expect(childRequests.flatMap(request => request.tools ?? []).map(tool => tool.name)).not.toContain('terminal_open');
+    if (epoch === 0) await checkCatalogAppendFailure(host, parent);
     if (epoch === 1) {
       const file = `${process.env.DSH_REMOTE_STATE}/bindings.json`;
       const original = await readFile(file, 'utf8');
@@ -79,5 +84,57 @@ export async function checkChildLifecycle(launch: () => Promise<WebScaffold>, pa
     }
     await api.selectModel({ sessionId: parentId, ...originalModel });
     await host.close();
+  }
+}
+
+/** Fail the parent's durable publication after real SSH child admission, then prove recovery. */
+async function checkCatalogAppendFailure(host: WebScaffold, parent: Agent) {
+  const subagents = host.ctx.get('subagents');
+  const worlds = host.ctx.get('executionWorlds');
+  const catalog = () => host.ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog ?? [];
+  const adapter = new MockAdapter(Array.from({ length: 12 }, () => textResponse('CATALOG_RECOVERY_DONE')));
+  host.ctx.llm.registerAdapter(['catalog-fixture'], adapter);
+  await host.ctx.get('sessionController').selectModel({ sessionId: parent.id, provider: 'catalog-fixture', model: 'fixture' });
+  const request = { parent, agentOptions: { provider: 'catalog-fixture', model: 'fixture' },
+    prompt: [{ type: 'text' as const, text: 'Reply with the completion marker.' }], toolFilter: { allow: [] } };
+  for (const mode of ['one-shot', 'continuable'] as const) {
+    const before = catalog();
+    const failure = new Error(`Injected ${mode} catalog append failure`);
+    let rejectedChild: SessionId | undefined;
+    const append = parent.session.append.bind(parent.session);
+    const spy = vi.spyOn(parent.session, 'append').mockImplementation(((...args: Parameters<typeof append>) => {
+      if (args[0] === 'subagent/catalog') {
+        rejectedChild = (args[1] as { childId: SessionId }).childId;
+        throw failure;
+      }
+      return Reflect.apply(append, parent.session, args);
+    }) as typeof parent.session.append);
+    try {
+      const signal = AbortSignal.timeout(15000);
+      await expect(mode === 'one-shot'
+        ? subagents.start('spawn', { ...request, signal })
+        : subagents.startContinuable({ provider: 'spawn', label: 'Rejected catalog child', request, signal }))
+        .rejects.toBe(failure);
+    } finally { spy.mockRestore(); }
+    expect(rejectedChild).toBeDefined();
+    await expect.poll(() => host.ctx.agents.get(rejectedChild!), { timeout: 15000 }).toBeUndefined();
+    expect(catalog()).toEqual(before);
+    expect(parent.session.snapshotEvents().some(event => event.type === 'subagent/catalog' && event.data.childId === rejectedChild)).toBe(false);
+    expect(worlds.bindings.get(rejectedChild!)).toEqual(worlds.bindings.get(parent.id));
+
+    let recoveredChild: SessionId;
+    if (mode === 'one-shot') {
+      const run = await subagents.start('spawn', { ...request, signal: AbortSignal.timeout(15000) });
+      recoveredChild = run.id;
+      try { expect((await run.result).output).toEqual([{ type: 'text', text: 'CATALOG_RECOVERY_DONE' }]); }
+      finally { await run.dispose(); }
+    } else {
+      recoveredChild = (await subagents.startContinuable({ provider: 'spawn', label: 'Recovered catalog child', request, signal: AbortSignal.timeout(15000) })).childId;
+      await expect.poll(() => adapter.requests.some(call => call.sessionId === recoveredChild), { timeout: 15000 }).toBe(true);
+    }
+    await expect.poll(() => host.ctx.agents.get(recoveredChild), { timeout: 15000 }).toBeUndefined();
+    await parent.whenIdle();
+    expect(catalog().filter(entry => entry.id === recoveredChild)).toEqual([expect.objectContaining({ id: recoveredChild, mode })]);
+    expect(worlds.bindings.get(recoveredChild)).toEqual(worlds.bindings.get(parent.id));
   }
 }

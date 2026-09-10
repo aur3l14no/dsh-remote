@@ -84,7 +84,12 @@
   disabled: true
 - id: ui-chat
   disabled: true
+- id: ui-deliverables
+  disabled: true
 - insert:
+    - id: remote-ui-deliverables
+      name: './compat/@deepseek-ai/dsh-client-ui-deliverables/lib/index.js'
+      inject: [remoteSetup]
     - id: remote-workspace-files
       name: './compat/@deepseek-ai/dsh-api-workspace-files/lib/index.js'
       inject: [remoteSetup, workspaceFileEnvironment]
@@ -124,3 +129,10 @@
       name: './compat/@deepseek-ai/dsh-subagent/lib/index.js'
     - id: remote-session-log-download
       name: './compat/@deepseek-ai/dsh-session-log-export/lib/index.js'
+
+- id: ui-sidebar-right
+  disabled: true
+- insert:
+    - id: remote-ui-sidebar-right
+      name: './compat/@deepseek-ai/dsh-client-ui-sidebar-right/lib/index.js'
+      inject: [remoteSetup]

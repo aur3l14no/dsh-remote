@@ -6,6 +6,8 @@ Status: proposed
 
 第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map-1.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
 
+rc.1 适配、导航与预览重构、子 Agent catalog 提交失败清理已通过[独立复审和安装态验收](../../implemented/integration/2026-09-10-dsh-rc1-upgrade.md)。
+
 本页只维护后续事项和验收要求，proposed 不表示第一阶段未完成。已完成过程见 [原生 bundle 交付](../../implemented/integration/2026-09-08-native-bundle-delivery.md)、[DSH 新版适配](../../implemented/integration/2026-09-09-dsh-upgrade.md)；适配提交 4f3ad28 的 [GitHub CI](https://github.com/aur3l14no/dsh-remote/actions/runs/34304573317) 已通过。
 
 ## 尚未完成的范围
@@ -18,7 +20,7 @@ Status: proposed
 | 远端 OS sandbox | 单独立项；目前父/子 Agent 使用 SSH 账户权限 |
 | 发行完善 | 公共 npm/Release、helper 平台矩阵、ripgrep 与可信下载清单、安装 GC；现有 CI 产物不等于公开发布 |
 | 其他消费者 | sameWorkspace Session 引用、LSP/Git 扩展、跨根 Agent 消息及外部 Agent 后端需单独适配 |
-| 生命周期强化 | 子 Agent pre-publication 原子提交、扫描中销毁、并发输出 release 等专项验证；不得放宽绑定或取消语义 |
+| 生命周期强化 | 子 Agent catalog 提交失败清理已覆盖；扫描中销毁、并发输出 release 等剩余专项验证继续保留，不得放宽绑定或取消语义 |
 
 ## 维护约束
 

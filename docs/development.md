@@ -102,6 +102,7 @@ node integrations/dsh/scripts/prepare-official.mjs
 node integrations/dsh/scripts/build-extension.mjs "$DSH_SOURCE" .build/dsh/official-install
 node integrations/dsh/scripts/prepare-test-profile.mjs
 node --test integrations/dsh/tests/packaging/*.test.mjs
+node --test integrations/dsh/tests/client/*.test.mjs
 node integrations/dsh/scripts/check-web-plugin.mjs
 node integrations/dsh/scripts/check-preview-client.mjs
 node integrations/dsh/scripts/prepare-browser-fixtures.mjs
@@ -114,7 +115,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
 ```
 
-Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
+Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 和 Sidebar 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
 
 CI 保留 unchanged-source、patched-host、SSH 与完整浏览器回归，并以官方 CLI 验收安装包；通过后上传扩展 tarball，以及包含已验收 Linux helper/ripgrep 的完整候选归档。手动触发 GitHub Actions 发布的流程见[发行](release.md)。截图与脱敏结果保留 7 天，扩展候选产物保留 14 天。临时状态、凭据和缓存不上传。GitHub runner 的实际结果以 CI 为准。
 

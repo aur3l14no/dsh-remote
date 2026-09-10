@@ -96,7 +96,7 @@ flowchart LR
   class S done
 ```
 
-原生 workspace-files 读取宿主 FS，媒体 URL 原本仅有绝对路径。**0006 增加 Session 所属 FS/root、文件链接解析和带 Session 的浏览器资源地址**；`portable-workspace` 提供远端预览环境。文本／目录限项目根，最终 symlink 或解析后越根拒绝；图片保留绝对路径语义，可读取 SSH 账户有权读取的项目外普通文件。无 OS watcher，外部编辑手动刷新。
+DSH rc.1 原生文件地址保留 Session 身份。**0006 为 workspace-files 和媒体增加 Session 所属 FS/root**；`portable-workspace` 按持久绑定解析冷会话及子会话的远端预览环境。普通文件读取允许 SSH 账户有权读取的项目外路径；目录和变更流仍限项目根，最终 symlink 拒绝。原生 `present` 文件交付可在侧栏打开，宿主 Open/Reveal 禁用。无 OS watcher，外部编辑手动刷新。
 
 **0007 让上传、工具、模型转换、历史预览、导出与子 Agent 传递 Session，并允许后端提供执行路径**。我们的 `remote-attachments` 通过 `attachments.forSession(sessionId)` 选择远端持久源。DSH 继续负责图片校验／归一化、模型编码和原生日志格式。模型按需读回，工具获得远端路径；宿主缓存不可替代失效的远端源。
 
@@ -223,6 +223,7 @@ flowchart TD
 | [Skills 与消费者](../.agents/notes/implemented/integration/2026-09-08-skills-consumers-acceptance.md) | 指令、skill、同路径双 World、后台任务、部署与同步 |
 | [child、终端与真实搜索](../.agents/notes/implemented/integration/2026-09-08-child-terminal-source-acceptance.md) | 继承、续接、终端、真实模型／外部搜索；当时源码交付的历史范围 |
 | [原生 bundle](../.agents/notes/implemented/integration/2026-09-08-native-bundle-delivery.md) | 替代源码宿主的标准扩展交付与安装 |
+| [DSH rc.1 适配](../.agents/notes/implemented/integration/2026-09-10-dsh-rc1-upgrade.md) | 原生文档预览、导航、catalog 失败清理及完整安装态回归 |
 | [DSH 新版适配](../.agents/notes/implemented/integration/2026-09-09-dsh-upgrade.md) | 范围读取、预览、V2/V3 与安装回归 |
 | [远端附件](../.agents/notes/implemented/integration/2026-09-10-remote-attachments.md) | 持久源、模型读取、上传／预览／fork／重启及旧引用 |
 

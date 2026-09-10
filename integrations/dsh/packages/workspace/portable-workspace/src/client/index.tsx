@@ -1,76 +1,20 @@
-import { Service, type Context } from '@deepseek-ai/cordis';
+import type { Context } from '@deepseek-ai/cordis';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type {} from '@deepseek-ai/dsh-api-gateway/client';
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client';
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client';
-import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client';
+import { Navigation } from './navigation.ts';
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client';
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
 import type { WorldView } from '../contracts.ts';
 import '../contracts.ts';
 import { contribution } from '../wire.ts';
 
-class Navigation extends Service implements UiWorkspace {
-  unavailableSession?: string;
-  private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>();
-  private get sessions(): ISessions { return this.ctx.get('sessions') as unknown as ISessions; }
-  constructor(ctx: Context) {
-    super(ctx, 'uiWorkspace');
-    let initial = new URL(location.href).searchParams.get('session');
-    const reconcile = () => {
-      const snapshot = this.sessions.list.getSnapshot();
-      if (initial) {
-        if (snapshot.phase !== 'ready') return;
-        const id = initial as SessionId;
-        initial = null;
-        if (snapshot.byId[id]) this.sessions.open(id);
-        else this.unavailableSession = id;
-        return;
-      }
-      const current = snapshot.current;
-      if (current === undefined && this.unavailableSession) return;
-      this.unavailableSession = undefined;
-      const url = new URL(location.href);
-      if (current === undefined) url.searchParams.delete('session');
-      else url.searchParams.set('session', current);
-      if (url.href !== location.href) history.replaceState(null, '', url);
-    };
-    ctx.effect(() => {
-      const unsubscribe = this.sessions.list.subscribe(reconcile);
-      reconcile();
-      return unsubscribe;
-    });
-  }
-  async connectWorkspace(workspaceId: WorkspaceId) {
-    const inflight = this.connecting.get(workspaceId);
-    if (inflight) return inflight;
-    const snapshot = this.ctx.workspaces.list.getSnapshot();
-    const workspace = snapshot.items.find(row => row.workspaceId === workspaceId);
-    const summaries = this.sessions.list.getSnapshot().byId;
-    const blank = workspace?.sessionIds.find(id => summaries[id]?.blank && !snapshot.archivedSessionIds.includes(id));
-    if (blank) return blank;
-    const attempt = this.sessions.create({ workspaceId }).finally(() => { this.connecting.delete(workspaceId); });
-    this.connecting.set(workspaceId, attempt);
-    return attempt;
-  }
-  startSession(workspaceId?: WorkspaceId) {
-    const current = this.sessions.list.getSnapshot().current;
-    const selected = workspaceId ?? this.ctx.workspaces.list.getSnapshot().items.find(row => row.sessionIds.includes(current!))?.workspaceId;
-    if (selected === undefined) { this.sessions.clear(); return; }
-    void this.connectWorkspace(selected).then(id => this.sessions.open(id), error => console.error(error));
-  }
-  async archiveSession(id: SessionId) {
-    await this.ctx.workspaces.archiveSession(id);
-    if (this.sessions.list.getSnapshot().current === id) this.sessions.clear();
-  }
-  async pickDirectory(): Promise<never> { throw new Error('Choose an explicit World and remote directory'); }
-  async listDirectory(): Promise<never> { throw new Error('Directory browsing requires a World'); }
-  async createDirectory(): Promise<never> { throw new Error('Create directories through the bound remote workspace'); }
-}
 
-export const inject = ['slots', 'sessions', 'workspaces', 'remote'];
+export const inject = ['slots', 'sessions', 'workspaces', 'remote', 'layout'];
 export async function apply(ctx: Context) {
   await ctx.plugin({ inject: ['remote'], async apply(ctx: Context) {
     await ctx.remote.$mount({ package: contribution.package, descriptors: contribution.invocations });
@@ -236,10 +180,11 @@ function installWorkspaceUi(ctx: Context) {
         {directories.map(name => <button key={name} disabled={busy} onClick={() => { void perform(() => browse(path.replace(/\/$/, '') + '/' + name)); }}>{name}/</button>)}
       </details>}
       <button disabled={!world || !path.startsWith('/') || busy} onClick={() => { void perform(async () => {
-        const result = await ctx.remote.portableWorkspace.create({ worldId: world, path });
-        if (!result.ok) throw new Error(result.error.message);
-        const id = await navigation.connectWorkspace(result.value.workspaceId);
-        sessionController.open(id);
+        await navigation.registerWorkspace(async () => {
+          const result = await ctx.remote.portableWorkspace.create({ worldId: world, path });
+          if (!result.ok) throw new Error(result.error.message);
+          return result.value.workspaceId;
+        });
       }); }}>Open Folder</button>
       </>}
       {snapshot.items.map((row, rowIndex) => {
@@ -273,7 +218,7 @@ function installWorkspaceUi(ctx: Context) {
           <button type="button" onClick={() => setRenaming(undefined)}>Cancel rename</button>
         </form>}
         <button disabled={busy} onClick={() => { void perform(async () => {
-          sessionController.open(await navigation.connectWorkspace(row.workspaceId));
+          await navigation.openWorkspace(row.workspaceId);
         }); }}>New session in {row.title}</button>
       </section>; })}
       </details>
@@ -284,7 +229,7 @@ function installWorkspaceUi(ctx: Context) {
       {snapshot.items.flatMap(row => {
         const rowWorld = worlds.find(item => item.workspaceIds.includes(row.workspaceId));
         return row.sessionIds.filter(id => !snapshot.archivedSessionIds.includes(id)).map((id, index, visible) => <div className="workspace-session" key={id}>
-          <button className="session-card" style={{ '--world-color': rowWorld?.color ?? '#94a3b8' } as React.CSSProperties} disabled={busy} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => sessionController.open(id)}>
+          <button className="session-card" style={{ '--world-color': rowWorld?.color ?? '#94a3b8' } as React.CSSProperties} disabled={busy} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => navigation.openSession(id)}>
             <span className="session-context"><WorldLogo color={rowWorld?.color ?? '#94a3b8'} /><span>{rowWorld?.name ?? 'Unavailable World'} · {rowWorld && row.title.startsWith(rowWorld.name + ' · ') ? row.title.slice(rowWorld.name.length + 3) : row.title}</span></span>
             <span className="session-title">{sessions.byId[id]?.title || 'New session'}</span>
             <span className="session-path" title={row.path}>⌂ {row.path}</span>

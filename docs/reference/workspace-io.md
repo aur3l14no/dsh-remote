@@ -4,9 +4,11 @@
 
 ## 文件预览
 
-文本预览、目录列表和文件变更通知使用显式 Agent environment，不依赖 tools/execute 的 ALS。workspace root 来自该 Session 的 portable_workspace，不使用账户权限策略中的 `/`。路径先在远端解析；最终条目为 symlink 或解析后越根时拒绝；workspace 仍不限制 Shell 的 SSH 账户权限。
+文本、完整文档、关联资源、目录列表和文件变更通知均使用显式 Session 环境，不依赖 tools/execute 的 ALS。每次请求按持久 membership/binding 和逐级 Session header 校验选择 World；支持冷会话及子会话，不激活 Agent。workspace root 来自保存的绑定，调用者不能伪造 root 或根据 cwd 猜测 World。
 
-图片请求 `/api/file?path=...&sessionId=...` 按持久 Session membership/binding 准备 World，支持冷会话。身份缺失、绑定冲突或 World 不可用时失败，不根据浏览器当前选中项、同名 cwd 或宿主文件决定路由。图片保持官方绝对路径语义：可以读取 workspace 外但 SSH 账户有权读取的普通文件，受图片字节上限约束。它不提供任意 URL 代理或本地文件能力。
+普通文件采用 DSH rc.1 的读取语义：相对路径以 Session workspace 为基准，绝对路径和 `..` 可访问绑定 World 的 SSH 账户有权读取的项目外普通文件。文本分页、范围字节、完整文档和 HTML 关联资源始终使用同一 World FS，并保留类型、大小及最终 symlink 检查。目录列表和变更通知仍限制在 workspace 内；跨 World 或项目外 observation 不会进入该会话的文件流。
+
+图片请求 `/api/file?path=...&sessionId=...` 使用同一身份解析。身份缺失、绑定冲突或 World 不可用时失败，不根据浏览器当前选中项、同名 cwd 或宿主文件决定路由。文件地址保持 Session 命名空间，包括项目外绝对路径；地址中的 `..` 不由浏览器规范化，以保留远端路径语义。`present` 交付文件使用原生侧栏预览；宿主 Open/Reveal 操作被禁用。此接口不提供任意 URL 代理或宿主文件兜底。
 
 文件预览不提供 OS 文件 watcher；变更提示来自 Agent FS observation，外部编辑需手动刷新。旧 helper 缺少范围读取 capability 时提示更新，不用整文件下载模拟范围读取。
 

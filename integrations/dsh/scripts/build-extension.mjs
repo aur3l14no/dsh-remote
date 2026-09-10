@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 
-const extensionVersion = '0.3.1';
+const extensionVersion = '0.3.2';
 const [sourceArg, installationArg] = process.argv.slice(2);
 if (!sourceArg || !installationArg) throw new Error('Usage: build-extension.mjs PINNED_DSH_SOURCE OFFICIAL_INSTALL');
 const source = resolve(sourceArg), installation = resolve(installationArg);
@@ -47,9 +47,11 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
     })); } }],
   });
 }
-await buildClientCompatibility(sources, installation,
-  JSON.parse(await readFile(join(installation, 'node_modules/@deepseek-ai/dsh-client-ui-chat/package.json'), 'utf8')),
-  join(output, 'compat/@deepseek-ai/dsh-client-ui-chat'));
+for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right']) {
+  await buildClientCompatibility(sources, installation,
+    JSON.parse(await readFile(join(installation, 'node_modules', name, 'package.json'), 'utf8')),
+    join(output, 'compat', name));
+}
 // Keep shipped declarations consistent with the compatibility implementation.
 // Type correctness is checked by the separate patched-host and plugin gates.
 const parsed = ts.parseJsonConfigFileContent(ts.readConfigFile(join(sources, 'tsconfig.base.json'), ts.sys.readFile).config, ts.sys, sources);
@@ -92,7 +94,7 @@ for (const browser of [false, true]) {
   if (browser) await writeFile(join(dest, 'lib/index.js'), 'export function apply() {}\n');
   await writeFile(join(dest, 'package.json'), JSON.stringify({ name: `@dsh-remote/${name}`, version: extensionVersion, type: 'module',
     exports: browser ? { '.': './lib/index.js', './client': './lib/client.js', './package.json': './package.json' } : { ...Object.fromEntries(Object.keys(entries).map(key => [key === 'index' ? '.' : `./${key}`, `./lib/${key}.js`])), './package.json': './package.json' },
-    ...(browser ? { dsh: { client: { platform: 'web', inject: ['@deepseek-ai/dsh-api-workspace-controller', '@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-renderer'] } } } : {}),
+    ...(browser ? { dsh: { client: { platform: 'web', inject: ['@deepseek-ai/dsh-api-workspace-controller', '@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-renderer', '@deepseek-ai/dsh-client-ui-layout'] } } } : {}),
   }, null, 2));
 }
 await cp('integrations/dsh/packaging/extension', output, { recursive: true, filter: path => !path.endsWith('/README.md') });

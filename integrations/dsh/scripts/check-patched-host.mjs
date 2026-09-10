@@ -39,13 +39,15 @@ for (const name of ['agent', 'commands', 'model-selection-projection']) paths[`@
 // Source checkout exposes this published type subpath through its package exports.
 paths['@deepseek-ai/dsh-client-file-upload/types'] = [join(root, 'packages/client/file-upload/src/types.ts')];
 const entry = resolve('integrations/dsh/tests/patched-host/admission.ts');
-const program = ts.createProgram([entry], {
+const preview = join(root, 'packages/api/workspace-files/src/index.ts');
+const deliverables = join(root, 'packages/client/ui-deliverables/src/index.ts');
+const program = ts.createProgram([entry, preview, deliverables], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext,
   strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,
   types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
 // Changed host package and our integration are this gate's type surface, not the whole upstream tree.
-const checked = [join(root, 'packages/api/session-controller/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
+const checked = [join(root, 'packages/api/session-controller/src/'), join(root, 'packages/api/workspace-files/src/'), join(root, 'packages/client/ui-deliverables/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
 const errors = ts.getPreEmitDiagnostics(program).filter(d => !d.file || checked.some(path => d.file.fileName.startsWith(path)));
 if (errors.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(errors, {
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n',

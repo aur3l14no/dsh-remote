@@ -75,31 +75,33 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   world(id: WorkspaceId) { const row = this.row(id); return { id: row.worldId, name: row.worldName }; }
   forSession(id: SessionId) { const row = this.records().find(row => row.sessionIds.includes(id)); return row && this.get(WorkspaceId(row.id)); }
   /** Resolve descendant context without making children top-level Workspace members. */
-  async contextForSession(id: SessionId): Promise<Workspace> {
+  async contextForSession(id: SessionId, signal?: AbortSignal): Promise<Workspace> {
     const visited = new Set<SessionId>();
     const bindings: WorldDefinition[] = [];
-    let persisted: Awaited<ReturnType<Context['sessionPersistence']['list']>> | undefined;
     let current = id;
     for (;;) {
+      signal?.throwIfAborted();
       if (visited.has(current)) throw new RemoteError('WORLD_MISMATCH', 'Cyclic Session lineage');
       visited.add(current);
       const saved = this.ctx.executionWorlds.bindings.get(current);
       if (!saved) throw new RemoteError('WORLD_REQUIRED', 'Session lineage has no saved World binding');
       bindings.push(saved);
+      const header = this.ctx.sessions.get(current)?.header
+        ?? (await this.ctx.sessionPersistence.stat(current, { signal }))?.header;
+      signal?.throwIfAborted();
+      if (!header || header.cwd !== saved.cwd) {
+        throw new RemoteError('WORLD_MISMATCH', 'Session is absent or its cwd differs from the saved binding');
+      }
       const workspace = this.forSession(current);
       if (workspace) {
+        if (header.origin === 'subagent') throw new RemoteError('WORLD_MISMATCH', 'Subagent cannot be a top-level workspace member');
         const expected = this.definition(workspace.id);
         if (bindings.some(binding => JSON.stringify(binding) !== JSON.stringify(expected))) {
           throw new RemoteError('WORLD_MISMATCH', 'Session lineage crosses portable workspaces');
         }
         return workspace;
       }
-      let header = this.ctx.sessions.get(current)?.header;
-      if (!header) {
-        persisted ??= await this.ctx.sessionPersistence.list();
-        header = persisted.find(row => row.header.id === current)?.header;
-      }
-      if (!header || header.origin !== 'subagent' || !header.parentSession || header.cwd !== saved.cwd) {
+      if (header.origin !== 'subagent' || !header.parentSession) {
         throw new RemoteError('WORLD_REQUIRED', 'Remote context requires saved portable_workspace membership or subagent lineage');
       }
       current = header.parentSession;

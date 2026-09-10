@@ -8,6 +8,7 @@ import { launchWebScaffold, type WebScaffold } from './scaffold.ts';
 import { ToolCallId } from '@deepseek-ai/dsh-llm';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
+import type {} from '@deepseek-ai/dsh-tool-present/types';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { checkChildLifecycle } from './remote-children.ts';
 import { prepareReplay } from './remote-replay.ts';
@@ -31,6 +32,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
     agentPresets: { default: 'remote', roots: [{ path: `${process.env.DSH_TEST_EXTENSION}/presets`, trust: 'system' }] }, toolsMode: 'native' });
   scaffold = await launch();
   await expect(scaffold.ctx.get('sessionController').openWorkspacePath({ path: '/workspace' }, new AbortController().signal)).rejects.toThrow('Native workspace opening is disabled');
+  await expect(scaffold.ctx.get('sessionController').openWorkspacePath({ path: '/workspace', action: 'reveal' }, new AbortController().signal)).rejects.toThrow('Native workspace opening is disabled');
   await scaffold.ctx.credentials.set(key, 'local-connector-fixture');
   browser = await chromium.launch({ headless: true });
   let page = await openPage(browser);
@@ -75,7 +77,11 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.getByRole('option', { name: /only-a\.txt/ }).click();
   await expect.poll(() => input.innerText()).toContain('only-a.txt');
   const results: Extract<SessionEvent, { type: 'tool/result' }>[] = [];
-  scaffold.ctx.on('session/event', (_session, event) => { if (event.type === 'tool/result') results.push(event); });
+  const deliveries: Extract<SessionEvent, { type: 'deliverables/presented' }>[] = [];
+  scaffold.ctx.on('session/event', (_session, event) => {
+    if (event.type === 'tool/result') results.push(event);
+    if (event.type === 'deliverables/presented') deliveries.push(event);
+  });
   await input.fill('Exercise the remote workspace and the local search connector.');
   await input.press('Enter');
   await settled;
@@ -84,9 +90,30 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(13);
   await page.getByText('coding-0.txt', { exact: true }).filter({ visible: true }).first().click();
   await expect.poll(() => page.locator('[data-textpreview-body]').innerText()).toContain('after');
-  expect(results).toHaveLength(17);
+  expect(results).toHaveLength(18);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const history = JSON.stringify(first.session.surface.nodes.map(seq => first.session.eventAt(seq)));
+  const delivery = deliveries[0];
+  expect(delivery?.data).toMatchObject({ files: [{ path: 'coding-0.txt' }, { path: '/tmp/dsh-present.txt' }, { path: '/tmp/dsh-preview.html' }, { path: '/tmp/dsh-preview.pdf' }, { path: '/workspace/preview.svg' }] });
+  const delivered = page.locator('[data-presented-files-row]').last();
+  await delivered.getByRole('button', { name: 'Open /tmp/dsh-present.txt in sidebar', exact: true }).click();
+  await expect.poll(() => page.locator('[data-document-preview]:visible [data-textpreview-body]').innerText()).toContain('OUTSIDE_WORLD_A');
+  await delivered.getByRole('button', { name: 'Open /tmp/dsh-preview.html in sidebar', exact: true }).click();
+  const html = page.frameLocator('[data-html-preview]:visible');
+  await expect.poll(() => html.locator('#proof').innerText()).toBe('REMOTE_HTML_A');
+  await expect.poll(() => html.locator('#proof').evaluate(element => getComputedStyle(element).color)).toBe('rgb(12, 34, 56)');
+  await delivered.getByRole('button', { name: 'Open /tmp/dsh-preview.pdf in sidebar', exact: true }).click();
+  const canvas = page.locator('[data-pdf-preview]:visible canvas').first();
+  await expect.poll(() => canvas.evaluate(element => Array.from((element as HTMLCanvasElement).getContext('2d')!.getImageData(5, 5, 1, 1).data))).toEqual([255, 0, 0, 255]);
+  await page.getByRole('button', { name: 'Show all 5 delivered files', exact: true }).click();
+  await delivered.getByRole('button', { name: 'Open /workspace/preview.svg in sidebar', exact: true }).click();
+  await expect.poll(() => page.locator('[data-image-preview]:visible img').evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(13);
+  expect((await page.request.get(new URL('/api/present.host', page.url()).href)).ok()).toBe(true);
+  for (const action of ['open', 'reveal']) {
+    const endpoint = new URL('/api/present.open', page.url());
+    endpoint.search = new URLSearchParams({ sessionId: first.session.header.id, seq: String(delivery!.seq), index: '1', action }).toString();
+    expect((await page.request.post(endpoint.href)).status()).toBe(409);
+  }
   expect(history).toContain('WORLD_INSTRUCTIONS_A');
   expect(history).toContain('NESTED_WORLD_INSTRUCTIONS');
   expect(history).not.toContain('WORLD_INSTRUCTIONS_B');
@@ -122,6 +149,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.getByRole('button', { name: 'Branch into a new conversation' }).last().click();
   await expect.poll(() => scaffold!.ctx.agents.list().find(agent => agent.session.header.parentSession === sessionId), { timeout: 15000 }).toBeDefined();
   const fork = scaffold.ctx.agents.list().find(agent => agent.session.header.parentSession === sessionId)!;
+  expect(scaffold.ctx.sessionProjections.snapshot(fork.session).values.subagentCatalog).toEqual([]);
   await expect.poll(() => cardFor(fork.session.header.id).locator('svg').getAttribute('stroke')).toBe('#a855f7');
   expect(scaffold.ctx.get('executionWorlds').bindings.get(fork.session.header.id)).toEqual(scaffold.ctx.get('executionWorlds').bindings.get(sessionId));
   await page.getByRole('button', { name: `Open session ${sessionId}`, exact: true }).click();
@@ -156,14 +184,21 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   scaffold = await launch();
   await checkMigration(scaffold);
   expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
+  const coldScope = { sessionId, workspaceRoot: '/workspace' };
+  expect((await scaffold.ctx.get('workspaceFiles').read(coldScope, '/tmp/dsh-present.txt', {}, AbortSignal.timeout(15000))).text).toBe('OUTSIDE_WORLD_A');
+  expect((await scaffold.ctx.get('workspaceFiles').read({ sessionId: childHeader.id, workspaceRoot: '/workspace' }, 'world.txt', {}, AbortSignal.timeout(15000))).text).toBe('a');
+  expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
+  expect(scaffold.ctx.agents.get(childHeader.id)).toBeUndefined();
   const coldCatalog = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId }, new AbortController().signal);
   expect(coldCatalog.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
   expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
   page = await openPage(browser);
   await page.goto(scaffold.authenticatedUrl);
   await page.goto(new URL(deepLink.pathname + deepLink.search + deepLink.hash, scaffold.baseUrl).href);
-  // The migration fixture adds a third visible Session to the two workspaces.
-  await expect.poll(() => page.locator('.session-card').count(), { timeout: 15000 }).toBe(3);
+  // Reopening World B reuses its blank Session; migration updates that identity in place.
+  await expect.poll(() => page.locator('.session-card').count(), { timeout: 15000 }).toBe(2);
+  await expect.poll(() => cardFor(second.session.header.id).count()).toBe(1);
+  expect(await cardFor(fork.session.header.id).count()).toBe(0);
   await expect.poll(() => cardFor(sessionId).locator('svg').getAttribute('stroke')).toBe('#a855f7');
   const coldSettled = waitForTurn(sessionId);
   results.length = 0;
@@ -171,7 +206,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.locator('[data-composer-input][contenteditable=true]').first().fill('Continue in the saved World.');
   await page.locator('[data-composer-input][contenteditable=true]').first().press('Enter');
   expect(await coldSettled).toBe(sessionId);
-  expect(results).toHaveLength(17);
+  expect(results).toHaveLength(18);
   for (const result of results) expect(result.data.message.content, JSON.stringify(result)).toEqual(expect.arrayContaining([expect.objectContaining({ isError: false })]));
   const resumed = scaffold.ctx.agents.get(sessionId)!;
   expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: resumed.session }).mode).toBe('danger-full-access');
@@ -216,6 +251,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await writeFile(bindingFile, JSON.stringify(bindings), { mode: 0o600 });
   scaffold = await launch(true);
   await expect(scaffold.ctx.get('sessionSkillCatalog').list({ sessionId }, new AbortController().signal)).rejects.toThrow('saved Session membership');
+  await expect(scaffold.ctx.get('workspaceFiles').readAll({ sessionId, workspaceRoot: '/workspace' }, '/tmp/dsh-present.txt', AbortSignal.timeout(15000))).rejects.toMatchObject({ code: 'WORLD_REQUIRED' });
   page = await openPage(browser);
   await page.goto(scaffold.authenticatedUrl);
   await page.goto(new URL(deepLink.pathname + deepLink.search + deepLink.hash, scaffold.baseUrl).href);

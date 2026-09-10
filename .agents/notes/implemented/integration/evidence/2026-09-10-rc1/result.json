@@ -1,5 +1,7 @@
 {
-  "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+  "status": "passed",
+  "completedAt": "2026-09-10T07:56:02.780Z",
+  "dshVersion": "0.1.5-rc.1",
   "revision": "183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
   "patches": [
     {
@@ -80,9 +82,31 @@
       ]
     }
   ],
-  "release": {
-    "package": "@deepseek-ai/dsh",
-    "version": "0.1.5-rc.1",
-    "integrity": "sha512-rmNmzQCg3oIc1z8xH7izRSOuy1TNzq+/NILyfM+7e8DKOyV+yBtg47WEsqR2SiIe1ATec3L/rUa1YhIcfQ2XEg=="
-  }
+  "packages": [
+    "compat/@deepseek-ai/dsh-api-session-controller",
+    "compat/@deepseek-ai/dsh-api-workspace-controller",
+    "compat/@deepseek-ai/dsh-tool-bash",
+    "compat/@deepseek-ai/dsh-tool-fs",
+    "compat/@deepseek-ai/dsh-agent-instructions",
+    "compat/@deepseek-ai/dsh-skill",
+    "compat/@deepseek-ai/dsh-tool-skill",
+    "compat/@deepseek-ai/dsh-api-workspace-files",
+    "compat/@deepseek-ai/dsh-client-ui-chat",
+    "compat/@deepseek-ai/dsh-attachment-local",
+    "compat/@deepseek-ai/dsh-attachment",
+    "compat/@deepseek-ai/dsh-client-file-upload",
+    "compat/@deepseek-ai/dsh-llm-deepseek",
+    "compat/@deepseek-ai/dsh-llm-pi-ai",
+    "compat/@deepseek-ai/dsh-llm",
+    "compat/@deepseek-ai/dsh-session-log-export",
+    "compat/@deepseek-ai/dsh-subagent",
+    "compat/@deepseek-ai/dsh-client-ui-sidebar-right",
+    "compat/@deepseek-ai/dsh-client-ui-deliverables",
+    "plugins/web",
+    "plugins/web-ui"
+  ],
+  "scenario": "portable-workspace.e2e.ts",
+  "topology": "host Web + Chromium; two Docker Linux/SSH Worlds",
+  "model": "synthetic replay and native MockAdapter",
+  "search": "native provider + controlled host HTTP endpoint"
 }

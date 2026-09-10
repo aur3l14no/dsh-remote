@@ -19,6 +19,7 @@
       config:
         enableRunInBackground: true
     - name: '../../compat/@deepseek-ai/dsh-tool-fs/lib/index.js'
+    - name: '@deepseek-ai/dsh-tool-present'
     - name: '@deepseek-ai/dsh-tool-fs-search'
       config:
         sampleOverCapGlobResults: false

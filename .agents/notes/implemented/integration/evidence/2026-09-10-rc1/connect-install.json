@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "checks": [
+    "plugin-add-only startup",
+    "Connect via public-key OpenSSH",
+    "download failure is retryable",
+    "automatic runtime download and deployment",
+    "remote folder and Session",
+    "offline cache reuse after restart",
+    "binding preservation"
+  ]
+}

@@ -29,6 +29,7 @@ export async function prepareReplay(directory: string) {
     tool('bash', { description: 'Start a cancellable remote background task', run_in_background: true, command: 'echo $$ > background.pid; touch background.started; sleep 120; touch background.finished' }, 'remote_background'),
     tool('job_list', {}, 'remote_jobs'),
     tool('web_search', { queries: ['portable workspace boundary'] }, 'local_search'),
+    tool('present', { files: [{ path: 'coding-0.txt', description: 'Remote edited file' }, { path: '/tmp/dsh-present.txt', description: 'Remote output outside the workspace' }, { path: '/tmp/dsh-preview.html' }, { path: '/tmp/dsh-preview.pdf' }, { path: '/workspace/preview.svg' }] }, 'remote_present'),
     { kind: 'chunks', chunks: [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text },
@@ -59,7 +60,8 @@ pwd
 cat world.txt
 if env | grep -F local-connector-fixture; then exit 90; fi
 if timeout 2 bash -c 'echo probe >/dev/tcp/127.0.0.1/${port}' 2>/dev/null; then exit 91; fi
-printf browser-proof > browser-proof.txt` }, 'remote_bash');
+printf browser-proof > browser-proof.txt
+printf OUTSIDE_WORLD_A > /tmp/dsh-present.txt` }, 'remote_bash');
   entries.splice(entries.length - 1, 0,
     tool('subagent', { description: 'Check inherited remote skills', prompt: 'Read the bound workspace and execute the deployed remote-proof skill.', run_in_background: false }, 'remote_delegate'),
   );
