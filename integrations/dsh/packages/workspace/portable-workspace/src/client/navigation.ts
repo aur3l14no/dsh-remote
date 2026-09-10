@@ -43,6 +43,27 @@ export class Navigation extends Service implements UiWorkspace {
     });
   }
 
+  async waitForWorkspace(workspaceId: WorkspaceId, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    const source = this.ctx.workspaces.list;
+    if (source.getSnapshot().items.some(row => row.workspaceId === workspaceId)) return;
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: unknown) => {
+        unsubscribe(); signal.removeEventListener('abort', abort);
+        if (error) reject(error); else resolve();
+      };
+      const abort = () => finish(signal.reason);
+      const check = () => {
+        const snapshot = source.getSnapshot();
+        if (snapshot.items.some(row => row.workspaceId === workspaceId)) finish();
+        else if (snapshot.error) finish(new Error(snapshot.error.message));
+      };
+      const unsubscribe = source.subscribe(check);
+      signal.addEventListener('abort', abort, { once: true });
+      check();
+    });
+  }
+
   async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {
     this.lifetime.signal.throwIfAborted();
     const inflight = this.connecting.get(workspaceId);
@@ -74,15 +95,6 @@ export class Navigation extends Service implements UiWorkspace {
     if (!navigation.aborted) this.openSession(id);
   }
 
-  async registerWorkspace(register: () => Promise<WorkspaceId>): Promise<void> {
-    const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal]);
-    navigation.throwIfAborted();
-    const workspaceId = await register();
-    if (navigation.aborted) return;
-    const id = await this.connectWorkspace(workspaceId);
-    if (!navigation.aborted) this.openSession(id);
-  }
-
   async forkSession(sessionId: SessionId): Promise<void> {
     this.lifetime.signal.throwIfAborted();
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal]);
@@ -91,8 +103,7 @@ export class Navigation extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId): void {
-    const current = this.sessions.list.getSnapshot().current;
-    const selected = workspaceId ?? this.ctx.workspaces.list.getSnapshot().items.find(row => row.sessionIds.includes(current!))?.workspaceId;
+    const selected = workspaceId;
     if (selected === undefined) {
       this.initial = null;
       this.unavailableSession = undefined;

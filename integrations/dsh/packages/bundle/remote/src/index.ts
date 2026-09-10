@@ -8,17 +8,18 @@ import AccountPolicy from '../../../world/ssh-world/src/account-policy.ts';
 import RemoteFileReferences from '../../../workspace/portable-workspace/src/file-references.ts';
 import * as RemoteSkills from '../../../skill/remote-skills/src/index.ts';
 import * as Admission from '../../../workspace/portable-workspace/src/admission.ts';
+import { WorldsReload } from '../../../workspace/portable-workspace/src/reload.ts';
 import { SkillSynchronizer } from '../../../skill/remote-skills/src/sync.ts';
 
 export interface Config extends RegistryConfig {
   bindingFile: string;
+  worldsFile?: string;
   bootstrap: ExecutionConfig['bootstrap'];
 }
 export const inject = ['storageDomain', 'sessionPersistence', 'sessions', 'agents', 'typert'];
 export async function apply(ctx: Context, config: Config) {
   const sync = new SkillSynchronizer(config.worlds);
   ctx.effect(() => () => sync.dispose());
-  await ctx.plugin(function skillSyncService(ctx: Context) { ctx.provide('worldSkillSync', sync); });
   await ctx.plugin(ExecutionWorlds, { bindingFile: config.bindingFile, bootstrap: config.bootstrap,
     packagedRipgrep: await SearchTools.resolveRgPath(), beforeConnect: definition => sync.beforeConnect(definition) });
   // A separate active fiber makes the feed visible before the registry releases
@@ -26,8 +27,13 @@ export async function apply(ctx: Context, config: Config) {
   await ctx.plugin(function workspaceFeed(ctx: Context) {
     ctx.provide('workspaceFeed', new PortableWorkspaceFeed(ctx));
   });
-  await ctx.plugin(Registry, { worlds: config.worlds, connections: config.connections, onWorldAdded: world => sync.register(world) });
+  await ctx.plugin(Registry, { worlds: config.worlds });
   await ctx.plugin({ inject: ['worldPortableWorkspaces'], apply(ctx: Context) {
+    if (config.worldsFile) {
+      const reload = new WorldsReload(ctx, config.worldsFile, config.worlds, sync);
+      ctx.provide('worldsReload', reload);
+      ctx.effect(() => () => reload.dispose());
+    }
     sync.selection = id => ctx.worldPortableWorkspaces.enabledSkills(id);
     ctx.effect(() => () => { sync.selection = undefined; });
   } });

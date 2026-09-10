@@ -4,11 +4,11 @@ remote profile 从 Session 绑定的 World 发现项目 AGENTS.md 和 skills。�
 
 ## 同步选定 skills
 
-在 `$DSH_HOME/remote/config.json` 的 World 条目中添加 `skills`（如下；保留已有 bootstrap 和 bindingFile）。`source` 必须是本地绝对路径。本地连接编排层在新 helper/runtime 创建前同步；失败会阻止此次连接，修复后可重试。连接期间修改本地文件，可在 World 选择器旁点击 **Sync Skills**，终端和后台任务继续运行。
+在 [`$DSH_HOME/remote/worlds.json`](worlds.md) 的 World 条目中添加 `skills`（如下）。`source` 必须是本地绝对路径。本地连接编排层在新 helper/runtime 创建前同步；失败会阻止此次连接，修复后可重试。运行中编辑配置后使用 **Reload worlds** 预览并确认应用。
 
-Web 侧边栏顶部 **＋** 管理入口中的 **World settings → Skills to sync** 可勾选配置中声明的 skills，点击 **Save World settings** 保存，再点击 **Sync Skills** 部署。选择持久保存在宿主控制数据中，无需重启；同一 SSH target 的 Worlds 共享选择。取消勾选只停止后续同步，不删除远端已有副本，也不隐藏已安装的 skill。
+可设置 `enabledSkills: ["analysis"]` 只同步列出的已配置名称，`[]` 停止自动同步；通过 **Reload worlds** 确认应用时移除已配置名称的受管理启用链接，保留版本目录。省略时沿用旧版保存的选择；没有旧选择时同步全部配置来源。同一 SSH target 的 Worlds 必须声明相同来源和 `enabledSkills`。仅重启或独立部署不会卸载旧副本；要移除运行中配置不再选择的副本，使用带预览的重载流程。
 
-同一 runtime 的传输重连不触发同步，没有本地文件 watcher。添加或更改配置中的来源目录需要重启宿主；修改已选文件只需同步。未设置 UI 选择时默认同步全部已配置 skills。独立部署命令使用其输入配置，不读取 UI 选择。
+没有 skill 来源文件 watcher；Web 界面检查 `worlds.json` 内容变化并提示重载。同一 runtime 的传输重连不触发同步；连接期间更新文件可手动点击 **Reload worlds**，或使用下方独立部署命令。配置中显式声明的颜色和选择优先于旧的持久设置；旧设置只保留读取兼容。独立部署命令读取自己的来源列表，不读取运行中服务的选择。
 
 APM/chezmoi/skill-ops 继续管理本地来源、版本和适配。本项目复制配置中选定的完整 skill 文件夹，不运行 APM 或 skill 自带的安装脚本。同一 worlds 列表也可保存为 `.local/skills.json`，供下方独立部署命令使用：
 
@@ -31,9 +31,9 @@ APM/chezmoi/skill-ops 继续管理本地来源、版本和适配。本项目复�
 node integrations/dsh/scripts/deploy-skills.mjs .local/skills.json
 ```
 
-目标使用现有 SSH 配置，须为 Linux，具备 POSIX shell、tar、diff 和 GNU coreutils。`requires` 只检查远端 PATH 中的命令是否存在，不证明版本兼容；实际 CLI/runtime 版本与调用方式在 skill-ops 维护时确定。缺少依赖会在部署前失败，不自动安装 runtime、服务或凭据。
+目标使用现有 SSH 配置，须为 Linux，具备 POSIX shell、tar、diff、find 和 GNU coreutils（含 stat、sha256sum、base64、sort）。`requires` 只检查远端 PATH 中的命令是否存在，不证明版本兼容；实际 CLI/runtime 版本与调用方式在 skill-ops 维护时确定。缺少依赖会在部署前失败，不自动安装 runtime、服务或凭据。
 
-每份内容安装到 `$HOME/.local/share/dsh-remote/skills/<name>/<digest>/`，链接到 `$HOME/.agents/skills/<name>`。摘要包含文件路径、权限和内容。相同内容可重复部署；更新逐 skill 原子切换链接，旧版本保留。整个列表不是事务，后续条目失败时已完成条目不回滚；可修复后重跑。省略旧条目不会自动卸载。
+每份内容安装到 `$HOME/.local/share/dsh-remote/skills/<name>/<digest>/`，链接到 `$HOME/.agents/skills/<name>`。摘要包含文件路径、权限和内容。相同内容可重复部署；更新逐 skill 原子切换链接，旧版本保留。整个列表不是事务，后续条目失败时已完成条目不回滚；可修复后重跑。独立部署命令省略旧条目不会自动卸载；Web 重载会明确预览并确认受管理链接的移除，详见 [World 配置](worlds.md#预览与重载)。
 
 已有版本会校验内容与文件权限，漂移时明确失败。已有普通文件、目录或其他管理器的同名链接不会被覆盖。部署锁冲突会明确失败；进程被 SIGKILL 时可能留下锁和暂存目录，确认无部署运行后再清理本项目拥有的路径。不要清理整个 home 或其他 manager 的目录。
 

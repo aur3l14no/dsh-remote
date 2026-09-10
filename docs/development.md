@@ -108,6 +108,7 @@ node integrations/dsh/scripts/check-preview-client.mjs
 node integrations/dsh/scripts/prepare-browser-fixtures.mjs
 npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/worlds-reload.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 node integrations/dsh/scripts/e2e.mjs -- node --expose-internals .build/dsh/attachment-check/lib/attachments.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --attachments
@@ -140,14 +141,14 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 
 ## 离线产物与已有配置
 
-正常使用只需 README 中的插件安装命令，之后在 UI 点击 Connect。首次启动自动创建私有配置和绑定存储；缺失已有绑定文件时仍拒绝重建。连接使用非交互模式，认证方式、主机密钥检查和 SSH 连接超时遵循用户的 OpenSSH 配置；需要交互的密码、私钥口令和主机信任在终端 OpenSSH 中处理。
+正常使用只需 README 中的插件安装命令，首次启动自动创建私有配置、`worlds.json` 和绑定存储；按 [World 配置](worlds.md) 声明目录，在 Web 的 **Reload worlds** 中预览并确认，再到新会话选择器中选择。缺失已有绑定文件时仍拒绝重建。连接使用非交互模式，认证方式、主机密钥检查和 SSH 连接超时遵循用户的 OpenSSH 配置；需要交互的密码、私钥口令和主机信任在终端 OpenSSH 中处理。
 
-SSH host 输入框允许手输别名或 `user@host`，下拉建议来自本机配置的明确 Host 别名。发现时运行 `ssh -G -vv`，从 OpenSSH 调试输出取得读取过的配置文件，再提取别名；Include 的递归、路径和通配符展开由 OpenSSH 处理，也包含系统配置。Host 通配符和否定模式不作为建议。OpenSSH 没有主机枚举 API，此实现依赖其 `Reading configuration data` 调试格式；建议列表不代表主机可达性，也不枚举通配符可能匹配的全部主机。
+SSH 连接使用配置中明确的 `target.host`。目录在选择工作区时通过现有 World provider 校验；不再提供主机发现、连接管理或目录浏览 API。
 
 运行时随扩展版本从对应 GitHub Release 下载到 `$DSH_HOME/remote/releases/<version>/`，校验后才通过 SSH 部署。缓存可离线复用；新扩展使用新版本目录，不替换活跃 runtime。远端不需要公网或编译器。平台选择仍由远端探测决定。
 
 离线部署和开发 fixture 可以保留显式 `bootstrap: {manifest, cacheDir}`。`dsh-remote-config init WORLD_CONFIG.json` 初始化显式配置；`init-release RELEASE_DIRECTORY WORLDS.json` 从匹配的完整包初始化。它们是维护入口，不是用户安装步骤，不覆盖已有状态。此模式的 runtime 由维护者更新，自动下载只用于未设置 bootstrap 的配置。
 
-升级前停止 DSH 并备份 DSH_HOME 与外部 binding/Session 存储，按上游兼容矩阵成对更新 DSH 和扩展。已有配置不重新 init；要从手动 runtime 管理迁移为自动下载，仅删除配置中的 bootstrap，保留 worlds、bindingFile 和绑定存储。V3 会话不能直接交给旧 DSH，回退需恢复备份。
+升级前停止 DSH 并备份 DSH_HOME 与外部 binding/Session 存储，按上游兼容矩阵成对更新 DSH 和扩展。已有配置不重新 init；要从手动 runtime 管理迁移为自动下载，仅删除配置中的 bootstrap，保留 worlds.json、bindingFile 和绑定存储。V3 会话不能直接交给旧 DSH，回退需恢复备份。
 
 卸载使用 `dsh plugin --profile web remove @dsh-remote/extension`，保留远端配置与历史；已有远端 Session 仍需扩展才能执行。多个 profile 共享同一 DSH_HOME 时也共享远端配置。

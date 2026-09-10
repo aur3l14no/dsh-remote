@@ -6,7 +6,7 @@
 
 ## 产物与验证
 
-CI 的安装验收从一次性 Debian Linux World 取出实际 helper、ripgrep 及其许可，用 `pack-release.mjs` 组装到 `.build/dsh/release-candidate/`。官方 CLI 安装同一个扩展，保留离线初始化验收，并在空白 profile 验证 Connect 自动下载、部署及离线重启；经过真实 SSH / 浏览器启动验收，以及后续浏览器回归后，才上传完整归档。
+CI 的安装验收从一次性 Debian Linux World 取出实际 helper、ripgrep 及其许可，用 `pack-release.mjs` 组装到 `.build/dsh/release-candidate/`。官方 CLI 安装同一个扩展，保留离线初始化验收，并在空白 profile 验证 worlds.json 工作区选择、自动下载、部署及离线重启；经过真实 SSH / 浏览器启动验收，以及后续浏览器回归后，才上传完整归档。
 
 `release.json` 记录仓库 revision、源码是否有未提交改动、上游 revision、DSH/扩展版本、扩展摘要和 runtime 平台清单。只复制清单声明的内容寻址产物，不打包整个开发 cache。bootstrap 仍会核对远端平台与产物摘要，不在宿主执行目标二进制。
 

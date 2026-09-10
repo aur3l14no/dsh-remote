@@ -14,7 +14,7 @@
 dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
 ```
 
-启动 DSH，点击 **Connect to Host**，选择 SSH alias 或输入 `user@host`，再打开远端文件夹。所需运行组件会自动下载并通过 SSH 安装到远端，后续连接会复用已有安装。
+启动一次 DSH 后，在 `$DSH_HOME/remote/worlds.json` 中声明 World 和 Workspace（[配置示例](docs/worlds.md)），在 Web 界面点击 **Reload worlds**，预览并确认应用。在 **New Session** 输入框上方选择工作区。所需运行组件会自动下载并通过 SSH 安装到远端，后续连接会复用已有安装。
 
 ## 能力与边界
 
@@ -24,7 +24,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 
 上传的图片和文件持久存储在 Session 绑定的远端；模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map-1.md)，附件限制和旧记录兼容方式见[附件契约](docs/reference/workspace-io.md#上传附件)。
 
-Web 侧边栏的 Session 卡片显示 World、portable workspace、会话名称与目录。从侧边栏顶部 **＋** 打开工作区管理，通过 **World settings** 可调整该 World 所有卡片的标识颜色，并选择要同步的已配置 skills；使用方式见 [Skills](docs/skills.md)。
+Web 侧边栏只展示会话列表；卡片依次显示 World / Workspace、会话名称与目录。World 颜色、待选工作区和 Skills 来源在 [worlds.json](docs/worlds.md) 中声明，也可由 Agent 协助编辑。
 
 ## 开发
 

@@ -36,7 +36,7 @@ try {
       `WORLD_INSTRUCTIONS_${world.id.toUpperCase()}: Keep all workspace operations in this World.`,
       `---\nname: world-${world.id}\ndescription: Instructions available only in World ${world.id}.\n---\nWORLD_SKILL_${world.id.toUpperCase()}`, world.id]);
   }
-  const config = { worlds: selection.worlds, bindingFile: `${state}/bindings.json`, bootstrap: {
+  const config = { worlds: selection.worlds.map(world => ({ ...world, ...(world.id === 'a' ? { color: '#a855f7' } : {}) })), bindingFile: `${state}/bindings.json`, bootstrap: {
     manifest: JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST, 'utf8')),
     cacheDir: process.env.DSH_TEST_ARTIFACT_CACHE, graceMs: 15000, leaseMs: 5000,
   } };

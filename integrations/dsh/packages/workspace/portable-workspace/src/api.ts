@@ -1,34 +1,40 @@
+import { SessionId } from '@deepseek-ai/dsh-session';
 import { type Context } from '@deepseek-ai/cordis';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { WorkspaceFeedSource } from '@deepseek-ai/dsh-api-workspace-controller';
 import type { WorkspaceFollowFrame, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/types';
 import { contribution } from './wire.ts';
-import type { PortableWorkspaceSelection, WorldView, WorldSettings } from './contracts.ts';
+import type { PortableWorkspaceSelection, WorldView } from './contracts.ts';
 import './registry.ts';
-import '../../../skill/remote-skills/src/sync.ts';
+import './reload.ts';
 
 
 export class PortableWorkspaceApi extends TypertRemoteService {
-  static inject = ['typert', 'worldPortableWorkspaces', 'worldSkillSync'];
+  static inject = ['typert', 'worldPortableWorkspaces'];
   constructor(ctx: Context) {
     super(ctx, 'portableWorkspaceApi', { namespace: 'portableWorkspace' });
     ctx.effect(() => ctx.typert.register(contribution));
   }
-  @Remote('configureWorld')
-  async configureWorld(request: WorldSettings) {
-    await this.ctx.worldPortableWorkspaces.configureWorld(request);
+  private reload() {
+    const reload = this.ctx.get('worldsReload');
+    if (!reload) throw new Error('World reload requires the installed worlds.json catalog');
+    return reload;
+  }
+  @Remote('reloadStatus')
+  reloadStatus() { return this.reload().status(); }
+  @Remote('previewReload')
+  previewReload() { return this.reload().preview(); }
+  @Remote('applyReload')
+  applyReload(request: { id: string }) { return this.reload().apply(request.id); }
+  @Remote('cancelReload')
+  cancelReload(request: { id: string }) { return this.reload().cancel(request.id); }
+  @Remote('pinSession')
+  async pinSession(request: { sessionId: string; pinned: boolean }) {
+    await this.ctx.worldPortableWorkspaces.pinSession(SessionId(request.sessionId), request.pinned);
     return this.worlds();
   }
-  @Remote('hosts')
-  hosts() { return this.ctx.worldPortableWorkspaces.connections.hosts(); }
-  @Remote('connect')
-  connect(request: { host: string }) { return this.ctx.worldPortableWorkspaces.connectHost(request.host); }
-  @Remote('directories')
-  directories(request: PortableWorkspaceSelection) { return this.ctx.worldPortableWorkspaces.directories(request.worldId, request.path); }
   @Remote('worlds')
   worlds(): WorldView[] { return this.ctx.worldPortableWorkspaces.worlds(); }
-  @Remote('syncSkills')
-  syncSkills(request: { worldId: string }) { return this.ctx.worldSkillSync.sync(request.worldId); }
   @Remote('create')
   async create(request: PortableWorkspaceSelection) {
     const workspace = await this.ctx.worldPortableWorkspaces.createInWorld(request.worldId, request.path);

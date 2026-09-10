@@ -16,10 +16,8 @@ it('completes a real-model coding and external-search task in the selected World
   try {
     const page = await newEnglishPage(browser);
     await page.goto(host.authenticatedUrl);
-    await page.getByLabel('Connect or open a workspace', { exact: true }).click();
-    await page.getByLabel('World', { exact: true }).selectOption('a');
-    await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
-    await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
+    await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
     await expect.poll(() => host.ctx.agents.list().length, { timeout: 30000 }).toBe(1);
     const agent = host.ctx.agents.list()[0]!;
     const results: Extract<SessionEvent, { type: 'tool/result' }>[] = [];

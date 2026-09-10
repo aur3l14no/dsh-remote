@@ -3,6 +3,7 @@ import { createWriteStream } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile, rm, cp } from 'node:fs/promises';
 import yaml from 'js-yaml';
+import { deploySkills } from '../../packages/skill/remote-skills/src/deploy.ts';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 import { createRequire } from 'node:module';
 import { resolve, join, relative } from 'node:path';
@@ -36,7 +37,10 @@ try {
   await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof'), skillSource, { recursive: true });
   await writeFile(`${skillSource}/sync-proof.txt`, 'automatic');
   const config = { worlds: selection.worlds.map(world => ({ ...world,
-    skills: [{ name: 'remote-proof', source: skillSource }],
+    color: '#a855f7',
+    skills: [{ name: 'remote-proof', source: skillSource }, { name: 'not-selected', source: `${state}/not-installed` }],
+    enabledSkills: ['remote-proof'],
+    workspaces: [{ name: 'workspace', path: '/workspace' }],
   })) };
   const releaseDirectory = process.env.DSH_TEST_RELEASE_OUTPUT ? resolve(process.env.DSH_TEST_RELEASE_OUTPUT) : `${state}/release`;
   execFileSync(process.execPath, ['integrations/dsh/scripts/pack-release.mjs', 'dist/dsh/extension-build.json',
@@ -83,16 +87,13 @@ try {
   await page.goto(url);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
-  if (!(await page.getByLabel('World', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
-  await page.getByLabel('World', { exact: true }).selectOption('a');
-  await page.getByLabel('Remote directory', { exact: true }).click();
-  await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
+  await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await rm(`${skillSource}/SKILL.md`);
-  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
+  await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
+  await page.getByText(/Selected skill has no SKILL.md/).waitFor();
   assert.equal(JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8')).sessions.length, 0);
   await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof/SKILL.md'), `${skillSource}/SKILL.md`);
-  await page.getByRole('button', { name: 'Open Folder', exact: true }).click();
+  await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
   await page.locator('[data-composer-input][contenteditable=true]').first().waitFor({ timeout: 30000 });
   const bindings = JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8'));
   assert.equal(bindings.sessions.length, 1);
@@ -105,36 +106,21 @@ try {
   const beforeSync = await helperPids();
   assert.ok(beforeSync.trim(), 'Expected a running helper');
   await writeFile(`${skillSource}/sync-proof.txt`, 'manual');
-  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'Synced 1 skills' }).waitFor();
+  const deploy = () => deploySkills({ target: selection.worlds.find(world => world.id === 'a').target,
+    skills: [{ name: 'remote-proof', source: skillSource }] });
+  await deploy();
   assert.equal(await readSynced(), 'manual');
-  assert.equal(await helperPids(), beforeSync, 'Skill sync must preserve helper processes');
-  await page.getByText('World settings', { exact: true }).click();
-  await page.getByLabel('World color', { exact: true }).fill('#a855f7');
-  await page.getByLabel('remote-proof', { exact: true }).uncheck();
-  await page.getByRole('button', { name: 'Save World settings', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'World settings saved' }).waitFor();
-  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'Synced 0 skills' }).waitFor();
-  assert.equal(await readSynced(), 'manual', 'Deselecting must preserve installed content');
+  assert.equal(await helperPids(), beforeSync, 'Independent skill deployment must preserve helper processes');
   const card = page.locator('.session-card').first();
-  assert.equal(await card.locator('svg').getAttribute('stroke'), '#a855f7');
-  assert.ok((await card.boundingBox()).height >= 84);
-  assert.ok((await card.innerText()).includes('/workspace'));
+  assert.equal(await card.locator('svg').first().getAttribute('stroke'), '#a855f7');
+  assert.ok((await card.boundingBox()).height < 84);
   await page.reload();
   if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
-  if (!(await page.getByLabel('World', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
-  await page.getByLabel('World', { exact: true }).selectOption('a');
-  await page.getByText('World settings', { exact: true }).click();
-  assert.equal(await page.getByLabel('World color', { exact: true }).inputValue(), '#a855f7');
-  assert.equal(await page.getByLabel('remote-proof', { exact: true }).isChecked(), false);
-  await page.getByLabel('remote-proof', { exact: true }).check();
-  await page.getByRole('button', { name: 'Save World settings', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'World settings saved' }).waitFor();
+  await card.waitFor();
+  assert.equal(await card.locator('svg').first().getAttribute('stroke'), '#a855f7');
   await rm(`${skillSource}/SKILL.md`);
-  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
-  assert.equal(await readSynced(), 'manual', 'Failed sync must preserve the deployed skill');
+  await assert.rejects(deploy(), /Selected skill has no SKILL.md/);
+  assert.equal(await readSynced(), 'manual', 'Failed deployment must preserve the deployed skill');
   await cp(resolve('integrations/dsh/tests/e2e/skills/remote-proof/SKILL.md'), `${skillSource}/SKILL.md`);
   if (credentialHome) {
     const input = page.locator('[data-composer-input][contenteditable=true]').first();
@@ -154,7 +140,7 @@ try {
     await controlB(['test', '!', '-e', '/workspace/cli-proof.txt']);
   }
   await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
-    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer', 'failed preconnect sync blocks binding and allows retry', 'automatic skill sync', 'manual skill sync without helper restart', 'failed sync preserves deployed skill', 'World color and skill selection survive browser reload', 'deselected skills skip deployment and retain installed content', 'three-line session card',
+    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer', 'failed preconnect sync blocks binding and allows retry', 'automatic skill sync', 'independent skill deployment without helper restart', 'failed sync preserves deployed skill', 'configured World color survives browser reload', 'enabledSkills excludes an unavailable source', 'three-line session card',
       ...(credentialHome ? ['real-model remote script execution', 'independent remote test rerun', 'remote credential absent', 'other World unchanged'] : [])],
   }, null, 2) + '\n');
   console.log('PASS extension-install CLI and Playwright remote workspace creation');

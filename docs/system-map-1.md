@@ -46,6 +46,8 @@ flowchart LR
 
 DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。上游原本会在 preset 准备前处理本地目录；仅替换工具服务拦不住这一步。**0001 增加可等待的 Session 准入，0002 增加外部 workspace feed**；我们的 `portable-workspace` 插件负责 registry、持久 membership、目录与 World 校验。
 
+新会话入口读取 [worlds.json](worlds.md) 中声明的 World 与 Workspace，选中后才连接和登记 canonical 目录。配置变化通过 **Reload worlds** 的只读预览和确认热加载；skill 增删改列出远端目标与版本，已有 Session 保留原绑定。侧栏仅显示紧凑会话卡片，支持悬停置顶／归档；这些展示偏好保存在宿主 registry，不改变绑定。
+
 恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/ssh-world/src/worlds.ts)。
 
 ### 读写、搜索和运行命令

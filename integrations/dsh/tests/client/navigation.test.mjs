@@ -45,7 +45,7 @@ async function fixture(initial = '') {
   ] };
   const notify = () => { for (const listener of listeners) listener(); };
   ctx.provide('layout', layout);
-  ctx.provide('workspaces', { list: { getSnapshot: () => workspaces }, archiveSession: async id => { workspaces.archivedSessionIds.push(id); } });
+  ctx.provide('workspaces', { list: { getSnapshot: () => workspaces, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } }, archiveSession: async id => { workspaces.archivedSessionIds.push(id); } });
   ctx.provide('sessions', {
     list: { getSnapshot: () => state, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } },
     create(options) { const result = deferred(); created.push({ options, ...result }); return result.promise; },
@@ -132,16 +132,35 @@ test('unavailable deep links stay explicit and disposal cancels pending UI selec
   } finally { await f.close(); }
 });
 
-test('registration completion respects a newer panel', async () => {
+test('new session clears selection without creating or inheriting a World', async () => {
   const f = await fixture();
   try {
-    const registration = deferred();
-    const opening = f.navigation.registerWorkspace(() => registration.promise);
-    f.layout.selectPanel('settings');
-    registration.resolve('b');
-    await opening;
-    assert.deepEqual(f.opened, []);
+    f.navigation.openSession('blank-a');
+    f.navigation.startSession();
+    assert.equal(f.state.current, undefined);
     assert.equal(f.created.length, 0);
-    assert.equal(f.panel, 'settings');
+    assert.equal(f.panel, null);
+    assert.equal(new URL(location.href).searchParams.has('session'), false);
+  } finally { await f.close(); }
+});
+
+test('picker waits for a new workspace feed frame and can cancel that wait', async () => {
+  const f = await fixture();
+  try {
+    let ready = false;
+    const controller = new AbortController();
+    const pending = f.navigation.waitForWorkspace('new', controller.signal).then(() => { ready = true; });
+    await Promise.resolve();
+    assert.equal(ready, false);
+    f.workspaces.items.push({ workspaceId: 'new', path: '/workspace', sessionIds: [] });
+    f.notify();
+    await pending;
+    assert.equal(ready, true);
+    const canceled = f.navigation.waitForWorkspace('later', controller.signal);
+    controller.abort();
+    await assert.rejects(canceled, { name: 'AbortError' });
+    f.workspaces.items.push({ workspaceId: 'later', path: '/workspace', sessionIds: [] });
+    f.notify();
+    assert.equal(f.created.length, 0);
   } finally { await f.close(); }
 });

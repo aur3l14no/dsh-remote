@@ -8,11 +8,13 @@ Bash requests a 4 MiB spill cap per stream within the helper's 64 MiB runtime bu
 
 ## Host configuration
 
-`$DSH_HOME/remote/config.json` contains:
+`$DSH_HOME/remote/worlds.json` contains the editable `worlds` catalog: `{id, name, target, color?, workspaces?, skills?, enabledSkills?}`. Each workspace declares `{path, name?}`. First startup copies legacy worlds from `config.json`; later startup reads the separate catalog. Running Web clients offer **Reload worlds** with a read-only preview and explicit apply. See [World configuration](../../../../docs/worlds.md).
+
+`$DSH_HOME/remote/config.json` retains runtime control configuration:
 
 | Field | Input |
 | --- | --- |
-| `worlds` | Catalog entries `{id, name, target, skills?}`. `target` contains `{kind:"ssh", host}` and optional `configFile`, `installRoot`, `runtimeBase`, or full immutable `podmanContainer` ID. Skills follow the [deployment format](../../../../docs/skills.md). |
+| `worlds` | Legacy migration input only once `worlds.json` exists. Target accepts `{kind:"ssh", host}` and optional `configFile`, `installRoot`, `runtimeBase`, or full immutable `podmanContainer` ID. |
 | `bindingFile` | Absolute path to an initialized private local [BindingStore](../../../../docs/reference/session-bindings.md). Initialization creates it; normal startup only opens it. |
 | `bootstrap` | Optional offline override `{manifest, cacheDir}`; when absent, the extension downloads its versioned runtime automatically. Explicit artifacts follow [bootstrap](../../../../docs/reference/bootstrap.md). |
 

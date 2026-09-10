@@ -1,13 +1,11 @@
 import { createRequire } from 'node:module';
-import { readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
 import { BindingStore } from './bindings.js';
-import { sshControl } from './control.js';
 import { parseManifest } from './manifest.js';
 import { releaseBootstrap } from './download.mjs';
-import { createConnections } from './connections.mjs';
 
 export async function apply(ctx) {
   const require = createRequire(import.meta.url);
@@ -30,16 +28,19 @@ export async function apply(ctx) {
     writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
   }
   new BindingStore(config.bindingFile);
-  const connections = createConnections(
-    () => JSON.parse(readFileSync(configFile, 'utf8')),
-    value => {
-      const temporary = configFile + '.stage';
-      writeFileSync(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-      renameSync(temporary, configFile);
-    }, sshControl);
-  ctx.effect(() => () => connections.dispose());
+  // Human-editable catalog is separate from binding/runtime control state.
+  const worldsFile = join(directory, 'worlds.json');
+  let catalog;
+  try { catalog = JSON.parse(readFileSync(worldsFile, 'utf8')); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    catalog = { worlds: config.worlds };
+    writeFileSync(worldsFile, JSON.stringify(catalog, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+  }
+  if (!Array.isArray(catalog.worlds)) throw new Error('worlds.json requires a worlds array');
+  config.worlds = catalog.worlds;
+  config.worldsFile = worldsFile;
   const installed = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   config.bootstrap ??= releaseBootstrap(directory, { ...expected, version: installed.version }, parseManifest);
-  config.connections = connections;
   ctx.provide('remoteSetup', { config, roots: [{ path: fileURLToPath(new URL('./presets/', import.meta.url)), trust: 'system' }] });
 }

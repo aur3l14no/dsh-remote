@@ -52,7 +52,7 @@ try {
     const hostKey = await docker(['exec', '-T', service, 'cat', '/etc/ssh/ssh_host_ed25519_key.pub'], { capture: true });
     keys.push(`[127.0.0.1]:${port} ${hostKey}`);
     configs.push(`Host ${service}\n  HostName 127.0.0.1\n  Port ${port}\n  User world\n  IdentityFile "${key}"\n  IdentitiesOnly yes\n  UserKnownHostsFile "${knownHosts}"\n  StrictHostKeyChecking yes\n  BatchMode yes\n  ConnectTimeout 10`);
-    worlds.push({ id, name: `World ${id.toUpperCase()}`, target: { kind: 'ssh', host: service, configFile } });
+    worlds.push({ id, name: `World ${id.toUpperCase()}`, workspaces: [{ name: 'workspace', path: '/workspace' }], target: { kind: 'ssh', host: service, configFile } });
   }
   await writeFile(knownHosts, keys.join('\n') + '\n', { mode: 0o600 });
   await writeFile(configFile, configs.join('\n') + '\n', { mode: 0o600 });
