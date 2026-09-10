@@ -1,6 +1,6 @@
 # dsh-remote (experimental)
 
-[![Tested with DSH 0.1.5-alpha.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--alpha.1-blue?style=flat)](docs/upstream-dependencies.md)
+[![Tested with DSH 0.1.5-alpha.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--alpha.1-blue?style=flat)](docs/reference/upstream-upgrades.md)
 
 为 DeepSeek Harness（DSH）提供远程工作区。模型调用、对话历史和 Web 界面留在本地，项目文件、搜索和命令在选定的 SSH 主机或容器中执行。
 
@@ -22,7 +22,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 
-上传的图片和文件持久存储在 Session 绑定的远端；模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。附件限制和旧记录兼容方式见[执行边界](docs/execution-boundaries.md)。
+上传的图片和文件持久存储在 Session 绑定的远端；模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map-1.md)，附件限制和旧记录兼容方式见[附件契约](docs/reference/workspace-io.md#上传附件)。
 
 Web 侧边栏的 Session 卡片显示 World、portable workspace、会话名称与目录。从侧边栏顶部 **＋** 打开工作区管理，通过 **World settings** 可调整该 World 所有卡片的标识颜色，并选择要同步的已配置 skills；使用方式见 [Skills](docs/skills.md)。
 
@@ -35,17 +35,16 @@ npm run check
 npm test
 ```
 
-`runtime/` 是 DSH 无关的 helper、协议客户端与 SSH 库；`integrations/dsh/` 维护插件、补丁、装配和测试。目录职责见[架构](docs/architecture.md)，工具链、生成产物与聚焦检查见[开发指南](docs/development.md)。
+`runtime/` 是 DSH 无关的 helper、协议客户端与 SSH 库；`integrations/dsh/` 维护插件、补丁、装配和测试。目录职责见[系统全景](docs/system-map-1.md#源码与证据)，工具链、生成产物与聚焦检查见[开发指南](docs/development.md)。
 
 ## 文档入口
 
 | 任务 | 文档 |
 | --- | --- |
-| 配置项目指令与同步 Skills | [Skills](docs/skills.md) |
-| 理解执行位置与权限 | [执行边界](docs/execution-boundaries.md) |
-| 维护架构与第三方消费者 | [架构](docs/architecture.md)、[插件兼容](docs/plugin-compatibility.md) |
-| 升级 DSH 或制作发行包 | [上游依赖](docs/upstream-dependencies.md)、[发行](docs/release.md) |
-| 查询底层契约 | [helper 协议](docs/reference/helper-api.md)、[bootstrap](docs/reference/bootstrap.md)、[Session bindings](docs/reference/session-bindings.md) |
+| 理解系统：功能 → 机制 → 方案 → DSH 概念与设施 | [系统全景](docs/system-map-1.md)（含架构、边界、插件兼容与状态） |
+| 操作与开发：配置 Skills、构建、测试、发行 | [Skills](docs/skills.md)、[开发指南](docs/development.md)、[发行](docs/release.md) |
+| 升级 DSH：接口风险、补丁移除条件 | [上游升级参考](docs/reference/upstream-upgrades.md) |
+| 查询底层契约 | [文件预览与附件](docs/reference/workspace-io.md)、[helper 协议](docs/reference/helper-api.md)、[bootstrap](docs/reference/bootstrap.md)、[Session bindings](docs/reference/session-bindings.md) |
 | 查看未完成工作和历史证据 | [当前计划](.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)、[Notes](.agents/notes/README.md) |
 
 [MIT License](LICENSE)

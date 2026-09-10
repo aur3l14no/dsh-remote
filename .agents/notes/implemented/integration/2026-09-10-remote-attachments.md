@@ -23,4 +23,4 @@ DSH 0.1.5-alpha.1，源码 `5dda764ed3aa172535a7967b06ff95d9cbfe536a`；补丁 0
 
 浏览器脱敏结果：`artifacts/dsh/attachments-result.json`、`artifacts/dsh/result.json`；截图 `artifacts/dsh/attachments-uploaded.png` 和 `artifacts/dsh/attachments-restarted.png`。CI 已添加附件源码/SSH/浏览器 gate 和报告白名单，真实 runner 结果待推送后确认。
 
-当前契约见 [执行边界](../../../../docs/execution-boundaries.md#上传附件)，命令见 [开发](../../../../docs/development.md)。旧附件迁移、存储 GC、全量远端 sandbox 与跨 World 转移不属于本次实现。
+当前契约见 [附件契约](../../../../docs/reference/workspace-io.md#上传附件)，命令见 [开发](../../../../docs/development.md)。旧附件迁移、存储 GC、全量远端 sandbox 与跨 World 转移不属于本次实现。

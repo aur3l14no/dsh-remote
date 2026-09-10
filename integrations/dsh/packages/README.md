@@ -10,6 +10,6 @@ The source modules build into one extension bundle. Their directory boundaries d
 | `skill/remote-skills` | Project instructions/skill discovery, deployment and synchronization. |
 | `bundle/remote` | Host composition and activation order in `src/index.ts`. |
 
-Cross-module cancellation lives in `../shared/lifetime.ts`; generic execution belongs in `runtime/`. Service ordering and identity rules are maintained in [architecture](../../../docs/architecture.md); native services and tool scopes in the [overlay/preset](../packaging/extension/README.md).
+Cross-module cancellation lives in `../shared/lifetime.ts`; generic execution belongs in `runtime/`. Service ordering and identity rules are maintained in [system map](../../../docs/system-map-1.md); native services and tool scopes in the [overlay/preset](../packaging/extension/README.md).
 
 Use kebab-case for new source paths, camelCase for TypeScript values, and PascalCase for types. Persisted keys, wire fields and installed module identities retain their compatibility contracts; historical test/evidence names need not follow source renames.

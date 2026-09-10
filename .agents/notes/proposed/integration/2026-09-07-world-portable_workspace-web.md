@@ -4,7 +4,7 @@ Status: proposed
 
 ## 当前基线
 
-第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [architecture](../../../../docs/architecture.md)、[execution boundaries](../../../../docs/execution-boundaries.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
+第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map-1.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
 
 本页只维护后续事项和验收要求，proposed 不表示第一阶段未完成。已完成过程见 [原生 bundle 交付](../../implemented/integration/2026-09-08-native-bundle-delivery.md)、[DSH 新版适配](../../implemented/integration/2026-09-09-dsh-upgrade.md)；适配提交 4f3ad28 的 [GitHub CI](https://github.com/aur3l14no/dsh-remote/actions/runs/34304573317) 已通过。
 
@@ -24,7 +24,7 @@ Status: proposed
 
 新消费者必须说明执行地点、身份来源和缺失上下文时的失败行为。新补丁记录修改包、输入与 local profile 回归，通过独立 patched-host gate 后才纳入 series.json；unchanged-source gate 保留。不可为 skill 提供通用本地 shell、隐式传凭据或改写命令。
 
-保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；当前契约见[执行边界](../../../../docs/execution-boundaries.md)。
+保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；当前契约见[系统全景](../../../../docs/system-map-1.md)。
 
 ## Web Search 重点验收
 

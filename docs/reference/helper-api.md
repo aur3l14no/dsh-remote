@@ -23,7 +23,7 @@ The default inbound lease and disconnected grace are each 30 seconds. `--lease-m
 
 Grace expiry or helper TERM/INT triggers managed cleanup. Explicit `runtime.shutdown` stops admission immediately and reports cleanup completion or a deadline error. There is no task journal, cross-helper-restart recovery, task adoption, or automatic re-execution in a new session. Agent-created external persistence is outside helper supervision. OS logout/session policies may kill the runtime itself; a detached session is not immunity from host policy, helper SIGKILL, or reboot.
 
-The socket/token is scoped to the same account, not a security boundary against that account. The helper has the invoking account's filesystem/process permissions. Cwd is not a sandbox. The helper supplies operation facts, not approval policy; see the [execution boundary](../execution-boundaries.md).
+The socket/token is scoped to the same account, not a security boundary against that account. The helper has the invoking account's filesystem/process permissions. Cwd is not a sandbox. The helper supplies operation facts, not approval policy; see the [execution boundary](../system-map-1.md).
 
 ## Framing and requests
 
@@ -147,4 +147,4 @@ Stable errors distinguish invalid input, unknown/expired session/resource, unava
 
 ## DSH integration boundary
 
-DSH adapters own provisional handles, local collection mirrors, text editing and Agent context. Search runs target-native ripgrep through `process.spawn`; the adapter maps only DSH's exact registered packaged-ripgrep identity. The helper has no search engine or basename-based executable rewrite. Current composition is described in [architecture](../architecture.md); historical platform evidence remains in [helper acceptance](../../.agents/notes/archived/2026-09-initial-integration/helper-acceptance.md).
+DSH adapters own provisional handles, local collection mirrors, text editing and Agent context. Search runs target-native ripgrep through `process.spawn`; the adapter maps only DSH's exact registered packaged-ripgrep identity. The helper has no search engine or basename-based executable rewrite. Current composition is described in [architecture](../system-map-1.md); historical platform evidence remains in [helper acceptance](../../.agents/notes/archived/2026-09-initial-integration/helper-acceptance.md).

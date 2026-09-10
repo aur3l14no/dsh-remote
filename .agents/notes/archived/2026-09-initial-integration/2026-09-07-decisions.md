@@ -19,7 +19,7 @@ Status: archived
 
 先以真实 profile 完成远端读写、搜索、执行、取消和 Session 恢复，避免用 helper 单测或 UI 展示代替产品闭环。关键消费者绕过 World 时应停下重新定界；不通过 FS monkey-patch、伪本地目录、私有 controller 字段或新 Harness 掩盖接口缺口。
 
-曾将更换宿主列为核心执行能力无法满足时的备选；没有启动迁移或自建 Harness。自动发布、可信下载、通用 resolver 链、远端 sandbox、附件搬运和 worktree 编排当时均不属于已交付范围；今天的支持范围见[执行边界](../../../../docs/execution-boundaries.md)。
+曾将更换宿主列为核心执行能力无法满足时的备选；没有启动迁移或自建 Harness。自动发布、可信下载、通用 resolver 链、远端 sandbox、附件搬运和 worktree 编排当时均不属于已交付范围；今天的支持范围见[系统全景](../../../../docs/system-map-1.md)。
 
 ## 原始证据与后继记录
 

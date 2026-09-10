@@ -1,6 +1,6 @@
 # Repository maintenance
 
-Before changing execution or DSH integration, read README.md, docs/architecture.md and docs/execution-boundaries.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
+Before changing execution or DSH integration, read README.md and docs/system-map-1.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
 - Keep runtime/ DSH-independent; DSH-specific code, tests and packaging belong in integrations/dsh/. Generic tests and scripts belong in runtime/tests/ and runtime/scripts/.
 - When integrating with DSH, prefer composable approaches that minimize coupling to upstream internals and survive upgrades, such as plugins over patches where both meet the requirements.
