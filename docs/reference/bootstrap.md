@@ -11,7 +11,7 @@ const ready = await bootstrapSshWorld({
 await ready.close();
 ```
 
-SSH 复用用户 keys、agent、ProxyJump 和 known_hosts，使用非交互公钥认证并严格检查已有主机记录。`configFile` 可显式指定配置；`podmanContainer` 可指定完整不可变容器 ID，使 probes、上传、runtime 和重连都在该最终容器进行。容器消失不能回退到 SSH 入口主机。
+SSH 复用用户 keys、agent、ProxyJump 和 known_hosts，仅用 `-T` 保持协议字节流、`BatchMode=yes` 禁止后台交互提示；认证方式、主机密钥检查和 SSH 连接超时均遵循用户的 OpenSSH 配置。`configFile` 可显式指定配置；`podmanContainer` 可指定完整不可变容器 ID，使 probes、上传、runtime 和重连都在该最终容器进行。容器消失不能回退到 SSH 入口主机。
 
 ## 安装与校验
 
