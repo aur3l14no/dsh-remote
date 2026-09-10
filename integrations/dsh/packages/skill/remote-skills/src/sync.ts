@@ -14,6 +14,8 @@ export class SkillSynchronizer {
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly lifecycle = new AbortController();
 
+  selection?: (worldId: string) => readonly string[] | undefined;
+
   constructor(worlds: SkillWorld[]) {
     for (const world of worlds) {
       if (this.worlds.has(world.id)) throw new Error('Duplicate skill World');
@@ -48,7 +50,8 @@ export class SkillSynchronizer {
     const previous = this.queues.get(key) ?? Promise.resolve();
     const pending = previous.catch(() => {}).then(async () => {
       this.lifecycle.signal.throwIfAborted();
-      const skills = world.skills ?? [];
+      const selected = this.selection?.(world.id);
+      const skills = (world.skills ?? []).filter(skill => selected === undefined || selected.includes(skill.name));
       if (skills.length) await deploySkills({ target: world.target, skills }, this.lifecycle.signal);
       return { count: skills.length };
     });

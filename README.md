@@ -24,6 +24,8 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 
 上传的图片和文件持久存储在 Session 绑定的远端；模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。附件限制和旧记录兼容方式见[执行边界](docs/execution-boundaries.md)。
 
+Web 侧边栏的 Session 卡片显示 World、portable workspace、会话名称与目录。从侧边栏顶部 **＋** 打开工作区管理，通过 **World settings** 可调整该 World 所有卡片的标识颜色，并选择要同步的已配置 skills；使用方式见 [Skills](docs/skills.md)。
+
 ## 开发
 
 ```sh

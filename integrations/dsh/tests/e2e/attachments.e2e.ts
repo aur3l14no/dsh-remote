@@ -34,6 +34,7 @@ it('uploads through Chromium and retains remote authority across fork and restar
     await page.screenshot({ path: `${root}/artifacts/dsh/attachments-failure.png`, fullPage: true });
   });
   await page.goto(host.authenticatedUrl);
+  if (!(await page.getByLabel('World', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
   await page.getByLabel('World', { exact: true }).selectOption('a');
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
   await page.getByRole('button', { name: 'Open Folder', exact: true }).click();

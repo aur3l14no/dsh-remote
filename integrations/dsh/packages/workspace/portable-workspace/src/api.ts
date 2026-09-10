@@ -3,7 +3,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { WorkspaceFeedSource } from '@deepseek-ai/dsh-api-workspace-controller';
 import type { WorkspaceFollowFrame, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/types';
 import { contribution } from './wire.ts';
-import type { PortableWorkspaceSelection, WorldView } from './contracts.ts';
+import type { PortableWorkspaceSelection, WorldView, WorldSettings } from './contracts.ts';
 import './registry.ts';
 import '../../../skill/remote-skills/src/sync.ts';
 
@@ -13,6 +13,11 @@ export class PortableWorkspaceApi extends TypertRemoteService {
   constructor(ctx: Context) {
     super(ctx, 'portableWorkspaceApi', { namespace: 'portableWorkspace' });
     ctx.effect(() => ctx.typert.register(contribution));
+  }
+  @Remote('configureWorld')
+  async configureWorld(request: WorldSettings) {
+    await this.ctx.worldPortableWorkspaces.configureWorld(request);
+    return this.worlds();
   }
   @Remote('hosts')
   hosts() { return this.ctx.worldPortableWorkspaces.connections.hosts(); }

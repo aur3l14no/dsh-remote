@@ -27,6 +27,10 @@ export async function apply(ctx: Context, config: Config) {
     ctx.provide('workspaceFeed', new PortableWorkspaceFeed(ctx));
   });
   await ctx.plugin(Registry, { worlds: config.worlds, connections: config.connections, onWorldAdded: world => sync.register(world) });
+  await ctx.plugin({ inject: ['worldPortableWorkspaces'], apply(ctx: Context) {
+    sync.selection = id => ctx.worldPortableWorkspaces.enabledSkills(id);
+    ctx.effect(() => () => { sync.selection = undefined; });
+  } });
   await ctx.plugin(Admission);
   await ctx.plugin(PortableWorkspaceApi);
   await ctx.plugin(AccountPolicy);

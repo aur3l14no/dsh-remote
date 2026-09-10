@@ -6,7 +6,9 @@ remote profile 从 Session 绑定的 World 发现项目 AGENTS.md 和 skills。�
 
 在 `$DSH_HOME/remote/config.json` 的 World 条目中添加 `skills`（如下；保留已有 bootstrap 和 bindingFile）。`source` 必须是本地绝对路径。本地连接编排层在新 helper/runtime 创建前同步；失败会阻止此次连接，修复后可重试。连接期间修改本地文件，可在 World 选择器旁点击 **Sync Skills**，终端和后台任务继续运行。
 
-同一 runtime 的传输重连不触发同步，没有本地文件 watcher。修改配置列表需要重启宿主；修改已选文件只需同步。独立部署命令仍可使用。
+Web 侧边栏顶部 **＋** 管理入口中的 **World settings → Skills to sync** 可勾选配置中声明的 skills，点击 **Save World settings** 保存，再点击 **Sync Skills** 部署。选择持久保存在宿主控制数据中，无需重启；同一 SSH target 的 Worlds 共享选择。取消勾选只停止后续同步，不删除远端已有副本，也不隐藏已安装的 skill。
+
+同一 runtime 的传输重连不触发同步，没有本地文件 watcher。添加或更改配置中的来源目录需要重启宿主；修改已选文件只需同步。未设置 UI 选择时默认同步全部已配置 skills。独立部署命令使用其输入配置，不读取 UI 选择。
 
 APM/chezmoi/skill-ops 继续管理本地来源、版本和适配。本项目复制配置中选定的完整 skill 文件夹，不运行 APM 或 skill 自带的安装脚本。同一 worlds 列表也可保存为 `.local/skills.json`，供下方独立部署命令使用：
 

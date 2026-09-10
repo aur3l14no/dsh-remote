@@ -83,6 +83,7 @@ try {
   await page.goto(url);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
+  if (!(await page.getByLabel('World', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
   await page.getByLabel('World', { exact: true }).selectOption('a');
   await page.getByLabel('Remote directory', { exact: true }).click();
   await page.getByLabel('Remote directory', { exact: true }).fill('/workspace');
@@ -108,6 +109,28 @@ try {
   await page.getByRole('status').filter({ hasText: 'Synced 1 skills' }).waitFor();
   assert.equal(await readSynced(), 'manual');
   assert.equal(await helperPids(), beforeSync, 'Skill sync must preserve helper processes');
+  await page.getByText('World settings', { exact: true }).click();
+  await page.getByLabel('World color', { exact: true }).fill('#a855f7');
+  await page.getByLabel('remote-proof', { exact: true }).uncheck();
+  await page.getByRole('button', { name: 'Save World settings', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'World settings saved' }).waitFor();
+  await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'Synced 0 skills' }).waitFor();
+  assert.equal(await readSynced(), 'manual', 'Deselecting must preserve installed content');
+  const card = page.locator('.session-card').first();
+  assert.equal(await card.locator('svg').getAttribute('stroke'), '#a855f7');
+  assert.ok((await card.boundingBox()).height >= 84);
+  assert.ok((await card.innerText()).includes('/workspace'));
+  await page.reload();
+  if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
+  if (!(await page.getByLabel('World', { exact: true }).isVisible())) await page.getByLabel('Connect or open a workspace', { exact: true }).click();
+  await page.getByLabel('World', { exact: true }).selectOption('a');
+  await page.getByText('World settings', { exact: true }).click();
+  assert.equal(await page.getByLabel('World color', { exact: true }).inputValue(), '#a855f7');
+  assert.equal(await page.getByLabel('remote-proof', { exact: true }).isChecked(), false);
+  await page.getByLabel('remote-proof', { exact: true }).check();
+  await page.getByRole('button', { name: 'Save World settings', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'World settings saved' }).waitFor();
   await rm(`${skillSource}/SKILL.md`);
   await page.getByRole('button', { name: 'Sync Skills', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'Selected skill has no SKILL.md' }).waitFor();
@@ -131,7 +154,7 @@ try {
     await controlB(['test', '!', '-e', '/workspace/cli-proof.txt']);
   }
   await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
-    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer', 'failed preconnect sync blocks binding and allows retry', 'automatic skill sync', 'manual skill sync without helper restart', 'failed sync preserves deployed skill',
+    host: 'native DSH CLI, no scaffold', liveRemoteExecution: Boolean(credentialHome), checks: ['exclusive initialization', 'native first-run welcome', 'profile and browser module loading', 'remote workspace bootstrap', 'session binding before composer', 'failed preconnect sync blocks binding and allows retry', 'automatic skill sync', 'manual skill sync without helper restart', 'failed sync preserves deployed skill', 'World color and skill selection survive browser reload', 'deselected skills skip deployment and retain installed content', 'three-line session card',
       ...(credentialHome ? ['real-model remote script execution', 'independent remote test rerun', 'remote credential absent', 'other World unchanged'] : [])],
   }, null, 2) + '\n');
   console.log('PASS extension-install CLI and Playwright remote workspace creation');

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { worldDefinition, type WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
 import '../../../world/ssh-world/src/worlds.ts';
+import type { WorldSettings } from './contracts.ts';
 import type { SkillInstall } from '../../../skill/remote-skills/src/deploy.ts';
 
 export interface CatalogWorld {
@@ -33,10 +34,10 @@ type Record = z.infer<typeof recordSchema>;
 const recordsKey = 'projects';
 const domainName = 'remote_project_experiment';
 const bindingPrefix = 'project-';
-const stateSchema = z.object({ [recordsKey]: z.array(recordSchema), archivedSessionIds: z.array(z.string()).default([]) }).strict();
+const stateSchema = z.object({ [recordsKey]: z.array(recordSchema), archivedSessionIds: z.array(z.string()).default([]), worldColors: z.record(z.string(), z.string().regex(/^#[0-9a-fA-F]{6}$/)).default({}), skillSelections: z.record(z.string(), z.array(z.string())).default({}) }).strict();
 type State = z.infer<typeof stateSchema>;
 const spec = defineDomain({ name: domainName, version: 1,
-  global: { schema: stateSchema, initial: { [recordsKey]: [], archivedSessionIds: [] } }, tables: {} });
+  global: { schema: stateSchema, initial: { [recordsKey]: [], archivedSessionIds: [], worldColors: {}, skillSelections: {} } }, tables: {} });
 
 declare module '@deepseek-ai/cordis' { interface Context { worldPortableWorkspaces: WorldPortableWorkspaceRegistry } }
 
@@ -47,7 +48,30 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   private portableWorkspaceTail: Promise<unknown> = Promise.resolve();
   private listeners = new Set<() => void>();
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
-  worlds() { return [...this.catalog].map(([id, world]) => ({ id, name: world.name })); }
+  worlds() {
+    const state = this.portableWorkspaceGlobal!.get();
+    return [...this.catalog].map(([id, world]) => ({ id, name: world.name,
+      color: state.worldColors[id] ?? '#60a5fa',
+      workspaceIds: this.records().filter(row => row.worldId === id && !row.deleted).map(row => row.id),
+      skills: (world.skills ?? []).map(skill => ({ name: skill.name, enabled: this.enabledSkills(id)?.includes(skill.name) ?? true })),
+    }));
+  }
+  private skillTarget(id: string) {
+    return JSON.stringify({ ...this.environment(id).environment, id: 'skills', cwd: '/' });
+  }
+  enabledSkills(id: string): string[] | undefined {
+    return this.portableWorkspaceGlobal!.get().skillSelections[this.skillTarget(id)];
+  }
+  async configureWorld(request: WorldSettings): Promise<void> {
+    const world = this.environment(request.worldId);
+    if (!/^#[0-9a-fA-F]{6}$/.test(request.color)) throw new Error('Invalid World color');
+    if (request.enabledSkills.some(name => !world.skills?.some(skill => skill.name === name))) throw new Error('Unknown configured skill');
+    const key = this.skillTarget(request.worldId);
+    await this.mutate(async rows => rows, state => ({ ...state,
+      worldColors: { ...state.worldColors, [request.worldId]: request.color },
+      skillSelections: { ...state.skillSelections, [key]: [...new Set(request.enabledSkills)] },
+    }));
+  }
   world(id: WorkspaceId) { const row = this.row(id); return { id: row.worldId, name: row.worldName }; }
   forSession(id: SessionId) { const row = this.records().find(row => row.sessionIds.includes(id)); return row && this.get(WorkspaceId(row.id)); }
   /** Resolve descendant context without making children top-level Workspace members. */
@@ -81,13 +105,13 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
       current = header.parentSession;
     }
   }
-  private catalog = new Map<string, { name: string; environment: WorldDefinition }>();
+  private catalog = new Map<string, { name: string; environment: WorldDefinition; skills?: SkillInstall[] }>();
 
   constructor(ctx: Context, private config: Config) {
     super(ctx);
     for (const world of config.worlds) {
       if (this.catalog.has(world.id)) throw new Error('Duplicate catalog World');
-      this.catalog.set(world.id, { name: world.name, environment: worldDefinition({ ...world.target, id: world.id, cwd: '/' }) });
+      this.catalog.set(world.id, { name: world.name, skills: world.skills, environment: worldDefinition({ ...world.target, id: world.id, cwd: '/' }) });
     }
     ctx.provide('worldPortableWorkspaces', this);
   }
@@ -114,10 +138,10 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     const environment = worldDefinition({ ...world.target, id: world.id, cwd: '/' });
     const previous = this.catalog.get(world.id);
     if (previous && JSON.stringify(previous.environment) !== JSON.stringify(environment)) throw new Error('Saved SSH target changed');
-    this.catalog.set(world.id, { name: world.name, environment });
+    this.catalog.set(world.id, { name: world.name, skills: world.skills, environment });
     this.config.onWorldAdded?.(world);
     await this.prepareCatalog(world.id);
-    return { world: { id: world.id, name: world.name }, home: result.home };
+    return { world: this.worlds().find(item => item.id === world.id)!, home: result.home };
   }
   private async prepareCatalog(worldId: string) {
     const world = this.environment(worldId);
