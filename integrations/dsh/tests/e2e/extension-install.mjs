@@ -102,7 +102,7 @@ try {
   const control = sshControl(selection.worlds.find(world => world.id === 'a').target);
   const readSynced = () => control(['sh', '-c', 'cat "$HOME/.agents/skills/remote-proof/sync-proof.txt"']);
   assert.equal(await readSynced(), 'automatic');
-  const helperPids = () => control(['sh', '-c', 'pgrep -x dsh-remote | sort -n']);
+  const helperPids = () => control(['sh', '-c', 'pgrep -f "^[^ ]*/dsh-remote-helper serve( |$)" | sort -n']);
   const beforeSync = await helperPids();
   assert.ok(beforeSync.trim(), 'Expected a running helper');
   await writeFile(`${skillSource}/sync-proof.txt`, 'manual');

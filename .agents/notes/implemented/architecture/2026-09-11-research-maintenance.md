@@ -4,7 +4,7 @@ Status: implemented
 
 ## 决定与范围
 
-个人 research、暂无用户，以当前实验的执行正确性和反馈速度为目标。用户授权落实全部七项建议，允许移除历史兼容，并行 Agent 分担身份、开发入口和补丁审计。固定 DSH `0.1.5-rc.1` / `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，不同时重写 runtime 或引入新 provider。
+alpha 阶段、暂无用户，以当前实验的执行正确性和反馈速度为目标。用户授权落实全部七项建议，允许移除历史兼容，并行 Agent 分担身份、开发入口和补丁审计。固定 DSH `0.1.5-rc.1` / `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，不同时重写 runtime 或引入新 provider。
 
 1. **只支持当前状态。** BindingStore 仅接受 v3，删除 v1/v2 升级与备份分支、旧 registry/skill 回退和历史原生 Session adoption。当前 registry 使用 `portable_workspaces`。删除 ssh-world 中 bindings/worlds/routing/FS/process 转发层，通用执行适配归 execution-world。保留原子持久化、冲突拒绝、损坏和缺失时拒绝执行。
 2. **明确执行身份。** `WorldDefinition` 是环境与 target，不含 cwd；`WorkspaceDefinition` 是独立 ID、worldId、canonical cwd 和 target 快照；Binding 是 Session → Workspace；Runtime 是当前资源 owner。构造、校验和指纹集中在 `identity.ts`。模型与审批分别显示 world/workspace/kind；helper 线协议不变。

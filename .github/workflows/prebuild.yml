@@ -28,7 +28,7 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: 1.85.1
         run: |
-          helper=runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote
+          helper=runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote-helper
           "$helper" --version
           if readelf -l "$helper" | grep -q INTERP; then
             echo 'Unexpected dynamic interpreter' >&2
@@ -38,10 +38,10 @@ jobs:
       - name: Package helper with source identity and checksum
         run: |
           mkdir -p .build/runtime/helper-prebuild dist/runtime
-          cp runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote .build/runtime/helper-prebuild/dsh-remote
+          cp runtime/helper/target/x86_64-unknown-linux-musl/release/dsh-remote-helper .build/runtime/helper-prebuild/dsh-remote-helper
           cp LICENSE .build/runtime/helper-prebuild/LICENSE
           git rev-parse HEAD > .build/runtime/helper-prebuild/SOURCE_REVISION
-          (cd .build/runtime/helper-prebuild && sha256sum dsh-remote LICENSE SOURCE_REVISION > SHA256SUMS)
+          (cd .build/runtime/helper-prebuild && sha256sum dsh-remote-helper LICENSE SOURCE_REVISION > SHA256SUMS)
           tar -czf dist/runtime/helper-linux-x86_64-musl.tar.gz -C .build/runtime/helper-prebuild .
       - uses: actions/upload-artifact@v4
         with:

@@ -34,4 +34,4 @@ if __name__ == "__main__":
     parser.add_argument("--fixture", required=True)
     parser.add_argument("--rg", required=True)
     args = parser.parse_args()
-    upload(args.ssh, args.destination, {"dsh-remote": args.helper, "dsh-remote-fixture": args.fixture, "rg": args.rg})
+    upload(args.ssh, args.destination, {"dsh-remote-helper": args.helper, "dsh-remote-fixture": args.fixture, "rg": args.rg})

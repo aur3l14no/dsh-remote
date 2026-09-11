@@ -79,7 +79,7 @@ try {
       if (marker !== id) throw new Error('SSH World identity mismatch');
     }
     if (index === 0) {
-      await docker(['cp', 'world-a:/opt/dsh-e2e/bin/dsh-remote', resolve(state, 'helper')]);
+      await docker(['cp', 'world-a:/opt/dsh-e2e/bin/dsh-remote-helper', resolve(state, 'helper')]);
       await docker(['cp', 'world-a:/usr/bin/rg', resolve(state, 'rg')]);
       env.DSH_TEST_RIPGREP_LICENSE = resolve(state, 'ripgrep-copyright');
       await docker(['cp', 'world-a:/usr/share/doc/ripgrep/copyright', env.DSH_TEST_RIPGREP_LICENSE]);

@@ -59,7 +59,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dsh-remote"
+name = "dsh-remote-helper"
 version = "0.1.3"
 dependencies = [
  "base64",

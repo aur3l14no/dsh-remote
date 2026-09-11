@@ -78,7 +78,7 @@ valid_file() {
 }
 valid_generation() {
   [ -d "$1" ] && private_mode "$1" 500 || return 1
-  valid_file "$1/dsh-remote" "$helper_bytes" "$helper_hash" && valid_file "$1/rg" "$rg_bytes" "$rg_hash"
+  valid_file "$1/dsh-remote-helper" "$helper_bytes" "$helper_hash" && valid_file "$1/rg" "$rg_bytes" "$rg_hash"
 }
 lookup() {
   [ -f "$ref" ] && private_mode "$ref" 400 || return 1
@@ -90,7 +90,7 @@ lookup() {
   valid_generation "$root/generations/$generation"
 }
 versions() {
-  helper_version=$("$1/dsh-remote" --version) || fail ARTIFACT_EXEC_FAILED
+  helper_version=$("$1/dsh-remote-helper" --version) || fail ARTIFACT_EXEC_FAILED
   [ "$helper_version" = "$expected_helper" ] || fail ARTIFACT_VERSION_MISMATCH
   rg_version=$("$1/rg" --version) || fail ARTIFACT_EXEC_FAILED
   rg_version=$(printf '%s\n' "$rg_version" | head -n 1)
@@ -114,13 +114,13 @@ printf '%s\n' "$root"
   const root = remotePath(initialized.replace(/\n$/, ''));
   const args = [root, bundleKey(bundle), String(bundle.helper.artifact.bytes), bundle.helper.artifact.sha256,
     String(bundle.ripgrep.artifact.bytes), bundle.ripgrep.artifact.sha256,
-    `dsh-remote ${bundle.helper.version} api=${bundle.helper.api} ${bundle.target.arch}-${bundle.target.os}`,
+    `dsh-remote-helper ${bundle.helper.version} api=${bundle.helper.api} ${bundle.target.arch}-${bundle.target.os}`,
     `ripgrep ${bundle.ripgrep.version}`];
   const result = (reply: string): Installation => {
     const match = /^(REUSED|INSTALLED) (g\.[A-Za-z0-9]{8})\n$/.exec(reply);
     if (!match) throw new RemoteError('CONTROL_PROTOCOL', 'Invalid installation response');
     const generation = match[2]!;
-    return { root, generation, helper: `${root}/generations/${generation}/dsh-remote`, ripgrep: `${root}/generations/${generation}/rg`, reused: match[1] === 'REUSED', bundle };
+    return { root, generation, helper: `${root}/generations/${generation}/dsh-remote-helper`, ripgrep: `${root}/generations/${generation}/rg`, reused: match[1] === 'REUSED', bundle };
   };
   const found = await script(control, filesystem + verify + String.raw`
 if lookup; then versions "$root/generations/$generation"; printf 'REUSED %s\n' "$generation"; else printf 'MISSING\n'; fi
@@ -133,7 +133,7 @@ mktemp -d "$1/generations/g.XXXXXXXX"
   if (!new RegExp(`^g\\.[A-Za-z0-9]{8}$`).test(stage.slice(root.length + '/generations/'.length)) || !stage.startsWith(`${root}/generations/`)) throw new RemoteError('CONTROL_PROTOCOL', 'Invalid staging directory');
   let publishing = false;
   try {
-    await upload(control, stage, 'dsh-remote', bundle.helper.artifact, cacheDir, options.signal);
+    await upload(control, stage, 'dsh-remote-helper', bundle.helper.artifact, cacheDir, options.signal);
     await upload(control, stage, 'rg', bundle.ripgrep.artifact, cacheDir, options.signal);
     publishing = true; // After this point, only the remote transaction may decide whether stage is published.
     return result(await script(control, filesystem + verify + String.raw`

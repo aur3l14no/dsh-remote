@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '../../client/src/index.ts';
 import type { TransportFactory } from '../../client/src/index.ts';
 
-export const helper = resolve(process.env.DSH_TEST_HELPER ?? 'runtime/helper/target/debug/dsh-remote');
+export const helper = resolve(process.env.DSH_TEST_HELPER ?? 'runtime/helper/target/debug/dsh-remote-helper');
 export const fixture = resolve(process.env.DSH_TEST_FIXTURE ?? 'runtime/helper/target/debug/dsh-remote-fixture');
 
 export async function runtime(options: { world?: string; cwd?: string; grace?: number; lease?: number; wrap?: (factory: TransportFactory) => TransportFactory } = {}) {

@@ -15,7 +15,7 @@ These are design references, not wire compatibility claims. DSH was inspected at
 
 ## Runtime and transport
 
-`dsh-remote start --runtime-dir ABSENT_ABSOLUTE_DIR --cwd ABSOLUTE_DIR` starts `serve` in a separate session with detached stdio. `serve` creates a fresh mode-0700 directory and a mode-0600 Unix socket named `socket`. `connect --socket PATH` bridges stdin/stdout to that socket and can be launched through system OpenSSH. It exits when either side closes; it never executes a local substitute. A native macOS instance is an explicit acceptance target.
+`dsh-remote-helper start --runtime-dir ABSENT_ABSOLUTE_DIR --cwd ABSOLUTE_DIR` starts `serve` in a separate session with detached stdio. `serve` creates a fresh mode-0700 directory and a mode-0600 Unix socket named `socket`. `connect --socket PATH` bridges stdin/stdout to that socket and can be launched through system OpenSSH. It exits when either side closes; it never executes a local substitute. A native macOS instance is an explicit acceptance target.
 
 The runtime owns its processes, open read streams, uploads, collection buffers, and spill files. It has one logical session and at most one active controller. Connecting to an occupied session returns `SESSION_BUSY`. Different Worlds use separate runtimes; sharing OpenSSH transport does not merge ownership. Local providers own their process references; DSH consumers may additionally track Agent owners. A provider's disposal terminates/releases its own set; global shutdown closes the runtime.
 

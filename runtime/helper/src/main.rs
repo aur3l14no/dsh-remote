@@ -134,7 +134,7 @@ async fn run() -> Result<()> {
         }
         Some("--version") => {
             println!(
-                "dsh-remote {} api=1 {}-{}",
+                "dsh-remote-helper {} api=1 {}-{}",
                 env!("CARGO_PKG_VERSION"),
                 std::env::consts::ARCH,
                 std::env::consts::OS
@@ -142,7 +142,7 @@ async fn run() -> Result<()> {
             Ok(())
         }
         _ => {
-            eprintln!("Usage: dsh-remote serve|start --runtime-dir ABSENT_DIR --cwd DIR [--grace-ms N] [--lease-ms N]\n       dsh-remote connect --socket PATH\n       dsh-remote --version");
+            eprintln!("Usage: dsh-remote-helper serve|start --runtime-dir ABSENT_DIR --cwd DIR [--grace-ms N] [--lease-ms N]\n       dsh-remote-helper connect --socket PATH\n       dsh-remote-helper --version");
             Err(invalid("unknown command"))
         }
     }

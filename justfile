@@ -16,7 +16,7 @@ test-e2e:
 package:
     npm run package
 
-accept rg helper="runtime/helper/target/debug/dsh-remote" fixture="runtime/helper/target/debug/dsh-remote-fixture" platform="macos":
+accept rg helper="runtime/helper/target/debug/dsh-remote-helper" fixture="runtime/helper/target/debug/dsh-remote-fixture" platform="macos":
     python3 runtime/helper/tests/acceptance.py --helper {{helper}} --fixture {{fixture}} --platform {{platform}} --rg {{rg}}
 
 # Rebuildable integration inputs, staging and private test state only.

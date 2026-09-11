@@ -2,7 +2,9 @@
 
 This Rust crate implements the remote runtime protocol: filesystem operations, managed processes, pipes, PTY, signals, cancellation, bounded output and finite live-runtime reconnection. It has no DSH, portable_workspace, Agent, skill or tool policy dependency.
 
-Build with `cd runtime/helper && cargo build --locked`. This is a standalone crate: Cargo.toml, Cargo.lock and target/ all live here. From the repository root, binaries are at `runtime/helper/target/debug/dsh-remote` and `runtime/helper/target/debug/dsh-remote-fixture`.
+The executable is named `dsh-remote-helper`.
+
+Build with `cd runtime/helper && cargo build --locked`. This is a standalone crate: Cargo.toml, Cargo.lock and target/ all live here. From the repository root, binaries are at `runtime/helper/target/debug/dsh-remote-helper` and `runtime/helper/target/debug/dsh-remote-fixture`.
 
 - `src/`: helper implementation; `src/bin/dsh-remote-fixture.rs` is the acceptance child.
 - `tests/acceptance.py`: target-native behavior suite.

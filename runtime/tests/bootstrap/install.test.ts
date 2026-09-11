@@ -29,14 +29,14 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
   try {
     await control(['mkdir', cwd]);
     const platform = await probe(control, cwd);
-    const helperPath = process.env.DSH_BOOTSTRAP_HELPER ?? resolve('runtime/helper/target/debug/dsh-remote');
+    const helperPath = process.env.DSH_BOOTSTRAP_HELPER ?? resolve('runtime/helper/target/debug/dsh-remote-helper');
     const rgPath = process.env.DSH_BOOTSTRAP_RG;
     const fixture = host ? process.env.DSH_TEST_REMOTE_FIXTURE : resolve('runtime/helper/target/debug/dsh-remote-fixture');
     assert.ok(rgPath, 'Supply the selected target-native ripgrep file in the local cache');
     assert.ok(fixture, 'Supply the target-native acceptance process fixture');
     const bundle = parseManifest({ format: 1, bundles: [{
       target: { os: platform.os, arch: platform.arch, abi: platform.os === 'macos' ? { kind: 'darwin' } : platform.glibc ? { kind: 'glibc', minimum: platform.glibc } : { kind: 'musl-static' } },
-      helper: { version: '0.1.2', api: 1, artifact: await cacheArtifact(resolve(helperPath), cache) },
+      helper: { version: '0.1.3', api: 1, artifact: await cacheArtifact(resolve(helperPath), cache) },
       ripgrep: { version: '15.2.0', artifact: await cacheArtifact(resolve(rgPath), cache) },
     }] }).bundles[0]!;
     const options: BootstrapOptions = { ...target, world: 'bootstrap-test', cwd, cacheDir: cache, manifest: { format: 1, bundles: [bundle] }, installRoot: `${root}/install space'quote`, runtimeBase: root, graceMs: 15000, leaseMs: 5000 };
@@ -131,7 +131,7 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
       const old = await start({ manifest: { format: 1, bundles: [previous] }, world: 'previous' });
       const held = await RemoteProcess.spawn(old.client, { argv: [fixture, 'hold'], cwd, stdout: { mode: 'collect', maxBytes: 1024 }, stderr: { mode: 'collect', maxBytes: 1024 } });
       const upgraded = await start({ world: 'upgraded' });
-      assert.equal(old.client.info.build, '0.1.0'); assert.equal(upgraded.client.info.build, '0.1.2');
+      assert.equal(old.client.info.build, '0.1.0'); assert.equal(upgraded.client.info.build, '0.1.3');
       assert.notEqual(old.installation.helper, upgraded.installation.helper);
       old.client.reconnect(); await old.client.whenReady();
       assert.equal((await old.client.request<{ rootExit: unknown }>('process.status', { process: held.id })).rootExit, null);
