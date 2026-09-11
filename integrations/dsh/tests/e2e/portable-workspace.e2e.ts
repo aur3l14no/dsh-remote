@@ -39,7 +39,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   onTestFailed(async () => { if (page.isClosed()) return; console.error('PAGE', await page.locator('body').innerText()); await page.screenshot({ path: `${root}/artifacts/dsh/web-failure.png`, fullPage: true }); });
   await page.goto(scaffold.authenticatedUrl);
   const choose = async (index: number) => {
-    await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: /^New Session$/ }).click();
+    await page.locator('.workspace-new-session').click();
     await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
     await page.getByRole('menuitem').filter({ hasText: '/workspace' }).nth(index).click();
   };

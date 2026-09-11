@@ -49,7 +49,7 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
   const packageSource = join(sources, metadata.repository.directory, 'src') + '/';
   if (Object.keys(compiled.metafile.inputs).some(path => !resolve(path).startsWith(packageSource))) throw new Error(`Compatibility package bundled a foreign source: ${name}`);
 }
-for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right']) {
+for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right', '@deepseek-ai/dsh-client-ui-sidebar']) {
   await buildClientCompatibility(sources, installation,
     JSON.parse(await readFile(join(installation, 'node_modules', name, 'package.json'), 'utf8')),
     join(output, 'compat', name));

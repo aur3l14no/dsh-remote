@@ -141,3 +141,10 @@
     - id: remote-ui-sidebar-right
       name: './compat/@deepseek-ai/dsh-client-ui-sidebar-right/lib/index.js'
       inject: [remoteSetup]
+
+- id: ui-sidebar
+  disabled: true
+- insert:
+    - id: world-ui-sidebar
+      name: './compat/@deepseek-ai/dsh-client-ui-sidebar/lib/index.js'
+      inject: [remoteSetup]

@@ -64,12 +64,12 @@ export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (gener
   }
   return <>
     <style>{`
-      .worlds-reload-footer { display: flex; justify-content: flex-end; padding: 4px 2px 0; }
-      .portable-workspaces .worlds-reload-entry { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 6px; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary, #858990); }
-      .portable-workspaces .worlds-reload-entry[data-changed=true] { color: var(--dsw-alias-label-secondary, #686b73); }
+      .worlds-reload-footer { display: flex; }
+      .workspace-toolbar .worlds-reload-entry { display: inline-flex; align-items: center; justify-content: center; gap: 7px; position: relative; width: 28px; height: 28px; padding: 0; border-radius: 6px; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary, #858990); }
+      .workspace-toolbar .worlds-reload-entry[data-changed=true] { color: var(--dsw-alias-label-secondary, #686b73); }
       .worlds-reload-entry svg { flex: none; }
-      .worlds-reload-dot { width: 5px; height: 5px; border-radius: 50%; background: #c18b3e; }
-      .portable-workspaces .worlds-reload-entry:disabled { opacity: .4; cursor: wait; }
+      .worlds-reload-dot { position: absolute; right: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: #c18b3e; }
+      .workspace-toolbar .worlds-reload-entry:disabled { opacity: .4; cursor: wait; }
       .worlds-reload-dialog { color-scheme: light dark; color: CanvasText; background: Canvas; border: 1px solid #8885; border-radius: 12px; padding: 24px; width: min(720px, calc(100vw - 48px)); max-height: 80vh; box-sizing: border-box; font: 13px/1.5 system-ui; }
       .worlds-reload-dialog::backdrop { background: #0006; }
       .worlds-reload-dialog h2 { font-size: 19px; margin: 0 0 10px; }
@@ -85,9 +85,9 @@ export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (gener
       .worlds-reload-dialog footer .reload-apply { background: #2563eb; color: white; border-color: #2563eb; }
     `}</style>
     <div className="worlds-reload-footer">
-      <Tooltip label={status?.changed ? 'Preview changes to worlds and skills' : 'Reload worlds'} side="right">
+      <Tooltip label={status?.changed ? 'Preview changes to worlds and skills' : 'Reload worlds'} side="bottom">
         <button className="worlds-reload-entry" aria-label={status?.changed ? 'Worlds config changed. Reload?' : 'Reload worlds'} data-changed={status?.changed ?? false} disabled={busy || status?.applying} onClick={() => { void inspect(); }}>
-          {status?.changed && <><span className="worlds-reload-dot" aria-hidden="true" /><span>Config changed</span></>}
+          {status?.changed && <span className="worlds-reload-dot" aria-hidden="true" />}
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg>
         </button>
       </Tooltip>

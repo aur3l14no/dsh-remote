@@ -45,3 +45,5 @@
 4. 通过后才形成发行候选。用户备份 DSH_HOME 和外部 binding 存储，按 [升级说明](../development.md#离线产物与已有配置) 成对更新。
 
 具体命令见 [开发指南](../development.md)；新消费者先对照 [消费者接入契约](../system-map-1.md#新增消费者与升级)。
+
+`0011-sidebar-primary-actions.patch` adds an optional `sidebar.primaryActions` slot with the native New Session fallback. The workspace plugin supplies compact New Session and Reload actions; the session list scrolls independently. The patched sidebar browser bundle retains its official module identity.

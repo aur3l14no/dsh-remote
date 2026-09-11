@@ -178,6 +178,8 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   console.log('LOCAL acceptance: browser');
   browser = await chromium.launch({ headless: true });
   page = await newEnglishPage(browser);
+  page.on('pageerror', error => console.error('Browser error:', error));
+  page.on('console', message => { if (message.type() === 'error') console.error('Browser console:', message.text()); });
   onTestFailed(async () => { if (page && !page.isClosed()) { console.error(await page.locator('body').innerText()); await page.screenshot({ path: `${root}/artifacts/dsh/local-workspace-failure.png` }); } });
   await page.goto(host.authenticatedUrl);
   await page.getByRole('button', { name: `Open session ${originalId}`, exact: true }).click();
@@ -220,7 +222,7 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   expect(exported.ok()).toBe(true);
   execFileSync('python3', ['-c', 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert any(z.read(n)==b"NATIVE_UPLOAD_CONTENT" for n in z.namelist()); assert any(n.endswith(".png") for n in z.namelist())'], { input: await exported.body() });
   await expect.poll(() => page!.getByRole('img', { name: 'native-image.png', exact: true }).first().evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(13);
-  await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: /^New Session$/ }).click();
+  await page.locator('.workspace-new-session').click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Choose a folder…', exact: true }).click();
   const chooser = page.getByRole('dialog', { name: 'Select Workspace Directory' });
@@ -238,7 +240,23 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   await chooser.getByRole('button', { name: 'Open', exact: true }).click();
   await expect.poll(() => host!.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)).toBeDefined();
   expect(host.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)!.session.header.agentPreset).toBe('standard');
-  await page.screenshot({ path: `${root}/artifacts/dsh/local-workspace.png` });
+  await page.setViewportSize({ width: 1280, height: 300 });
+  const list = page.locator('.portable-workspaces .session-list');
+  await expect.poll(() => list.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+  const actions = page.locator('.workspace-toolbar');
+  const actionsBefore = await actions.boundingBox();
+  await list.hover();
+  await page.mouse.wheel(0, 1000);
+  await expect.poll(() => list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  expect(await actions.boundingBox()).toEqual(actionsBefore);
+  expect(await actions.locator('button:visible').count()).toBe(2);
+  await page.screenshot({ path: `${root}/artifacts/dsh/sidebar-scroll.png`, animations: 'disabled' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.getByRole('button', { name: 'Reload worlds', exact: true }).click();
+  const reloadDialog = page.getByRole('dialog', { name: 'Reload worlds', exact: true });
+  await reloadDialog.waitFor();
+  await reloadDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.screenshot({ path: `${root}/artifacts/dsh/local-workspace.png`, animations: 'disabled' });
   await browser.close(); browser = undefined; page = undefined;
   await host.close(); host = undefined;
 

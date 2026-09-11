@@ -22,6 +22,7 @@
     "@types/react-dom": "18.3.7",
     "@vscode/ripgrep": "1.18.0",
     "@xterm/headless": "6.0.0",
+    "clsx": "2.1.1",
     "diff": "9.0.0",
     "esbuild": "0.28.2",
     "js-yaml": "4.3.2",

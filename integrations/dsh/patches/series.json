@@ -87,6 +87,13 @@
         "@deepseek-ai/dsh-permission-presets",
         "@deepseek-ai/dsh-workspace"
       ]
+    },
+    {
+      "file": "0011-sidebar-primary-actions.patch",
+      "sha256": "81dc25de367e65094289ed4ad4c16f07e83f1c8795af72d70e30b4ce6391950d",
+      "packages": [
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
     }
   ],
   "release": {

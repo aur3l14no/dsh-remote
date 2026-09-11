@@ -99,7 +99,7 @@ try {
   await page.screenshot({ path: 'artifacts/dsh/workspace-picker-session.png' });
   const firstId = JSON.parse(await readFile(join(home, 'remote/bindings.json'), 'utf8')).sessions[0].sessionId;
   assert.ok(firstId);
-  await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: /^New Session$/ }).click();
+  await page.locator('.workspace-new-session').click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.getByRole('menuitem').filter({ hasText: '/workspace' }).nth(1).click();
   await page.waitForFunction(() => document.querySelectorAll('.session-card').length === 2);
@@ -163,7 +163,7 @@ try {
   await rm(join(state, 'runtime.tar.gz')); // Restart must use the private cache, even offline.
   await page.goto(await start());
   await page.getByRole('button', { name: 'Configure later', exact: true }).click();
-  await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: /^New Session$/ }).click();
+  await page.locator('.workspace-new-session').click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.screenshot({ path: 'artifacts/dsh/workspace-picker-open.png' });
   await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
@@ -190,7 +190,7 @@ try {
   let release;
   const paused = new Promise(resolve => { release = resolve; });
   await page.route('**/api/portableWorkspace/create', async route => { await paused; await route.continue(); });
-  await page.getByRole('button', { name: 'New session', exact: true }).filter({ hasText: /^New Session$/ }).click();
+  await page.locator('.workspace-new-session').click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   const requested = page.waitForRequest(request => request.url().endsWith('/api/portableWorkspace/create'));
   await page.getByRole('menuitem').filter({ hasText: '/workspace' }).nth(1).click();

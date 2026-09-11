@@ -12,6 +12,8 @@ export async function buildClientCompatibility(source, installation, metadata, d
     outfile: join(destination, 'lib/client.js'), bundle: true, write: false, metafile: true,
     format: 'cjs', platform: 'browser', target: 'es2022', jsx: 'automatic',
     nodePaths: [join(installation, 'node_modules')], external,
+    // Match upstream's browser environment fallback without exposing host environment values.
+    define: { 'process.env': '{}', 'process.env.NODE_ENV': '"production"' },
     loader: { '.module.css': 'local-css' },
   });
   const css = result.outputFiles.filter(file => file.path.endsWith('.css')).map(file => file.text).join('\n');

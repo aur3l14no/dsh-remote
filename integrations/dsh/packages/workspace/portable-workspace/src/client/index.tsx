@@ -168,10 +168,38 @@ function installWorkspaceUi(ctx: Context) {
     </>;
   }
 
+  let reloadGeneration = 0;
+  const reloadListeners = new Set<() => void>();
+  const subscribeReload = (listener: () => void) => { reloadListeners.add(listener); return () => { reloadListeners.delete(listener); }; };
+  const reloadSnapshot = () => reloadGeneration;
+  const reloaded = (generation: number) => {
+    if (generation === reloadGeneration) return;
+    reloadGeneration = generation;
+    for (const listener of reloadListeners) listener();
+  };
+  function PrimaryActions({ wide }: PropsRuntime<'sidebar.primaryActions'>) {
+    return <div className="workspace-toolbar" data-wide={wide}>
+      <style>{`
+        .workspace-toolbar { display: flex; flex: none; gap: 4px; padding: 0 0 6px; }
+        .workspace-toolbar[data-wide=false] { flex-direction: column; align-items: center; }
+        .workspace-toolbar button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 0; }
+        .workspace-toolbar .workspace-new-session { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: grid; place-items: center; }
+        .workspace-toolbar button:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
+        .workspace-toolbar button:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+      `}</style>
+      <Tooltip label="New session" side="bottom">
+        <button className="workspace-new-session" aria-label="New session" onClick={() => navigation.startSession()}>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+      </Tooltip>
+      <ReloadWorlds ctx={ctx} onReload={reloaded} />
+    </div>;
+  }
+
   function Workspaces({ renderSlot }: PropsRenderSlots<'sidebar.workspaces.directoryFlow'>) {
     const snapshot = useSyncExternalStore(subscribeWorkspaces, workspaceSnapshot);
     const sessions = useSyncExternalStore(subscribeSessions, sessionSnapshot);
-    const [generation, setGeneration] = useState(0);
+    const generation = useSyncExternalStore(subscribeReload, reloadSnapshot);
     const refresh = useRef({ items: snapshot.items, generation });
     if (refresh.current.items !== snapshot.items || refresh.current.generation !== generation) refresh.current = { items: snapshot.items, generation };
     const { worlds, setWorlds, error: catalogError } = useWorlds(refresh.current);
@@ -184,10 +212,10 @@ function installWorkspaceUi(ctx: Context) {
     }
     return <section className="portable-workspaces" aria-label="Portable workspaces">
       <style>{`
-        .portable-workspaces { padding: 6px 0; display: grid; gap: 4px; font-size: 13px; min-width: 0; }
+        .portable-workspaces { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; gap: 4px; font-size: 13px; min-width: 0; }
         .portable-workspaces button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 0; }
         .portable-workspaces button:focus-visible, .portable-workspaces summary:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
-        .portable-workspaces .session-list { display: grid; gap: 3px; min-width: 0; }
+        .portable-workspaces .session-list { display: grid; align-content: start; flex: 1; min-height: 0; gap: 3px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 6px; }
         .portable-workspaces .workspace-session { position: relative; min-width: 0; }
         .portable-workspaces .session-card { width: 100%; min-width: 0; padding: 7px 6px; display: grid; gap: 3px; text-align: left; border-radius: 8px; }
         .portable-workspaces button:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
@@ -248,10 +276,10 @@ function installWorkspaceUi(ctx: Context) {
         </div>;
       })}
       </div>
-      <ReloadWorlds ctx={ctx} onReload={setGeneration} />
       {renderSlot('sidebar.workspaces.directoryFlow', { open: false, busy: false, onPicked: () => {}, onCancel: () => {}, onError: () => {} })}
     </section>;
   }
+  ctx.slots.inject('sidebar.primaryActions', () => ctx.slots.register({ name: 'sidebar.primaryActions' }, PrimaryActions));
   ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register({ name: 'sidebar.workspaces', children: { 'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' } } }, Workspaces));
   ctx.slots.inject('conversation.hero.workspace', () => ctx.slots.register({ name: 'conversation.hero.workspace', children: { 'conversation.hero.workspace.directoryFlow': { kind: 'single', scope: 'root' } } }, WorkspacePicker));
 }
