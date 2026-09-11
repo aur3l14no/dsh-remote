@@ -91,7 +91,7 @@ Text decoding, NUL rejection for DSH text APIs, CRLF/LF handling, literal match 
 
 | Method | Parameters | Result |
 | --- | --- | --- |
-| `process.resolveExecutable` | `command`, absolute `cwd`, optional `env`. | Canonical executable `path` from the remote environment. Bare PATH names or absolute paths only. |
+| `process.resolveExecutable` | `command`, absolute `cwd`, optional `env`. | Absolute invocable executable `path` from the remote environment. Parent directories are resolved; the final filename/symlink is preserved so multicall programs retain their invocation name. Bare PATH names or absolute paths only. |
 | `process.spawn` | Spawn specification below. | `process`, diagnostic OS `pid`, `outputs` with stream IDs/modes. Response precedes its events. |
 | `process.write` | `process`, Base64 `data` (max 32 KiB). | `written` bytes; errors can carry a written prefix. |
 | `process.closeStdin` | `process`. | Ordered, idempotent pipe EOF. PTY half-close is rejected. |

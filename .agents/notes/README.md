@@ -13,6 +13,7 @@ archived/                   被替代的历史记录与原始验收证据
 文件名为 `yyyy-mm-dd-topic.md`，声明 Status、决定或问题、适用基线与证据范围。只维护一份当前计划；proposed 表示工作未完成，不表示方向未经同意。
 
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 仅维护后续事项和未决验收要求。
+- [Research 维护收敛](implemented/architecture/2026-09-11-research-maintenance.md) 记录当前唯一状态格式、执行身份拆分、展示订阅、补丁缩减和统一验证入口；替代早期记录中的自动迁移策略。
 - [补丁审计](archived/2026-09-patch-audit/2026-09-07-patch-surface.md) 保留早期静态范围推导，不是当前补丁清单或实现保证。
 - [本机与 SSH 工作区验收](implemented/integration/2026-09-11-local-workspaces.md) 记录显式本机身份、原生历史迁移、混合隔离与安装态验收。
 - [DSH 0.1.5-rc.1 适配验收](implemented/integration/2026-09-10-dsh-rc1-upgrade.md) 记录原生文档预览、World 路由、导航生命周期、子 Agent catalog 与安装态回归。

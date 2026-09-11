@@ -1,3 +1,4 @@
+import { sameWorkspace } from '../../../world/execution-world/src/identity.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-api-workspace-files';
@@ -18,7 +19,7 @@ export function apply(ctx: Context): void {
     const workspace = await observe(ctx.worldPortableWorkspaces.contextForSession(id, active), active);
     const expected = ctx.worldPortableWorkspaces.definition(workspace.id);
     const saved = ctx.executionWorlds.bindings.get(id);
-    if (JSON.stringify(expected) !== JSON.stringify(saved)) throw new Error('File preview binding mismatch');
+    if (!saved || !sameWorkspace(expected, saved)) throw new Error('File preview binding mismatch');
     const definition = await observe(ctx.executionWorlds.prepare(id), active);
     const owner = await observe(ctx.executionWorlds.prepareWorld(definition), active);
     active.throwIfAborted();

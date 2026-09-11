@@ -107,7 +107,15 @@ pub fn executable(command: &str, env: &BTreeMap<String, String>, cwd: &Path) -> 
                 let c = std::ffi::CString::new(path.as_os_str().as_encoded_bytes())
                     .map_err(|_| invalid("NUL executable"))?;
                 if unsafe { libc::access(c.as_ptr(), libc::X_OK) } == 0 {
-                    return fs::resolve(&path);
+                    // Keep the invoked filename: multicall executables select their
+                    // behavior from argv[0], even when the file is a symlink.
+                    let parent = path
+                        .parent()
+                        .ok_or_else(|| invalid("executable has no parent"))?;
+                    let name = path
+                        .file_name()
+                        .ok_or_else(|| invalid("executable has no filename"))?;
+                    return Ok(fs::resolve(parent)?.join(name));
                 }
                 denied = true;
             }

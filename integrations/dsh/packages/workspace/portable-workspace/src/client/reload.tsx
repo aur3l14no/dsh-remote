@@ -3,7 +3,7 @@ import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ReloadPreview, ReloadResult, ReloadStatus } from '../contracts.ts';
 
-export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (generation: number) => void }) {
+export function ReloadWorlds({ ctx }: { ctx: Context }) {
   const [status, setStatus] = useState<ReloadStatus>();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,13 +19,13 @@ export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (gener
     const poll = async () => {
       try {
         const response = await ctx.remote.portableWorkspace.reloadStatus();
-        if (active && response.ok) { setStatus(response.value); onReload(response.value.generation); }
+        if (active && response.ok) { setStatus(response.value); }
       } catch { /* Gateway reconnection retries on the next poll. */ }
       finally { if (active) timer = setTimeout(() => { void poll(); }, 2000); }
     };
     void poll();
     return () => { active = false; clearTimeout(timer); };
-  }, [ctx, onReload]);
+  }, [ctx]);
   useEffect(() => {
     if (open) dialog.current?.showModal(); else dialog.current?.close();
   }, [open]);
@@ -58,18 +58,18 @@ export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (gener
       if (!response.ok) throw new Error(response.error.message);
       setResult(response.value); setPreview(undefined); planId.current = undefined;
       const latest = await ctx.remote.portableWorkspace.reloadStatus();
-      if (latest.ok) { setStatus(latest.value); onReload(latest.value.generation); }
+      if (latest.ok) { setStatus(latest.value); }
     } catch (error) { setError(String(error)); setPreview(undefined); }
     finally { setBusy(false); }
   }
   return <>
     <style>{`
-      .worlds-reload-footer { display: flex; }
-      .workspace-toolbar .worlds-reload-entry { display: inline-flex; align-items: center; justify-content: center; gap: 7px; position: relative; width: 28px; height: 28px; padding: 0; border-radius: 6px; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary, #858990); }
-      .workspace-toolbar .worlds-reload-entry[data-changed=true] { color: var(--dsw-alias-label-secondary, #686b73); }
+      .worlds-reload-footer { display: flex; flex: none; padding: 0 6px 4px; }
+      .portable-workspaces .worlds-reload-entry { display: inline-flex; align-items: center; justify-content: center; gap: 7px; position: relative; height: 28px; padding: 0 7px; border-radius: 6px; font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary, #858990); }
+      .portable-workspaces .worlds-reload-entry[data-changed=true] { color: var(--dsw-alias-label-secondary, #686b73); }
       .worlds-reload-entry svg { flex: none; }
       .worlds-reload-dot { position: absolute; right: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: #c18b3e; }
-      .workspace-toolbar .worlds-reload-entry:disabled { opacity: .4; cursor: wait; }
+      .portable-workspaces .worlds-reload-entry:disabled { opacity: .4; cursor: wait; }
       .worlds-reload-dialog { color-scheme: light dark; color: CanvasText; background: Canvas; border: 1px solid #8885; border-radius: 12px; padding: 24px; width: min(720px, calc(100vw - 48px)); max-height: 80vh; box-sizing: border-box; font: 13px/1.5 system-ui; }
       .worlds-reload-dialog::backdrop { background: #0006; }
       .worlds-reload-dialog h2 { font-size: 19px; margin: 0 0 10px; }
@@ -89,6 +89,7 @@ export function ReloadWorlds({ ctx, onReload }: { ctx: Context; onReload: (gener
         <button className="worlds-reload-entry" aria-label={status?.changed ? 'Worlds config changed. Reload?' : 'Reload worlds'} data-changed={status?.changed ?? false} disabled={busy || status?.applying} onClick={() => { void inspect(); }}>
           {status?.changed && <span className="worlds-reload-dot" aria-hidden="true" />}
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg>
+          <span>Reload worlds</span>
         </button>
       </Tooltip>
     </div>

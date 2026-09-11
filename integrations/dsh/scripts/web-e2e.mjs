@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { deploySkills } from '../packages/skill/remote-skills/src/deploy.ts';
 import { sshControl } from '../../../runtime/ssh/src/control.ts';
 import yaml from 'js-yaml';
-import { BindingStore } from '../packages/world/ssh-world/src/bindings.ts';
+import { BindingStore } from '../packages/world/execution-world/src/bindings.ts';
 const root = resolve('.');
 const upstream = resolve('.build/dsh/browser-fixtures');
 const installation = resolve(process.env.DSH_TEST_INSTALL ?? '.build/dsh/official-install');

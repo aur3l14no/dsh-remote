@@ -30,9 +30,9 @@ import { WorkspaceId } from '@deepseek-ai/dsh-workspace';
 import { ApiSessionAgentController } from '@dsh-test/web-agent';
 import { SessionCommandController } from '@dsh-test/web-commands';
 import { installModelSelectionProjection } from '@dsh-test/web-model-selection-projection';
-import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
-import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/execution-world/src/worlds.ts';
+import * as Routing from '../../packages/world/execution-world/src/routing.ts';
 import PortableWorkspaces, { type CatalogWorld } from '../../packages/workspace/portable-workspace/src/registry.ts';
 import { startPortableWorkspaceSession, openPortableWorkspaceSession } from './portable-workspace-entry.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
@@ -54,7 +54,7 @@ if (!phase) {
     assert.equal(selection.worlds.length, 2, 'Acceptance requires two configured Worlds');
     await writeFile(`${base}/selection.json`, JSON.stringify(selection), { mode: 0o600 });
     BindingStore.create(`${base}/bindings.json`);
-    for (const phase of ['create', 'resume', 'missing', 'changed']) {
+    for (const phase of ['create', 'resume', 'retired', 'changed']) {
       const child = spawn(process.execPath, [fileURLToPath(import.meta.url), phase, base],
         { stdio: 'inherit', signal: AbortSignal.timeout(180000) });
       await new Promise<void>((accept, reject) => {
@@ -100,7 +100,7 @@ if (!phase) {
     ]));
     await ctx.plugin(AgentPresets, { default: 'shared', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
     const configured = structuredClone(selection.worlds);
-    if (phase === 'missing') configured.splice(0, 1);
+    if (phase === 'retired') configured.splice(0, 1);
     if (phase === 'changed') {
       assert.equal(configured[0]!.target.kind, 'ssh');
       configured[0]!.target = { ...configured[0]!.target, kind: 'ssh', host: 'changed-acceptance.invalid' };
@@ -159,8 +159,13 @@ if (!phase) {
       const sessionId = SessionId(saved.sessionIds[0]!);
       assert.equal(portableWorkspaces.list().length, 2);
       assert.ok(portableWorkspaces.get(portableWorkspaceId)!.sessionIds.includes(sessionId));
-      if (phase === 'missing' || phase === 'changed') {
-        const code = phase === 'missing' ? 'WORLD_REQUIRED' : 'WORLD_MISMATCH';
+      const savedBindings = saved.sessionIds.map(id => ctx.executionWorlds.bindings.get(id));
+      if (phase === 'retired') {
+        await assert.rejects(portableWorkspaces.createInWorld(selection.worlds[0]!.id, selection.path), { code: 'WORLD_REQUIRED' });
+        assert.equal(connections, 0, 'Retired catalog entries cannot provision new workspaces');
+      }
+      if (phase === 'changed') {
+        const code = 'WORLD_MISMATCH';
         await assert.rejects(openPortableWorkspaceSession(ctx, portableWorkspaceId, sessionId), { code });
         assert.equal(ctx.agents.get(sessionId), undefined);
         assert.equal(connections, 0);
@@ -182,6 +187,10 @@ if (!phase) {
           await readMarker(sessionId, ssh ? `world-${index}` : 'native-shared-directory');
         }
         console.log('PASS PortableWorkspace entry prepares the saved World and native JSONL resume is adopted by unchanged Web activation');
+        if (phase === 'retired') {
+          assert.deepEqual(saved.sessionIds.map(id => ctx.executionWorlds.bindings.get(id)), savedBindings);
+          console.log('PASS retired catalog World refuses new workspaces while existing Sessions restore their exact saved bindings');
+        }
       }
     }
   } finally { await ctx.fiber.dispose(); }

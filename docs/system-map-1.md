@@ -28,11 +28,13 @@ flowchart LR
   A -->|"继承完整绑定与 cwd"| C["DSH child Agent<br/>原生委派与续接"]
 ```
 
-World catalog 和具体执行绑定有区别：`WorldDefinition` 是显式 local/SSH 联合，registry 为每个环境与 canonical cwd 生成 binding ID。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。存储兼容 v1 SSH，首次 local 写入先备份再升级 v2；提交与迁移见 [Session bindings](reference/session-bindings.md)。
+[identity.ts](../integrations/dsh/packages/world/execution-world/src/identity.ts) 集中定义身份：`WorldDefinition` 是不含 cwd 的 local/SSH 执行环境；`WorkspaceDefinition` 保存独立的 workspace ID、worldId、canonical cwd 与目标配置快照；binding 把 Session 固定到 Workspace。helper runtime 则是当前连接与资源的运行实例。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。
+
+registry 的 `portable_workspaces` 保存工作区与 membership；`workspace_presentation` 单独保存置顶和归档，颜色与 skill 选择由配置提供。展示字段不参与身份比较，也不通过修改 workspace 时间戳触发刷新。工作区 membership 使用原生 feed；World 名称、颜色、选择项与置顶通过独立 `followWorlds` stream 发布完整视图，断线重连后重新取得快照。绑定存储只接受当前 v3，历史格式与未绑定的原生历史会话明确拒绝；破坏性重构使用新的私有 DSH_HOME 与 binding 存储，保留旧实验目录。提交、失败与状态重置规则见 [Session bindings](reference/session-bindings.md)。
 
 ## 功能怎样落到上游设施
 
-每张功能图均按 **功能 → 机制 → 我们的方案／状态 → 上游接点** 阅读。图后的说明区分“复用上游”“插件扩展”“下游补丁”，不把本项目增加的接口写成上游原生能力。0001–0010 对应[补丁清单](../integrations/dsh/patches/series.json)。
+每张功能图均按 **功能 → 机制 → 我们的方案／状态 → 上游接点** 阅读。图后的说明区分“复用上游”“插件扩展”“下游补丁”，不把本项目增加的接口写成上游原生能力。具体补丁、修改包与 revision 只在 [series.json](../integrations/dsh/patches/series.json) 维护。
 
 ### 打开本机或 SSH 项目，创建和恢复会话
 
@@ -45,9 +47,9 @@ flowchart LR
 
 DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。上游原本会在 preset 准备前处理本地目录；仅替换工具服务拦不住这一步。**0001 增加可等待的 Session 准入，0002 增加外部 workspace feed**；我们的 `portable-workspace` 插件负责 registry、持久 membership、目录与 World 校验。
 
-新会话入口读取 [worlds.json](worlds.md) 中声明的 World 与 Workspace，选中后才连接和登记 canonical 目录。配置变化通过 **Reload worlds** 的只读预览和确认热加载；skill 增删改列出远端目标与版本，已有 Session 保留原绑定。侧栏仅显示紧凑会话卡片，支持悬停置顶／归档；这些展示偏好保存在宿主 registry，不改变绑定。
+新会话入口读取 [worlds.json](worlds.md) 中声明的 World 与 Workspace，选中后才连接和登记 canonical 目录。配置变化通过 **Reload worlds** 的只读预览和确认热加载；skill 增删改列出远端目标与版本，已有 Session 保留原绑定。侧栏使用原生 New Session 控件；现有 workspace 插件槽位提供 Reload worlds 和紧凑会话卡片，支持悬停置顶／归档，不再为布局便利扩展上游侧栏接口。
 
-**This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择、为权限初始化增加按 Session 的默认值，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。旧本机会话只从已核对的持久 membership 采用。
+**This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择、为权限初始化增加按 Session 的默认值，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。新本机会话通过显式目录选择建立绑定；未绑定的历史本机会话不自动采用。
 
 恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/execution-world/src/worlds.ts)。
 
@@ -109,7 +111,7 @@ DSH rc.1 原生文件地址保留 Session 身份。**0006 为 workspace-files �
 
 local 分支委托原生 AttachmentStore，保留裸摘要 ID、存储路径及历史兼容；每次访问仍检查 local binding。SSH 引用不转成本机来源。两类 Session 的上传、模型读取、子会话读取和 ZIP 导出共用原生消费者。
 
-原样文件当前上限 64 MiB；旧裸摘要引用继续读旧宿主 store，远端工具需要时重新上传。**🔴 自动迁移、存储 GC 和跨 World 转移未提供**。精确命名空间、原子发布、旧 helper 与 profile 兼容见[文件预览与附件契约](reference/workspace-io.md)。
+原样文件当前上限 64 MiB；SSH Session 拒绝不带 Workspace 指纹的裸摘要引用，需要的附件须在当前会话重新上传。**🔴 存储 GC 和跨 World 转移未提供**。精确命名空间、原子发布、helper capability 与 profile 规则见[文件预览与附件契约](reference/workspace-io.md)。
 
 ### 搜索网络、调用本地连接器
 
@@ -134,7 +136,7 @@ flowchart LR
   class S1,S2 missing
 ```
 
-**Workspace 是工作目录，不是权限围栏。** SSH 仅允许 `danger-full-access`，其他模式在权限记录写入前拒绝；本机保留原生 permission/UI 与 sandbox 行为。缺少权限记录的旧 SSH 会话也按 SSH 账户模式补齐默认值。tool allow/deny 只控制可见性与调用权限，允许 Bash 就仍可执行命令。执行事实可以投影给模型和审批，不代表已有远端强制隔离；helper 参数／资源检查也不隔离同进程插件的任意本地代码。
+**Workspace 是工作目录，不是权限围栏。** SSH 仅允许 `danger-full-access`，其他模式在权限记录写入前拒绝；本机保留原生 permission/UI 与 sandbox 行为。已绑定 SSH 会话缺少权限记录时按 SSH 账户模式初始化默认值。tool allow/deny 只控制可见性与调用权限，允许 Bash 就仍可执行命令。执行事实可以投影给模型和审批，不代表已有远端强制隔离；helper 参数／资源检查也不隔离同进程插件的任意本地代码。
 
 worktree 已有可组合基础：远端 subprocess 可运行目标 Git，registry 可登记已有目录并创建绑定的新独立 Session。尚未形成“创建 worktree → 注册目录 → 启动 Agent → 失败清理”的产品流程；目标 Git／仓库条件也未专项验收。普通 child 必须继承完整 binding/cwd，Web fork 复制源 cwd，上游 workflow isolation 仍是 deferred 选项，不能仅改 cwd 绕过检查。后续定界见[worktree 计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
 
@@ -209,9 +211,9 @@ flowchart TD
 
 ### 上游升级时看什么
 
-优先复用可组合接口，只有宿主缺少入口才维护补丁；上游补齐后逐个移除补丁及兼容包。不能因为出现同名接口就删除补丁：还需验证准入时序、身份传递、失败语义、服务域与浏览器模块身份。
+个人 research 阶段固定一个上游 revision，按实验需要升级；新 provider、平台、worktree 或 GC 需要另行定界，不提前设计通用框架。优先复用可组合接口，只有宿主缺少执行身份、生命周期或 provider 入口才维护补丁；上游补齐后逐个移除补丁及兼容包。不能因为出现同名接口就删除补丁：还需验证准入时序、身份传递、失败语义、服务域与浏览器模块身份。
 
-[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证；Session V2→V3 迁移后回退需恢复状态备份，不能只降 npm 版本。逐项风险、补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
+[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证；本项目不承诺旧实验状态兼容，破坏性变化使用新的私有状态目录。DSH 自身日志格式仍由上游管理，旧环境与其匹配版本一并保留，不能只降 npm 版本。逐项风险、补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
 
 ## 源码与证据
 
@@ -220,11 +222,11 @@ flowchart TD
 | `runtime/helper/` | 通用远端文件、进程、PTY、协议；独立 Cargo manifest/lockfile，使用自己的默认 target/ |
 | `runtime/client/`、`runtime/ssh/` | 通用 Node 协议客户端、OpenSSH、安装/bootstrap；不导入 DSH API |
 | `runtime/tests/`、`runtime/scripts/` | 通用 runtime 测试与产物准备 |
-| `integrations/dsh/packages/world/execution-world/` | 通用 local/SSH binding、分派、生命周期与 preset 选择 |
+| `integrations/dsh/packages/world/execution-world/` | identity.ts 的 World/Workspace 类型与身份比较、bindings.ts 的当前格式存储、分派、生命周期与 preset 选择 |
 | `integrations/dsh/packages/world/local-world/` | 组合原生本机 FS/subprocess，无 helper |
-| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、账户权限、绑定 owner 的 terminal backend；旧通用入口保留 re-export |
+| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、账户权限、绑定 owner 的 terminal backend |
 | `integrations/dsh/packages/workspace/local-workspace/` | 独立原生 registry 域及 facade 桥接 |
-| `integrations/dsh/packages/workspace/` | portable-workspace 的 registry/准入/UI；remote-attachments 的 Session 附件策略 |
+| `integrations/dsh/packages/workspace/` | portable-workspace 的 registry/membership、独立 presentation、准入/UI；remote-attachments 的 Session 附件策略 |
 | `integrations/dsh/packages/skill/`、`bundle/` | Skills 发现／同步；整体装配和激活顺序 |
 | `integrations/dsh/shared/` | 少量共享工具，不存 World/Session 领域逻辑 |
 | `integrations/dsh/patches/`、`packaging/` | 固定上游、有序补丁；overlay/preset 与构建输入，不保存完整上游源码 |

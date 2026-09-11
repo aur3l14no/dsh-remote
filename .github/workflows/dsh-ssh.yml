@@ -13,6 +13,8 @@ jobs:
     name: Runtime checks
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: 1.85.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,17 +24,8 @@ jobs:
       - name: Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
       - run: npm ci
-      - run: cargo +1.85.1 fmt --all --check
-        working-directory: runtime/helper
-      - run: cargo +1.85.1 clippy --locked --all-targets -- -D warnings
-        working-directory: runtime/helper
-      - run: cargo +1.85.1 build --locked --bins
-        working-directory: runtime/helper
-      - run: cargo +1.85.1 test --locked
-        working-directory: runtime/helper
-      - run: npm run check
+      - run: npm run check:runtime
       - run: npm test
-      - run: node --test integrations/dsh/tests/release/*.test.mjs
   ssh:
     name: DSH compatibility and Web / SSH E2E
     runs-on: ubuntu-24.04

@@ -1,3 +1,4 @@
+import { changes } from './changes.ts';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import { type Context } from '@deepseek-ai/cordis';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
@@ -33,6 +34,10 @@ export class PortableWorkspaceApi extends TypertRemoteService {
     await this.ctx.worldPortableWorkspaces.pinSession(SessionId(request.sessionId), request.pinned);
     return this.worlds();
   }
+  @Remote({ mode: 'stream' })
+  async *followWorlds(signal: AbortSignal): AsyncIterable<WorldView[]> {
+    for await (const _ of changes(this.ctx.worldPortableWorkspaces, signal)) yield this.worlds();
+  }
   @Remote('worlds')
   worlds(): WorldView[] { return this.ctx.worldPortableWorkspaces.worlds(); }
   @Remote('create')
@@ -48,35 +53,23 @@ export class PortableWorkspaceFeed implements WorkspaceFeedSource {
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     const registry = this.ctx.get('worldPortableWorkspaces');
     if (!registry) throw new Error('PortableWorkspace registry is not ready');
-    let dirty = true;
-    let wake: (() => void) | undefined;
-    const changed = () => { dirty = true; wake?.(); };
-    const unsubscribe = registry.subscribe(changed);
-    signal.addEventListener('abort', changed);
-    try {
-      // Coalesce mutations, then diff authoritative snapshots into the native one-baseline-per-generation stream.
-      let previous = new Map<string, WorkspaceView>();
-      let first = true;
-      while (!signal.aborted) {
-        if (!dirty) await new Promise<void>(accept => { wake = accept; });
-        wake = undefined;
-        if (signal.aborted) break;
-        dirty = false;
-        const items = registry.list().map(workspace => ({ workspaceId: workspace.id, path: workspace.path,
-          title: workspace.title, sessionIds: [...workspace.sessionIds],
-          createdAt: workspace.createdAt, updatedAt: workspace.updatedAt }));
-        if (first) {
-          first = false;
-          yield { type: 'baseline', value: { items, archivedSessionIds: [...registry.archivedSessionIds] } };
-        } else {
-          const nextIds = new Set(items.map(row => row.workspaceId));
-          for (const row of previous.values()) if (!nextIds.has(row.workspaceId)) yield { type: 'remove', workspaceId: row.workspaceId };
-          for (const row of items) if (JSON.stringify(previous.get(row.workspaceId)) !== JSON.stringify(row)) yield { type: 'upsert', workspace: row };
-          yield { type: 'order', workspaceIds: items.map(row => row.workspaceId) };
-          yield { type: 'archived', archivedSessionIds: [...registry.archivedSessionIds] };
-        }
-        previous = new Map(items.map(row => [row.workspaceId, row]));
+    let previous = new Map<string, WorkspaceView>();
+    let first = true;
+    for await (const _ of changes(registry, signal)) {
+      const items = registry.list().map(workspace => ({ workspaceId: workspace.id, path: workspace.path,
+        title: workspace.title, sessionIds: [...workspace.sessionIds],
+        createdAt: workspace.createdAt, updatedAt: workspace.updatedAt }));
+      if (first) {
+        first = false;
+        yield { type: 'baseline', value: { items, archivedSessionIds: [...registry.archivedSessionIds] } };
+      } else {
+        const nextIds = new Set(items.map(row => row.workspaceId));
+        for (const row of previous.values()) if (!nextIds.has(row.workspaceId)) yield { type: 'remove', workspaceId: row.workspaceId };
+        for (const row of items) if (JSON.stringify(previous.get(row.workspaceId)) !== JSON.stringify(row)) yield { type: 'upsert', workspace: row };
+        yield { type: 'order', workspaceIds: items.map(row => row.workspaceId) };
+        yield { type: 'archived', archivedSessionIds: [...registry.archivedSessionIds] };
       }
-    } finally { unsubscribe(); signal.removeEventListener('abort', changed); }
+      previous = new Map(items.map(row => [row.workspaceId, row]));
+    }
   }
 }

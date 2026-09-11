@@ -22,7 +22,7 @@ try {
   };
   await owner.plugin(executionWorldsPlugin(async () => { remoteConnect++; throw new Error('Local must not connect SSH'); }), config);
   const worlds = owner.executionWorlds;
-  const local = { id: 'local-project', kind: 'local' as const, cwd: directory };
+  const local = { id: 'local-project', worldId: 'local', kind: 'local' as const, cwd: directory };
   await worlds.bind('local-session', local);
   const prepared = await worlds.prepareWorld(local);
   assert.equal(prepared.fs, fs); assert.equal(prepared.subprocess, subprocess);

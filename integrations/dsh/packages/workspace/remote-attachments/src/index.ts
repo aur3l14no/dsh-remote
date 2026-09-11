@@ -10,18 +10,16 @@ import { mkdir, mkdtemp, open, rm } from 'node:fs/promises';
 import { join, posix } from 'node:path';
 import { readFile, rawStream, writeFileStream, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import type { Client, Metadata } from '../../../../../../runtime/client/src/index.ts';
-import type { WorldDefinition } from '../../../world/execution-world/src/bindings.ts';
+import { workspaceFingerprint, type WorkspaceDefinition } from '../../../world/execution-world/src/identity.ts';
 import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from '../../portable-workspace/src/registry.ts';
 import { observe } from '../../../../shared/lifetime.ts';
 
-const digest = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
-const fingerprint = (world: WorldDefinition) => digest(JSON.stringify(world));
-const localId = /^sha256:([a-f0-9]{64})$/;
+const fingerprint = workspaceFingerprint;
 const remoteId = /^sha256:([a-f0-9]{64})@world-([a-f0-9]{64})$/;
 const missingSession = () => new RemoteError('WORLD_REQUIRED', 'Attachment storage requires an explicit bound Session');
 
-/** New writes belong to the selected World. Unqualified historical refs retain their explicit host ownership. */
+/** Every IO operation requires a Session; SSH references belong to its saved workspace. */
 export default class RemoteAttachments extends LocalAttachmentStore {
   static inject = ['executionWorlds', 'worldPortableWorkspaces'];
   private readonly scoped = new Map<string, SessionAttachments | LocalSessionAttachments>();
@@ -53,16 +51,10 @@ export default class RemoteAttachments extends LocalAttachmentStore {
   override async saveImage(_input: SaveImageAttachment): Promise<ImageAttachmentRef> { throw missingSession(); }
   override async saveFile(_input: SaveFileAttachment): Promise<FileAttachmentRef> { throw missingSession(); }
   override async saveFileStream(_input: SaveFileStreamAttachment): Promise<FileAttachmentRef> { throw missingSession(); }
-  override readImage(ref: ImageAttachmentRef, signal?: AbortSignal): Promise<StoredImageAttachment> {
-    if (!localId.test(ref.attachmentId)) throw missingSession();
-    return super.readImage(ref, signal);
-  }
-  override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
-    if (!localId.test(ref.attachmentId)) throw missingSession();
-    return super.readFileStream(ref, signal);
-  }
-  override imageHostPath(ref: ImageAttachmentRef): string | undefined { return localId.test(ref.attachmentId) ? super.imageHostPath(ref) : undefined; }
-  override fileHostPath(ref: FileAttachmentRef): string | undefined { return localId.test(ref.attachmentId) ? super.fileHostPath(ref) : undefined; }
+  override async readImage(_ref: ImageAttachmentRef, _signal?: AbortSignal): Promise<StoredImageAttachment> { throw missingSession(); }
+  override async *readFileStream(_ref: FileAttachmentRef, _signal?: AbortSignal): AsyncIterable<Uint8Array> { throw missingSession(); }
+  override imageHostPath(_ref: ImageAttachmentRef): undefined { return undefined; }
+  override fileHostPath(_ref: FileAttachmentRef): undefined { return undefined; }
   /** One global compression budget across all Sessions. No host publication. */
   prepareImage(input: SaveImageAttachment) {
     return this.compression.run(() => prepareImageFile(input, this.imageLimits, this.normalizationPolicy));
@@ -72,7 +64,7 @@ export default class RemoteAttachments extends LocalAttachmentStore {
 /** Native storage mechanics and historical ids, gated by an explicit local Session binding. */
 class LocalSessionAttachments extends LocalAttachmentStore {
   private readonly key: string;
-  constructor(private readonly parent: RemoteAttachments, private readonly sessionId: string, definition: WorldDefinition) {
+  constructor(private readonly parent: RemoteAttachments, private readonly sessionId: string, definition: WorkspaceDefinition) {
     super(new Context(), parent.localConfig);
     this.key = fingerprint(definition);
   }
@@ -96,7 +88,7 @@ class LocalSessionAttachments extends LocalAttachmentStore {
 class SessionAttachments extends LocalAttachmentStore {
   private readonly key: string;
 
-  constructor(private readonly parent: RemoteAttachments, private readonly sessionId: string, private readonly definition: WorldDefinition) {
+  constructor(private readonly parent: RemoteAttachments, private readonly sessionId: string, private readonly definition: WorkspaceDefinition) {
     // Only provider request variants may persist in this disposable host cache.
     super(new Context(), { ...parent.localConfig, dshHome: join(parent.root, '..', '..', 'remote', 'attachment-cache', fingerprint(definition)) });
     this.key = fingerprint(definition);
@@ -131,12 +123,10 @@ class SessionAttachments extends LocalAttachmentStore {
   override imageHostPath(_ref: ImageAttachmentRef): undefined { return undefined; }
   override fileHostPath(_ref: FileAttachmentRef): undefined { return undefined; }
   override imageExecutionPath(ref: ImageAttachmentRef): string | undefined {
-    if (localId.test(ref.attachmentId)) return undefined;
     const hash = this.hash(ref);
     return posix.join(this.objectRoot(), 'objects', hash.slice(0, 2), hash);
   }
   override fileExecutionPath(ref: FileAttachmentRef): string | undefined {
-    if (localId.test(ref.attachmentId)) return undefined;
     const hash = this.hash(ref);
     if (ref.name !== fileLeafName(ref.name)) throw new AttachmentError('Invalid attachment filename.', 'INVALID_ATTACHMENT_REF');
     return posix.join(this.objectRoot(), 'files', hash.slice(0, 2), hash, ref.name);
@@ -189,7 +179,6 @@ class SessionAttachments extends LocalAttachmentStore {
   override async readImage(ref: ImageAttachmentRef, cancellation?: AbortSignal): Promise<StoredImageAttachment> {
     this.assertBinding();
     const signal = this.signal(cancellation);
-    if (localId.test(ref.attachmentId)) return this.parent.readImage(ref, signal);
     this.hash(ref);
     const owner = await this.prepare(signal);
     try {
@@ -202,7 +191,6 @@ class SessionAttachments extends LocalAttachmentStore {
   }
   override readImageRequest(ref: ImageAttachmentRef, policy: ImageRequestPolicy, signal?: AbortSignal): Promise<RequestImageAttachment> {
     this.assertBinding();
-    if (localId.test(ref.attachmentId)) return this.parent.readImageRequest(ref, policy, this.signal(signal));
     this.hash(ref);
     return super.readImageRequest(ref, policy, this.signal(signal));
   }
@@ -258,7 +246,6 @@ class SessionAttachments extends LocalAttachmentStore {
   override async *readFileStream(ref: FileAttachmentRef, cancellation?: AbortSignal): AsyncIterable<Uint8Array> {
     this.assertBinding();
     const signal = this.signal(cancellation);
-    if (localId.test(ref.attachmentId)) { yield* this.parent.readFileStream(ref, signal); return; }
     this.hash(ref);
     const owner = await this.prepare(signal);
     try { yield* this.readVerified(owner.remoteWorld.client, this.fileExecutionPath(ref)!, ref, signal); }

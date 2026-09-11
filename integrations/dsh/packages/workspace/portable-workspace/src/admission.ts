@@ -3,7 +3,7 @@ import type {} from '@deepseek-ai/dsh-permission-presets';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ApiSessionAdmissionRequest } from '@deepseek-ai/dsh-api-session-controller';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import type { WorldDefinition } from '../../../world/execution-world/src/bindings.ts';
+import { sameWorkspace, type WorkspaceDefinition } from '../../../world/execution-world/src/identity.ts';
 import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from './registry.ts';
 
@@ -66,6 +66,6 @@ async function prepare(ctx: Context, request: ApiSessionAdmissionRequest): Promi
   else await worlds.prepare(request.sessionId);
 }
 
-function same(left: WorldDefinition, right: WorldDefinition): void {
-  if (JSON.stringify(left) !== JSON.stringify(right)) throw new RemoteError('WORLD_MISMATCH', 'Session belongs to another World or workspace');
+function same(left: WorkspaceDefinition, right: WorkspaceDefinition): void {
+  if (!sameWorkspace(left, right)) throw new RemoteError('WORLD_MISMATCH', 'Session belongs to another World or workspace');
 }

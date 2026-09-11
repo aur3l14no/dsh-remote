@@ -1,35 +1,16 @@
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
-import { mkdir, rm, access, copyFile } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { writeFileSync, existsSync, statSync } from 'node:fs';
+import { access, copyFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { build } from 'esbuild';
 import ts from 'typescript';
-import { assertUnchangedSource, baselineRevision } from './baseline.mjs';
+import { baselineRevision } from './baseline.mjs';
+import { preparePatchedSource } from './prepare-patched-source.mjs';
 
 const upstream = process.argv[2];
 if (!upstream) throw new Error('Usage: node integrations/dsh/scripts/check-patched-host.mjs DSH_SOURCE [CANDIDATE_PATCH]');
-assertUnchangedSource(upstream);
-const series = JSON.parse(readFileSync(new URL('../patches/series.json', import.meta.url), 'utf8'));
-const patches = [...series.patches];
-for (const file of process.argv.slice(3)) patches.push({ file });
-if (!patches.length) throw new Error('No patches selected');
 const output = resolve('.build/dsh/patched-host');
 const root = join(output, 'source');
-await rm(root, { recursive: true, force: true });
-await mkdir(root, { recursive: true });
-const archive = execFileSync('git', ['-C', resolve(upstream), 'archive', baselineRevision], { maxBuffer: 128 * 1024 * 1024 });
-execFileSync('tar', ['-xf', '-', '-C', root], { input: archive });
-const applied = [];
-for (const patch of patches) {
-  if (!/^[\w.-]+\.patch$/.test(patch.file)) throw new Error('Patch must name a file in integrations/dsh/patches');
-  const file = resolve('integrations/dsh/patches', patch.file);
-  const sha256 = createHash('sha256').update(readFileSync(file)).digest('hex');
-  if (patch.sha256 && patch.sha256 !== sha256) throw new Error(`Patch checksum mismatch: ${patch.file}`);
-  execFileSync('git', ['apply', '--no-index', '--check', file], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
-  execFileSync('git', ['apply', '--no-index', file], { cwd: root, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(root, '..') } });
-  applied.push({ file: patch.file, sha256 });
-}
+const applied = await preparePatchedSource(upstream, root, process.argv.slice(3));
 const rawPaths = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(rawPaths).map(([name, values]) => [name, values.map(value => {
   const path = resolve(root, value);

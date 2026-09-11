@@ -1,7 +1,8 @@
 import { Context, Service } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import { BindingStore, worldDefinition, type WorldDefinition } from './bindings.ts';
+import { BindingStore } from './bindings.ts';
+import { workspaceDefinition, sameWorkspace, type WorkspaceDefinition } from './identity.ts';
 import { SshWorldAdapter, type SshAdapterConfig, type WorldConnector } from '../../ssh-world/src/adapter.ts';
 import { openLocalWorld } from '../../local-world/src/adapter.ts';
 export type { WorldConnection, WorldConnector, BootstrapConfig } from '../../ssh-world/src/adapter.ts';
@@ -11,7 +12,7 @@ export interface Config extends SshAdapterConfig {
   local?: Context;
   bindingFile: string;
 }
-interface OpenWorld { definition: WorldDefinition; ctx: Context }
+interface OpenWorld { definition: WorkspaceDefinition; ctx: Context }
 declare module '@deepseek-ai/cordis' { interface Context { executionWorlds: ExecutionWorlds } }
 
 /** Owns World connections and durable bindings, never Agent creation or Session history. */
@@ -19,7 +20,7 @@ export default class ExecutionWorlds extends Service {
   readonly bindings: BindingStore;
   private opening = new Map<string, Promise<OpenWorld>>();
   private ready = new Map<string, OpenWorld>();
-  private live = new WeakMap<Agent, WorldDefinition>();
+  private live = new WeakMap<Agent, WorkspaceDefinition>();
   private closed = false;
   private readonly ssh: SshWorldAdapter;
   private readonly local?: Context;
@@ -44,12 +45,12 @@ export default class ExecutionWorlds extends Service {
   private assertOpen(): void {
     if (this.closed) throw new RemoteError('WORLD_CLOSED', 'World service is disposed');
   }
-  private same(left: WorldDefinition, right: WorldDefinition): void {
-    if (JSON.stringify(left) !== JSON.stringify(right)) throw new RemoteError('WORLD_MISMATCH', 'World definition changed');
+  private same(left: WorkspaceDefinition, right: WorkspaceDefinition): void {
+    if (!sameWorkspace(left, right)) throw new RemoteError('WORLD_MISMATCH', 'World definition changed');
   }
-  private async open(input: WorldDefinition): Promise<OpenWorld> {
+  private async open(input: WorkspaceDefinition): Promise<OpenWorld> {
     this.assertOpen();
-    const definition = worldDefinition(input);
+    const definition = workspaceDefinition(input);
     let pending = this.opening.get(definition.id);
     if (!pending) {
       pending = (async () => {
@@ -86,8 +87,8 @@ export default class ExecutionWorlds extends Service {
   }
 
   /** Application selection before normal DSH create. Failure never changes an existing binding. */
-  async bind(sessionId: string, input: WorldDefinition): Promise<WorldDefinition> {
-    const definition = worldDefinition(input);
+  async bind(sessionId: string, input: WorkspaceDefinition): Promise<WorkspaceDefinition> {
+    const definition = workspaceDefinition(input);
     this.bindings.assertCompatible(sessionId, definition);
     await this.open(definition);
     this.bindings.bind(sessionId, definition);
@@ -95,12 +96,12 @@ export default class ExecutionWorlds extends Service {
   }
 
   /** Concrete providers for application-owned workspace selection, before a Session exists. */
-  async prepareWorld(input: WorldDefinition): Promise<Context> {
+  async prepareWorld(input: WorkspaceDefinition): Promise<Context> {
     return (await this.open(input)).ctx;
   }
 
   /** Application setup before normal DSH resume. Starts a new helper after application restart. */
-  async prepare(sessionId: string): Promise<WorldDefinition> {
+  async prepare(sessionId: string): Promise<WorkspaceDefinition> {
     const definition = this.bindings.get(sessionId);
     if (!definition) throw new RemoteError('WORLD_REQUIRED', 'Session has no saved World binding');
     await this.open(definition);
@@ -117,7 +118,7 @@ export default class ExecutionWorlds extends Service {
     return this.available(saved, saved.cwd);
   }
 
-  private available(definition: WorldDefinition, cwd: string | undefined): Context {
+  private available(definition: WorkspaceDefinition, cwd: string | undefined): Context {
     this.assertOpen();
     const world = this.ready.get(definition.id);
     if (!world) throw new RemoteError('WORLD_NOT_READY', 'Prepare the saved World before publishing the Agent');
@@ -128,7 +129,7 @@ export default class ExecutionWorlds extends Service {
   }
 
   /** A live child can inherit identity, but only session-start can authorize a new durable row. */
-  inherited(agent: Agent): WorldDefinition | undefined {
+  inherited(agent: Agent): WorkspaceDefinition | undefined {
     const header = agent.session.header;
     if (header.origin !== 'subagent' || !header.parentSession) return undefined;
     const parent = this.bindings.get(header.parentSession);

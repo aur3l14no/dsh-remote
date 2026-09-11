@@ -5,10 +5,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { once } from 'node:events';
-import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
+import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
+import { worldDefinition, workspaceFor, workspaceDefinition, workspaceFingerprint, sameWorkspace } from '../../packages/world/execution-world/src/identity.ts';
 
-const definition = { id: 'world-a', kind: 'ssh', host: 'example.invalid', cwd: '/workspace' } as const;
-const storeModule = new URL('../../packages/world/ssh-world/src/bindings.ts', import.meta.url).href;
+const definition = { id: 'workspace-a', worldId: 'world-a', kind: 'ssh', host: 'example.invalid', cwd: '/workspace' } as const;
+const storeModule = new URL('../../packages/world/execution-world/src/bindings.ts', import.meta.url).href;
 
 test('binding store preserves immutable identities across instances and process restart', async () => {
   const dir = await mkdtemp('/tmp/dsh-bindings.');
@@ -68,9 +69,9 @@ test('missing, corrupt, future-format, duplicate and unsafe maps fail without re
     const file = `${dir}/bindings.json`, store = BindingStore.create(file);
     store.bind('one', definition);
     const valid = fs.readFileSync(file, 'utf8');
-    for (const invalid of ['{', JSON.stringify({ version: 3, worlds: [], sessions: [] }),
-      JSON.stringify({ version: 1, worlds: [definition, definition], sessions: [] }),
-      JSON.stringify({ version: 1, worlds: [], sessions: [{ sessionId: 'one', worldId: 'missing' }] })]) {
+    for (const invalid of ['{', JSON.stringify({ version: 4, workspaces: [], sessions: [] }),
+      JSON.stringify({ version: 3, workspaces: [definition, definition], sessions: [] }),
+      JSON.stringify({ version: 3, workspaces: [], sessions: [{ sessionId: 'one', workspaceId: 'missing' }] })]) {
       fs.writeFileSync(file, invalid);
       assert.throws(() => store.get('one'), { code: 'INVALID_BINDINGS' });
       assert.equal(fs.readFileSync(file, 'utf8'), invalid);
@@ -131,41 +132,68 @@ test('process killed before rename leaves the prior complete map and refuses loc
 });
 
 
-test('first local binding backs up v1, preserves SSH identities and upgrades only once', async () => {
+test('current format stores local and SSH workspaces without migration artifacts', async () => {
   const dir = await mkdtemp('/tmp/dsh-bindings.');
   try {
     const file = `${dir}/bindings.json`, store = BindingStore.create(file);
-    store.bind('remote', definition);
-    const original = fs.readFileSync(file);
-    const local = { id: 'native-project', kind: 'local', cwd: '/workspace' } as const;
-    store.bind('local', local);
-    const backups = fs.readdirSync(dir).filter(name => name.endsWith('.bak'));
-    assert.equal(backups.length, 1);
-    assert.deepEqual(fs.readFileSync(`${dir}/${backups[0]}`), original);
-    assert.equal(fs.statSync(`${dir}/${backups[0]}`).mode & 0o777, 0o600);
-    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
-    assert.equal(saved.version, 2);
+    const local = workspaceFor(worldDefinition({ id: 'local', kind: 'local' }), 'native-project', '/workspace');
+    store.bind('remote', definition); store.bind('local', local);
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).version, 3);
     assert.deepEqual(new BindingStore(file).get('remote'), definition);
     assert.deepEqual(new BindingStore(file).get('local'), local);
     assert.throws(() => store.bind('remote', local), { code: 'WORLD_MISMATCH' });
     assert.throws(() => store.bind('local', { ...definition, id: local.id }), { code: 'WORLD_MISMATCH' });
-    store.bind('another-local-session', local);
-    assert.equal(fs.readdirSync(dir).filter(name => name.endsWith('.bak')).length, 1);
-    // A crash after writing the backup but before publication remains retryable.
-    fs.writeFileSync(file, original);
-    new BindingStore(file).bind('local', local);
-    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).version, 2);
+    assert.deepEqual(fs.readdirSync(dir), ['bindings.json']);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('v1 never infers local authority and local definitions reject SSH fields', async () => {
+test('old formats are rejected unchanged and malformed local definitions confer no authority', async () => {
   const dir = await mkdtemp('/tmp/dsh-bindings.');
   try {
     const file = `${dir}/bindings.json`, store = BindingStore.create(file);
-    const original = fs.readFileSync(file);
-    assert.throws(() => store.bind('bad', { id: 'local', kind: 'local', cwd: '/workspace', host: 'example.invalid' } as any), { code: 'INVALID_WORLD' });
-    assert.deepEqual(fs.readFileSync(file), original);
-    fs.writeFileSync(file, JSON.stringify({ version: 1, worlds: [{ id: 'local', kind: 'local', cwd: '/workspace' }], sessions: [] }));
+    assert.throws(() => store.bind('bad', { id: 'local', worldId: 'local', kind: 'local', cwd: '/workspace', host: 'example.invalid' } as any), { code: 'INVALID_WORLD' });
+    for (const version of [1, 2]) {
+      const old = JSON.stringify({ version, worlds: [definition], sessions: [{ sessionId: 'remote', worldId: definition.id }] });
+      fs.writeFileSync(file, old);
+      assert.throws(() => new BindingStore(file), { code: 'INVALID_BINDINGS' });
+      assert.throws(() => BindingStore.create(file), { code: 'INVALID_BINDINGS' });
+      assert.equal(fs.readFileSync(file, 'utf8'), old);
+      assert.deepEqual(fs.readdirSync(dir), ['bindings.json']);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('workspace identity includes environment and cwd, independent of object property order', () => {
+  const world = worldDefinition({ id: 'world-a', kind: 'ssh', host: 'example.invalid' });
+  assert.equal(world.kind, 'ssh');
+  if (world.kind !== 'ssh') throw new Error('Expected SSH fixture');
+  const workspace = workspaceFor(world, 'workspace-a', '/workspace');
+  assert.deepEqual(workspace, definition);
+  assert.equal(sameWorkspace(workspace, { cwd: workspace.cwd, worldId: workspace.worldId, host: world.host, kind: world.kind, id: workspace.id }), true);
+  assert.equal(workspaceFingerprint(workspace), workspaceFingerprint(workspaceDefinition(definition)));
+  for (const changed of [{ ...workspace, worldId: 'world-b' }, { ...workspace, cwd: '/other' }, { ...workspace, host: 'other.invalid' }]) {
+    assert.equal(sameWorkspace(workspace, changed), false);
+  }
+  assert.throws(() => worldDefinition(definition), { code: 'INVALID_WORLD' });
+  assert.throws(() => workspaceDefinition(world), { code: 'INVALID_WORLD' });
+});
+
+test('one World keeps one target across workspaces and corrupted target reuse is rejected', async () => {
+  const dir = await mkdtemp('/tmp/dsh-bindings.');
+  try {
+    const file = `${dir}/bindings.json`, store = BindingStore.create(file);
+    store.bind('one', definition);
+    const other = { ...definition, id: 'workspace-b', cwd: '/other' };
+    store.bind('two', other);
+    assert.deepEqual(store.get('two'), other);
+    const before = fs.readFileSync(file, 'utf8');
+    const conflicting = { ...other, id: 'workspace-c', host: 'replacement.invalid' };
+    assert.throws(() => store.assertCompatible('three', conflicting), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('three', conflicting), { code: 'WORLD_MISMATCH' });
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+    const corrupt = JSON.parse(before);
+    corrupt.workspaces.push(conflicting);
+    fs.writeFileSync(file, JSON.stringify(corrupt));
     assert.throws(() => new BindingStore(file), { code: 'INVALID_BINDINGS' });
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

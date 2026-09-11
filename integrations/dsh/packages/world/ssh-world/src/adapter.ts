@@ -1,16 +1,16 @@
 import { Context } from '@deepseek-ai/cordis';
 import { type Client, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { bootstrapSshWorld, type BootstrapOptions } from '../../../../../../runtime/ssh/src/index.ts';
-import type { SshWorldDefinition } from '../../execution-world/src/bindings.ts';
+import type { SshWorkspaceDefinition } from '../../execution-world/src/identity.ts';
 import { worldPlugin } from './world.ts';
 import SshFileSystem from './fs.ts';
 import SshSubprocess from './subprocess.ts';
 
 export interface WorldConnection { client: Client; ripgrep: string; dataRoot?: string; close(): Promise<void> }
-export type WorldConnector = (world: SshWorldDefinition) => Promise<WorldConnection>;
+export type WorldConnector = (world: SshWorkspaceDefinition) => Promise<WorldConnection>;
 export type BootstrapConfig = Pick<BootstrapOptions, 'manifest' | 'cacheDir' | 'required' | 'graceMs' | 'leaseMs' | 'connectTimeoutMs' | 'lockWaitMs'>;
 export interface SshAdapterConfig {
-  beforeConnect?: (world: SshWorldDefinition) => Promise<void>;
+  beforeConnect?: (world: SshWorkspaceDefinition) => Promise<void>;
   packagedRipgrep: string;
   bootstrap: BootstrapConfig | (() => Promise<BootstrapConfig>);
 }
@@ -23,16 +23,17 @@ export class SshWorldAdapter {
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
     this.prepared = typeof config.bootstrap === 'function' ? undefined : config.bootstrap;
     this.connect = connector ?? (async definition => {
+      // The protocol world token identifies this concrete workspace runtime owner.
       const world = await bootstrapSshWorld({ ...this.prepared!, ...definition, world: definition.id });
       return { ...world, dataRoot: `${world.platform.home}/.local/share/dsh-remote` };
     });
   }
   /** Retryable preparation runs before a runtime is allocated. */
-  async prepare(definition: SshWorldDefinition): Promise<void> {
+  async prepare(definition: SshWorkspaceDefinition): Promise<void> {
     await this.config.beforeConnect?.(definition);
     if (!this.connector && typeof this.config.bootstrap === 'function') this.prepared = await this.config.bootstrap();
   }
-  async open(definition: SshWorldDefinition): Promise<Context> {
+  async open(definition: SshWorkspaceDefinition): Promise<Context> {
     const connection = await this.connect(definition);
     const owner = new Context();
     let mounted = false;

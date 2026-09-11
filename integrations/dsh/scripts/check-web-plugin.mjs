@@ -28,12 +28,10 @@ for (const entry of ['world/execution-world/src/presets.ts', 'workspace/remote-a
     lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts', 'lib.dom.d.ts'],
     types: ['node'], typeRoots: [join(root, 'node_modules/@types')],
   });
-  // Own downstream diagnostics and the patched sidebar browser surface.
+  // Check our downstream source; upstream browser compatibility has its own gate.
   const errors = ts.getPreEmitDiagnostics(program).filter(diagnostic => !diagnostic.file
     || ['integrations/', 'runtime/'].some(path => diagnostic.file.fileName.startsWith(join(root, path)))
-    || (diagnostic.file.fileName.startsWith(join(upstream, 'packages/client/ui-sidebar/src/'))
-      // Pinned upstream references this absent locale key in its unchanged brand fallback.
-      && !(diagnostic.code === 2345 && ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ').includes('brand.localBuild'))));
+);
   if (errors.length) process.stderr.write(ts.formatDiagnosticsWithColorAndContext(errors, format));
   failures += errors.length;
 }

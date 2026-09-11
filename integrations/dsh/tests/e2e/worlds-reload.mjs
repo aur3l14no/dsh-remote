@@ -24,7 +24,6 @@ const registry = {
       if (old && JSON.stringify(old.target) !== JSON.stringify(world.target)) throw new Error('target changed');
     }
   },
-  legacyEnabledSkills() { return undefined; },
   replaceCatalog(value) { this.validateCatalog(value); active = structuredClone(value); },
 };
 const sync = new SkillSynchronizer(worlds);

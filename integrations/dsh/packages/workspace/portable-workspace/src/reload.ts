@@ -94,7 +94,7 @@ export class WorldsReload {
         if (candidate.target.kind === 'local') continue;
         const owner: SshCatalogWorld = { ...candidate, target: candidate.target };
         try {
-          const selected = world && (world.enabledSkills ?? this.ctx.worldPortableWorkspaces.legacyEnabledSkills(world.target));
+          const selected = world?.enabledSkills;
           const desired = (world?.skills ?? []).filter(skill => selected === undefined || selected.includes(skill.name));
           const prepared = await prepareSkills(desired, signal);
           const target: TargetPlan = { world: owner, prepared, skills: [] };

@@ -1,3 +1,4 @@
+import { sameWorkspace } from '../../../world/execution-world/src/identity.ts';
 /** Session-bound native and SSH skill discovery share DSH parsing and invocation controls. */
 import type { Context } from '@deepseek-ai/cordis';
 import { SessionId } from '@deepseek-ai/dsh-session';
@@ -25,7 +26,7 @@ export function apply(ctx: Context): void {
     const workspace = await observe(ctx.worldPortableWorkspaces.contextForSession(id), signal);
     const expected = ctx.worldPortableWorkspaces.definition(workspace.id);
     const saved = ctx.executionWorlds.bindings.get(id);
-    if (JSON.stringify(expected) !== JSON.stringify(saved) || options.cwd !== expected.cwd) throw new Error('Remote context binding mismatch');
+    if (!saved || !sameWorkspace(expected, saved) || options.cwd !== expected.cwd) throw new Error('Remote context binding mismatch');
     const definition = await observe(ctx.executionWorlds.prepare(id), signal);
     const owner = await observe(ctx.executionWorlds.prepareWorld(definition), signal);
     if (definition.kind === 'local') return { owner, home: homedir(), cwd: definition.cwd, id: definition.id, signal, kind: 'local' as const };

@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type {} from '@deepseek-ai/dsh-api-gateway/client';
+import { RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client';
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client';
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client';
@@ -44,26 +44,32 @@ function installWorkspaceUi(ctx: Context) {
   const subscribeSessions = (listener: () => void) => sessionController.list.subscribe(listener);
   const sessionSnapshot = () => sessionController.list.getSnapshot();
 
-  function useWorlds(refresh: unknown) {
+  function useWorlds() {
     const [worlds, setWorlds] = useState<WorldView[]>([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     useEffect(() => {
       let active = true;
       setLoading(true); setError('');
-      void ctx.remote.portableWorkspace.worlds().then(result => {
-        if (!active) return;
-        if (result.ok) setWorlds(result.value); else setError(result.error.message);
-      }).catch(error => { if (active) setError(String(error)); })
-        .finally(() => { if (active) setLoading(false); });
-      return () => { active = false; };
-    }, [refresh]);
-    return { worlds, setWorlds, error, loading };
+      const stream = ctx.remote.$stream<WorldView[]>({ name: 'World presentation',
+        open: signal => ctx.remote.portableWorkspace.followWorlds(signal),
+        ended: () => new RemoteStreamCarrierError('World presentation stream ended'),
+        carrierFailed: error => { if (active) setError(error.message); },
+      });
+      void (async () => {
+        for await (const item of stream) {
+          if (!active) break;
+          setWorlds(item.value); setError(''); setLoading(false); item.accept();
+        }
+      })().catch(error => { if (active) { setError(String(error)); setLoading(false); } });
+      return () => { active = false; void stream.dispose(); };
+    }, []);
+    return { worlds, error, loading };
   }
 
   function WorkspacePicker({ open, anchorRef, selectedId, onPick, onClose, renderSlot }: PropsRuntime<'conversation.hero.workspace'> & PropsRenderSlots<'conversation.hero.workspace.directoryFlow'>) {
     const snapshot = useSyncExternalStore(subscribeWorkspaces, workspaceSnapshot);
-    const { worlds, error: catalogError, loading } = useWorlds(open);
+    const { worlds, error: catalogError, loading } = useWorlds();
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
     const attempt = useRef<AbortController | null>(null);
@@ -168,41 +174,10 @@ function installWorkspaceUi(ctx: Context) {
     </>;
   }
 
-  let reloadGeneration = 0;
-  const reloadListeners = new Set<() => void>();
-  const subscribeReload = (listener: () => void) => { reloadListeners.add(listener); return () => { reloadListeners.delete(listener); }; };
-  const reloadSnapshot = () => reloadGeneration;
-  const reloaded = (generation: number) => {
-    if (generation === reloadGeneration) return;
-    reloadGeneration = generation;
-    for (const listener of reloadListeners) listener();
-  };
-  function PrimaryActions({ wide }: PropsRuntime<'sidebar.primaryActions'>) {
-    return <div className="workspace-toolbar" data-wide={wide}>
-      <style>{`
-        .workspace-toolbar { display: flex; flex: none; gap: 4px; padding: 0 0 6px; }
-        .workspace-toolbar[data-wide=false] { flex-direction: column; align-items: center; }
-        .workspace-toolbar button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 0; }
-        .workspace-toolbar .workspace-new-session { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: grid; place-items: center; }
-        .workspace-toolbar button:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
-        .workspace-toolbar button:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
-      `}</style>
-      <Tooltip label="New session" side="bottom">
-        <button className="workspace-new-session" aria-label="New session" onClick={() => navigation.startSession()}>
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-        </button>
-      </Tooltip>
-      <ReloadWorlds ctx={ctx} onReload={reloaded} />
-    </div>;
-  }
-
   function Workspaces({ renderSlot }: PropsRenderSlots<'sidebar.workspaces.directoryFlow'>) {
     const snapshot = useSyncExternalStore(subscribeWorkspaces, workspaceSnapshot);
     const sessions = useSyncExternalStore(subscribeSessions, sessionSnapshot);
-    const generation = useSyncExternalStore(subscribeReload, reloadSnapshot);
-    const refresh = useRef({ items: snapshot.items, generation });
-    if (refresh.current.items !== snapshot.items || refresh.current.generation !== generation) refresh.current = { items: snapshot.items, generation };
-    const { worlds, setWorlds, error: catalogError } = useWorlds(refresh.current);
+    const { worlds, error: catalogError } = useWorlds();
     const pinned = worlds.flatMap(world => world.pinnedSessionIds);
     const [busySession, setBusySession] = useState<string>();
     const [error, setError] = useState('');
@@ -236,6 +211,7 @@ function installWorkspaceUi(ctx: Context) {
         .portable-workspaces [role=alert] { margin: 4px 6px; color: #ba3232; overflow-wrap: anywhere; }
         @media (hover: none) { .portable-workspaces .session-actions button { opacity: .65; pointer-events: auto; } }
       `}</style>
+      <ReloadWorlds ctx={ctx} />
       {navigation.unavailableSession && <p role="alert">The linked Session is unavailable.</p>}
       {(error || catalogError || snapshot.error) && <p role="alert">{error || catalogError || snapshot.error?.message}</p>}
       {!snapshot.items.some(row => row.sessionIds.some(id => !snapshot.archivedSessionIds.includes(id))) && <p className="empty-sessions">Start a new session to choose a workspace.</p>}
@@ -264,7 +240,6 @@ function installWorkspaceUi(ctx: Context) {
                 try {
                   const result = await ctx.remote.portableWorkspace.pinSession({ sessionId: id, pinned: !isPinned });
                   if (!result.ok) throw new Error(result.error.message);
-                  setWorlds(result.value);
                 } finally { setBusySession(undefined); }
               });
             }}><PinIcon pinned={isPinned} /></button>
@@ -279,7 +254,6 @@ function installWorkspaceUi(ctx: Context) {
       {renderSlot('sidebar.workspaces.directoryFlow', { open: false, busy: false, onPicked: () => {}, onCancel: () => {}, onError: () => {} })}
     </section>;
   }
-  ctx.slots.inject('sidebar.primaryActions', () => ctx.slots.register({ name: 'sidebar.primaryActions' }, PrimaryActions));
   ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register({ name: 'sidebar.workspaces', children: { 'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' } } }, Workspaces));
   ctx.slots.inject('conversation.hero.workspace', () => ctx.slots.register({ name: 'conversation.hero.workspace', children: { 'conversation.hero.workspace.directoryFlow': { kind: 'single', scope: 'root' } } }, WorkspacePicker));
 }

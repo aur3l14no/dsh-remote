@@ -68,14 +68,14 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   host = await launch(false);
   const nativeWorkspace = await host.ctx.get('workspaceRegistry').create(project);
   const created = await host.ctx.get('sessionController').create({ workspaceId: nativeWorkspace.id });
-  const originalId = created.sessionId;
+  const historicalId = created.sessionId;
+  let originalId = historicalId;
   const original = host.ctx.agents.get(originalId)!;
   expect(original.session.header.agentPreset).toBe('standard');
   await localOperations(original, 'vanilla');
   const nativeSkills = await host.ctx.get('sessionSkillCatalog').list({ sessionId: originalId }, AbortSignal.timeout(10000));
   expect(nativeSkills.skills.map(skill => skill.name)).toContain('local-proof');
   await turn(original, 'VANILLA_DONE');
-  const nativeHeader = { ...original.session.header };
   await host.close(); host = undefined;
   const logs = new Map<string, Buffer>();
   async function remember(directory: string) {
@@ -98,17 +98,20 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   for (const [path, bytes] of logs) expect(await readFile(path)).toEqual(bytes);
   const worlds = host.ctx.get('executionWorlds');
   const registry = host.ctx.get('worldPortableWorkspaces');
-  expect(worlds.bindings.get(originalId)).toMatchObject({ kind: 'local', cwd: project });
-  expect(registry.forSession(originalId).id).toBe(nativeWorkspace.id);
-  expect(registry.worlds()).toEqual([expect.objectContaining({ kind: 'local', id: 'local', name: 'This computer', workspaceIds: [nativeWorkspace.id] })]);
-  expect(JSON.parse(await readFile(bindingFile, 'utf8')).version).toBe(2);
-  expect((await readdir(join(home, 'remote'))).filter(name => name.endsWith('.bak'))).toHaveLength(1);
+  // Existing unbound history is retained but never implicitly granted execution authority.
+  expect(worlds.bindings.get(historicalId)).toBeUndefined();
+  expect(registry.forSession(historicalId)).toBeUndefined();
+  await expect(host.ctx.get('sessionController').create({ sessionId: historicalId, workspaceId: nativeWorkspace.id })).rejects.toThrow('no saved World binding');
+  expect(JSON.parse(await readFile(bindingFile, 'utf8')).version).toBe(3);
+  expect((await readdir(join(home, 'remote'))).filter(name => name.endsWith('.bak'))).toHaveLength(0);
   await expect(access(join(state, 'must-not-download'))).rejects.toThrow();
 
-  await host.ctx.get('sessionController').create({ sessionId: originalId, workspaceId: nativeWorkspace.id });
+  const admitted = await host.ctx.get('sessionController').create({ workspaceId: nativeWorkspace.id });
+  originalId = admitted.sessionId;
   const resumed = host.ctx.agents.get(originalId)!;
-  // Native decoding fills optional delegationDepth on resume; every recorded creation fact is retained.
-  expect(resumed.session.header).toMatchObject(nativeHeader);
+  expect(worlds.bindings.get(originalId)).toMatchObject({ kind: 'local', worldId: 'local', cwd: project });
+  expect(registry.forSession(originalId).id).toBe(nativeWorkspace.id);
+  await expect(registry.get(nativeWorkspace.id).detachSession(originalId)).rejects.toThrow('membership is immutable');
   await localOperations(resumed, 'installed');
   expect(worlds.forAgent(resumed).get('remoteWorld')).toBeUndefined();
   const skills = await host.ctx.get('sessionSkillCatalog').list({ sessionId: originalId }, AbortSignal.timeout(10000));
@@ -117,6 +120,9 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   expect(JSON.stringify(adapter.requests)).toContain('LOCAL_PROJECT_INSTRUCTIONS');
   expect(JSON.stringify(adapter.requests)).toContain('local-proof');
   expect(JSON.stringify(adapter.requests)).not.toContain('helperBuild');
+  for (const fact of ['"world":"local"', '"workspace":"workspace:']) {
+    expect(JSON.stringify(adapter.requests)).toContain(JSON.stringify(fact).slice(1, -1));
+  }
   const fileReferences = await host.ctx.get('fileReferences').list(resumed, 'world', AbortSignal.timeout(10000));
   expect(fileReferences.map(row => row.path)).toContain('world.txt');
 
@@ -183,6 +189,22 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   onTestFailed(async () => { if (page && !page.isClosed()) { console.error(await page.locator('body').innerText()); await page.screenshot({ path: `${root}/artifacts/dsh/local-workspace-failure.png` }); } });
   await page.goto(host.authenticatedUrl);
   await page.getByRole('button', { name: `Open session ${originalId}`, exact: true }).click();
+  const peer = await newEnglishPage(browser);
+  try {
+    await peer.goto(host.authenticatedUrl);
+    await peer.getByRole('button', { name: `Open session ${originalId}`, exact: true }).waitFor();
+    const beforePreference = registry.get(nativeWorkspace.id).updatedAt;
+    await registry.pinSession(originalId, true);
+    for (const client of [page, peer]) {
+      await expect.poll(() => client.getByRole('button', { name: `Unpin session ${originalId}`, exact: true }).count()).toBe(1);
+    }
+    await peer.getByRole('button', { name: `Unpin session ${originalId}`, exact: true }).click();
+    for (const client of [page, peer]) {
+      await expect.poll(() => client.getByRole('button', { name: `Pin session ${originalId}`, exact: true }).count()).toBe(1);
+    }
+    expect(registry.get(nativeWorkspace.id).updatedAt).toBe(beforePreference);
+  } finally { await peer.close(); }
+
   let uploadedFile: FileAttachmentRef | undefined, uploadedImage: ImageAttachmentRef | undefined;
   const uploadResults: unknown[] = [];
   host.ctx.on('session/event', (session, event) => {
@@ -222,7 +244,7 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   expect(exported.ok()).toBe(true);
   execFileSync('python3', ['-c', 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert any(z.read(n)==b"NATIVE_UPLOAD_CONTENT" for n in z.namelist()); assert any(n.endswith(".png") for n in z.namelist())'], { input: await exported.body() });
   await expect.poll(() => page!.getByRole('img', { name: 'native-image.png', exact: true }).first().evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(13);
-  await page.locator('.workspace-new-session').click();
+  await page.getByRole('button', { name: 'New session', exact: true }).last().click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Choose a folder…', exact: true }).click();
   const chooser = page.getByRole('dialog', { name: 'Select Workspace Directory' });
@@ -243,13 +265,10 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   await page.setViewportSize({ width: 1280, height: 300 });
   const list = page.locator('.portable-workspaces .session-list');
   await expect.poll(() => list.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
-  const actions = page.locator('.workspace-toolbar');
-  const actionsBefore = await actions.boundingBox();
   await list.hover();
   await page.mouse.wheel(0, 1000);
   await expect.poll(() => list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
-  expect(await actions.boundingBox()).toEqual(actionsBefore);
-  expect(await actions.locator('button:visible').count()).toBe(2);
+  await expect.poll(() => page!.getByRole('button', { name: 'Reload worlds', exact: true }).isVisible()).toBe(true);
   await page.screenshot({ path: `${root}/artifacts/dsh/sidebar-scroll.png`, animations: 'disabled' });
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'Reload worlds', exact: true }).click();
@@ -270,7 +289,7 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   await host.ctx.get('sessionController').create({ sessionId: originalId, workspaceId: nativeWorkspace.id });
   expect((await tool(host.ctx.agents.get(originalId)!, 'read', { file_path: 'world.txt' })).isError).toBe(false);
   await expect(access(join(state, 'must-not-download'))).rejects.toThrow();
-  await writeFile(`${root}/artifacts/dsh/local-workspace-result.json`, JSON.stringify({ status: 'passed', platform: process.platform, checks: ['vanilla baseline', 'native membership adoption with original logs', 'local read/write and shell', 'native permission modes', 'native skills and instructions', 'background jobs and cancellation', 'terminal ownership', 'child binding and attachment reads', 'browser uploads and model attachment reads', 'ZIP export with attachments', 'preset isolation', 'fork', 'directory picker cancellation and selection', 'cold preview and resume'], runtimeCacheCreated: false, helperAttached: false }, null, 2));
+  await writeFile(`${root}/artifacts/dsh/local-workspace-result.json`, JSON.stringify({ status: 'passed', platform: process.platform, checks: ['vanilla baseline', 'unbound historical resume rejected; fresh explicit admission', 'local read/write and shell', 'native permission modes', 'native skills and instructions', 'background jobs and cancellation', 'terminal ownership', 'child binding and attachment reads', 'two-client presentation subscription without workspace mutation', 'browser uploads and model attachment reads', 'ZIP export with attachments', 'preset isolation', 'fork', 'directory picker cancellation and selection', 'cold preview and resume'], runtimeCacheCreated: false, helperAttached: false }, null, 2));
 });
 
 

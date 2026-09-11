@@ -25,15 +25,16 @@ writeFileSync(consumer, `import WorldService, { type Config, type WorldConnector
 import FsRouter from '@dsh-remote/ssh-world/fs';
 import SubprocessRouter from '@dsh-remote/ssh-world/subprocess';
 import { executionWorldContext } from '@dsh-remote/ssh-world/routing';
-import { BindingStore, type WorldDefinition } from '@dsh-remote/ssh-world/bindings';
+import { BindingStore } from '@dsh-remote/ssh-world/bindings';
+import type { WorkspaceDefinition } from '@dsh-remote/ssh-world/identity';
 import { Client } from '@dsh-remote/ssh-world/client';
 import type { Context } from '@deepseek-ai/cordis';
-const definition: WorldDefinition = { id: 'example', kind: 'ssh', host: 'example.invalid', cwd: '/workspace', podmanContainer: 'a'.repeat(64) };
+const definition: WorkspaceDefinition = { id: 'example', worldId: 'example-world', kind: 'ssh', host: 'example.invalid', cwd: '/workspace', podmanContainer: 'a'.repeat(64) };
 const config: Config = { bindingFile: '/private/bindings.json', packagedRipgrep: '/managed/rg', bootstrap: { manifest: {}, cacheDir: '/cache' } };
 declare const ctx: Context;
 const connector: WorldConnector = async () => { throw new Error('type check only'); };
 const service = new WorldService(ctx, config, connector);
-const selected: Promise<WorldDefinition> = service.bind('example-session', definition);
+const selected: Promise<WorkspaceDefinition> = service.bind('example-session', definition);
 void [selected, FsRouter, SubprocessRouter, executionWorldContext, BindingStore, Client];
 `);
 const typePaths = Object.fromEntries(Object.entries(paths).map(([name, values]) => [name, values.map(value => {
@@ -70,22 +71,22 @@ for (const name of hostPeers) {
     bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', plugins: [sourceAlias] });
 }
 const remotes = new Map([
-  [resolve('integrations/dsh/packages/world/ssh-world/src/worlds.ts'), '@dsh-remote/ssh-world'],
-  [resolve('integrations/dsh/packages/world/ssh-world/src/routing.ts'), '@dsh-remote/ssh-world/routing'],
-  [resolve('integrations/dsh/packages/world/ssh-world/src/bindings.ts'), '@dsh-remote/ssh-world/bindings'],
+  [resolve('integrations/dsh/packages/world/execution-world/src/worlds.ts'), '@dsh-remote/ssh-world'],
+  [resolve('integrations/dsh/packages/world/execution-world/src/routing.ts'), '@dsh-remote/ssh-world/routing'],
+  [resolve('integrations/dsh/packages/world/execution-world/src/bindings.ts'), '@dsh-remote/ssh-world/bindings'],
   [resolve('runtime/client/src/index.ts'), '@dsh-remote/ssh-world/client'],
 ]);
 const result = await build({ entryPoints: ['integrations/dsh/tests/integration/session-routing.ts'], outfile: join(output, 'lib/accept.mjs'),
   bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', metafile: true,
   plugins: [{ name: 'installed-plugin', setup(builder) {
-    builder.onResolve({ filter: /(?:ssh-world|client)\/src\// }, ({ path, resolveDir }) => {
+    builder.onResolve({ filter: /(?:execution-world|ssh-world|client)\/src\// }, ({ path, resolveDir }) => {
       const entry = remotes.get(resolve(resolveDir, path));
       if (!entry) throw new Error(`Package fixture must not import a private plugin source: ${path}`);
       return { path: entry, external: true };
     });
   } }, sourceAlias],
 });
-if (Object.keys(result.metafile.inputs).some(file => file.includes('integrations/dsh/packages/world/ssh-world/'))) throw new Error('Host fixture bundled plugin source');
+if (Object.keys(result.metafile.inputs).some(file => file.includes('integrations/dsh/packages/world/'))) throw new Error('Host fixture bundled plugin source');
 const external = new Set(Object.values(result.metafile.outputs).flatMap(output => output.imports.filter(i => i.external).map(i => i.path)));
 for (const name of remotes.values()) if (!external.has(name)) throw new Error(`Fixture did not consume package entry: ${name}`);
 writeFileSync(join(output, 'accept.mjs'), "import './lib/accept.mjs';\n");

@@ -1,14 +1,19 @@
 # Session 与 World 绑定
 
-`integrations/dsh/packages/world/execution-world/src/bindings.ts` 持久保存 World definitions 与 Session ID → World ID；JSONL 对话仍由 DSH 保存。记录不含 helper runtime ID、resume token 或对话正文。
+[identity.ts](../../integrations/dsh/packages/world/execution-world/src/identity.ts) 定义执行身份；[bindings.ts](../../integrations/dsh/packages/world/execution-world/src/bindings.ts) 持久保存 Workspace definitions 与 Session ID → Workspace ID。JSONL 对话仍由 DSH 保存，绑定记录不含 helper runtime ID、resume token 或对话正文。
 
-定义使用显式 `kind`：SSH 包含 immutable ID、SSH host、canonical cwd，以及可选 SSH 配置、安装/runtime 路径和固定 Podman container ID；local 只包含 immutable ID、`kind: "local"` 与 canonical cwd。相同 ID 的不同定义或已绑定 Session 的改向都会拒绝。
+- `WorldDefinition`：执行环境 ID 与显式 local/SSH target，不含 cwd。SSH target 包含 host，以及可选 SSH 配置、安装/runtime 路径和固定 Podman container ID。
+- `WorkspaceDefinition`：独立的 workspace `id`、所属 `worldId`、canonical `cwd` 与目标配置快照。通过选定 World 的 FS 解析路径后，用 `workspaceFor` 构造。
+- Binding：Session 固定引用一个 Workspace。完整身份的指纹与比较集中在 identity.ts；颜色、显示名称、置顶和归档不参与执行身份。
+- Runtime：本次连接的 helper 实例和资源 owner，不属于持久 Workspace 身份。
 
-存储读取 v1（仅 SSH）和 v2（local/SSH）；首次写入 local 时，在写锁内先将 v1 原始字节写入私有 `bindings.json.v1-<sha256>.bak`，再发布 v2。备份存在时校验原字节，可从备份已完成而升级未发布的中断点重试。SSH 定义、Session ID 和原有 registry 身份不变。回退到仅支持 v1 的旧扩展前，应停止服务并恢复成套配置、绑定与历史备份，不能把含本机会话的 v2 直接交给旧扩展。
+模型与审批共用的执行上下文显式提供 `world`（环境 ID）、`workspace`（工作区 ID）和 `kind`；SSH 另外提供 runtime 等运行事实。helper 协议已有的 `world` 字段仍承载工作区执行 owner ID，未变更协议线格式。
 
-原生本机会话仅在首次采用时，依据原生持久 workspace membership、原始 header 和 canonical cwd 核对后绑定；子会话还需已确认的父链。不会从 cwd 推测环境，也不会把缺失 SSH binding 当作 local。记录采用完成标志后，丢失的 binding 必须显式恢复。原生 workspace ID、会话 ID 与原始日志保持不变。
+同名 cwd 不能标识同一 World，相同 workspace ID 的不同定义或已绑定 Session 改向都会拒绝。registry 的 `portable_workspaces` domain 保存 workspace 与 membership；`workspace_presentation` 独立保存置顶、归档。展示偏好更新不修改 workspace 时间戳或绑定。浏览器通过独立的 `followWorlds` stream 接收 World 展示快照，不依赖原生 workspace feed 为未改变的 workspace 发出事件；每次连接有初始快照，取消请求会释放订阅。
 
-身份不明或非 canonical 历史会话会报错：停止升级并保留备份，在原生 DSH 中选择实际目录创建新会话；需保留旧身份时，先修复可信 metadata／备份，再重新升级，不手工猜填 binding。
+绑定存储仅接受当前 v3：`{ version: 3, workspaces, sessions: [{ sessionId, workspaceId }] }`。不读取 v1/v2，不自动迁移或备份。历史原生本机会话也不自动采用；缺失绑定明确拒绝，只有显式选择目录创建的新会话进入当前执行模型。
+
+这是允许破坏性变化的个人 research 仓库，不承诺旧实验状态兼容。切换到这套格式时使用新的私有 `DSH_HOME` 和新的 binding 存储，重新声明需要的 World 并创建会话；保留旧目录用于查看历史，不把旧 registry 或绑定复制进新环境，也不只删除绑定后继续打开旧 Session。现有项目文件无需删除。
 
 ```ts
 // bindingFile 的父目录必须由本地账户私有管理；首次显式创建。
@@ -26,6 +31,6 @@ await ctx.executionWorlds.prepare(savedSessionId);
 
 新子 Agent 依据 parent Session metadata 继承，在 `agent/session-start` 落盘；该通知不能否决发布，因此提交失败可能留下已发布但模型上下文/工具均被阻止的 Agent。恢复要求已有记录。严格发布前原子准入是独立的下一阶段改动，不是当前保证。
 
-缺失、损坏、未来格式、悬空 binding 明确失败。rename 后目录 sync 失败报告不确定提交并阻止该 store 继续工作，重新打开再判断。强制终止写进程可能遗留锁；确认写者已退出后才能手工处理，不自动偷锁。
+缺失、损坏、非当前格式、悬空 binding 明确失败。rename 后目录 sync 失败报告不确定提交并阻止该 store 继续工作，重新打开再判断。强制终止写进程可能遗留锁；确认写者已退出后才能手工处理，不自动偷锁。
 
 Agent dispose 不删持久绑定。宿主重启按 binding 重新组合本机 provider，或为 SSH 启动新 helper；同一 service 生命周期内不会静默替换失败 World。SSH alias/config 仍由 OpenSSH 解析，binding 记录选定坐标而不是独立的远端账户认证系统。

@@ -60,8 +60,8 @@ try {
     await writeFile(`${home}/.credentials.yaml`, yaml.dump({ version: credentials.version, refs: { DEEPSEEK_API_KEY: key } }), { mode: 0o600 });
     await writeFile(`${home}/settings.yaml`, yaml.dump({ 'agent-default-model': { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }), { mode: 0o600 });
   }
-  await writeFile(`${state}/legacy-config.json`, JSON.stringify({ ...config, bootstrap: initialized.bootstrap }), { mode: 0o600 });
-  assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/legacy-config.json`));
+  await writeFile(`${state}/replacement-config.json`, JSON.stringify({ ...config, bootstrap: initialized.bootstrap }), { mode: 0o600 });
+  assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/replacement-config.json`));
   child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const log = createWriteStream(resolve('.build/dsh/logs/extension-cli.private.log'), { mode: 0o600 });
   child.stdout.pipe(log, { end: false });
@@ -97,8 +97,8 @@ try {
   await page.locator('[data-composer-input][contenteditable=true]').first().waitFor({ timeout: 30000 });
   const bindings = JSON.parse(await readFile(`${home}/remote/bindings.json`, 'utf8'));
   assert.equal(bindings.sessions.length, 1);
-  assert.equal(bindings.worlds.length, 1);
-  assert.equal(bindings.worlds[0].cwd, '/workspace');
+  assert.equal(bindings.workspaces.length, 1);
+  assert.equal(bindings.workspaces[0].cwd, '/workspace');
   const control = sshControl(selection.worlds.find(world => world.id === 'a').target);
   const readSynced = () => control(['sh', '-c', 'cat "$HOME/.agents/skills/remote-proof/sync-proof.txt"']);
   assert.equal(await readSynced(), 'automatic');

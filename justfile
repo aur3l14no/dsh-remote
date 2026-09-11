@@ -1,9 +1,20 @@
 import? '.local/justfile'
 
+# npm owns the command graph; just is an optional convenience interface.
 check:
-    cd runtime/helper && cargo fmt --all --check
-    cd runtime/helper && cargo clippy --locked --all-targets -- -D warnings
-    cd runtime/helper && cargo build --locked
+    npm run check
+
+test:
+    npm test
+
+test-integration:
+    npm run test-integration
+
+test-e2e:
+    npm run test-e2e
+
+package:
+    npm run package
 
 accept rg helper="runtime/helper/target/debug/dsh-remote" fixture="runtime/helper/target/debug/dsh-remote-fixture" platform="macos":
     python3 runtime/helper/tests/acceptance.py --helper {{helper}} --fixture {{fixture}} --platform {{platform}} --rg {{rg}}

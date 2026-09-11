@@ -4,12 +4,15 @@ The source modules build into one extension bundle. Their directory boundaries d
 
 | Module | Ownership and entry points |
 | --- | --- |
-| `world/ssh-world` | Connections, Session bindings, FS/subprocess, routing and account policy. `terminal.ts` implements the runtime; `terminal-backend.ts` adapts native tools. |
-| `workspace/portable-workspace` | Registry, API/feed, admission, file references and previews; browser entry is `src/client/index.tsx`. |
-| `workspace/remote-attachments` | Session-scoped remote attachment authority, temporary host materialization and explicit legacy host references. |
+| `world/execution-world` | World and workspace identity, Session bindings, provider dispatch, lifecycle and preset selection. |
+| `world/local-world` | Native local FS/subprocess provider. |
+| `world/ssh-world` | SSH bootstrap, helper client, remote FS/subprocess and account policy. `terminal.ts` implements the runtime; `terminal-backend.ts` adapts native tools. |
+| `workspace/local-workspace` | Native registry isolation and local directory picker bridge. |
+| `workspace/portable-workspace` | Workspace registry and membership, presentation state, API/feed, admission, file references and previews; browser entry is `src/client/index.tsx`. |
+| `workspace/remote-attachments` | Session-scoped remote attachment authority and temporary host materialization; local bindings delegate to the native store, SSH rejects unqualified references. |
 | `skill/remote-skills` | Project instructions/skill discovery, deployment and synchronization. |
 | `bundle/remote` | Host composition and activation order in `src/index.ts`. |
 
 Cross-module cancellation lives in `../shared/lifetime.ts`; generic execution belongs in `runtime/`. Service ordering and identity rules are maintained in [system map](../../../docs/system-map-1.md); native services and tool scopes in the [overlay/preset](../packaging/extension/README.md).
 
-Use kebab-case for new source paths, camelCase for TypeScript values, and PascalCase for types. Persisted keys, wire fields and installed module identities retain their compatibility contracts; historical test/evidence names need not follow source renames.
+Use kebab-case for new source paths, camelCase for TypeScript values, and PascalCase for types. Research state supports only the current format; incompatible state is reset explicitly. Installed module identities must remain consistent within the built bundle. Historical test/evidence names need not follow source renames.

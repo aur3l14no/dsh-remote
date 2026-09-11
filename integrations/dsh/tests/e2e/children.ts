@@ -73,7 +73,7 @@ export async function checkChildLifecycle(launch: () => Promise<WebScaffold>, pa
       const original = await readFile(file, 'utf8');
       const altered = JSON.parse(original);
       const childBinding = altered.sessions.find((row: { sessionId: string }) => row.sessionId === childId);
-      childBinding.worldId = altered.sessions.find((row: { sessionId: string }) => row.sessionId === otherId).worldId;
+      childBinding.workspaceId = altered.sessions.find((row: { sessionId: string }) => row.sessionId === otherId).workspaceId;
       try {
         await writeFile(file, JSON.stringify(altered), { mode: 0o600 });
         await expect(registry.contextForSession(childId)).rejects.toThrow('crosses portable workspaces');

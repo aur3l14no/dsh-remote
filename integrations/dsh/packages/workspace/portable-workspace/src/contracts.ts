@@ -10,6 +10,7 @@ export interface PortableWorkspaceRemote {
   cancelReload(request: { id: string }): Promise<RemoteResult<void>>;
   pinSession(request: { sessionId: string; pinned: boolean }): Promise<RemoteResult<WorldView[]>>;
   worlds(): Promise<RemoteResult<WorldView[]>>;
+  followWorlds(signal?: AbortSignal): AsyncIterable<WorldView[]>;
   create(request: PortableWorkspaceSelection): Promise<RemoteResult<{ workspaceId: WorkspaceId }>>;
 }
 declare module '@deepseek-ai/dsh-typert-protocol' {

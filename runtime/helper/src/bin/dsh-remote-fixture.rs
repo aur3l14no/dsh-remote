@@ -14,6 +14,7 @@ fn main() {
             io::stderr().write_all(&[0, 255, 254, b'!']).unwrap();
         }
         Some("argv") => println!("{}", serde_json::to_string(&args[2..]).unwrap()),
+        Some("invocation") => println!("{}", args[0]),
         Some("env") => {
             let values: std::collections::BTreeMap<_, _> = args[2..]
                 .iter()

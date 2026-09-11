@@ -6,7 +6,7 @@ import { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess';
 import { scopeOf } from '@deepseek-ai/dsh-scope';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import type { WorldDefinition } from './bindings.ts';
+import type { WorkspaceDefinition } from './identity.ts';
 import './worlds.ts';
 
 const selected = new AsyncLocalStorage<Context>();
@@ -42,10 +42,10 @@ export function executionWorldContext(ctx: Context, subject: Agent | ToolExecuti
   const agent = 'session' in subject ? subject : subject.agent;
   const owner = ctx.executionWorlds.forAgent(agent);
   const definition = ctx.executionWorlds.bindings.get(agent!.session.header.id)!;
-  if (definition.kind === 'local') return Object.freeze({ world: definition.id, kind: 'local', cwd: definition.cwd, platform: process.platform, arch: process.arch });
+  if (definition.kind === 'local') return Object.freeze({ world: definition.worldId, workspace: definition.id, kind: definition.kind, cwd: definition.cwd, platform: process.platform, arch: process.arch });
   const client = owner.remoteWorld.client;
   const info = client.info;
-  return Object.freeze({ world: info.world, runtime: info.runtime, cwd: info.cwd, helperBuild: info.build,
+  return Object.freeze({ world: definition.worldId, workspace: definition.id, kind: definition.kind, runtime: info.runtime, cwd: info.cwd, helperBuild: info.build,
     platform: info.platform, arch: info.arch, capabilities: Object.freeze([...info.capabilities]), state: client.state });
 }
 
@@ -67,7 +67,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (cwd === undefined) throw new RemoteError('WORLD_REQUIRED', 'Remote shell requires a Session workspace');
     return owner.fs.processPath(await owner.fs.resolve(requested ?? cwd, { cwd, signal: exec.signal }));
   } });
-  const pending = new WeakMap<Agent, WorldDefinition>();
+  const pending = new WeakMap<Agent, WorkspaceDefinition>();
   ctx.on('agent/created', ({ agent }) => {
     if (worlds.bindings.get(agent.session.header.id)) { worlds.adopt(agent); return; }
     const inherited = worlds.inherited(agent);

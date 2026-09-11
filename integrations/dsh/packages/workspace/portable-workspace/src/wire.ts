@@ -12,6 +12,8 @@ const reloadResult = z.object({ applied: z.boolean(), results: z.array(z.object(
 export const contribution: TypertContribution = {
   package: '@dsh-remote/portable-workspace', face: 'host', schemas: [], model: { services: [], events: [], objects: [] },
   invocations: [
+    { id: '@dsh-remote/portable-workspace#portableWorkspace/followWorlds', service: 'portableWorkspaceApi', namespace: 'portableWorkspace', method: 'followWorlds',
+      mode: 'stream', invocation: { kind: 'direct' }, parameters: [], cancellation: { parameter: 'signal' }, result: codec('Worlds', z.array(worldView)) },
     ...[['reloadStatus', reloadStatus], ['previewReload', reloadPreview], ['applyReload', reloadResult], ['cancelReload', z.void()]].map(([method, schema]) => ({
       id: `@dsh-remote/portable-workspace#portableWorkspace/${method}`, service: 'portableWorkspaceApi', namespace: 'portableWorkspace', method: method as string,
       invocation: { kind: 'direct' as const }, parameters: method === 'applyReload' || method === 'cancelReload' ? [{ name: 'request', wire: 'request', source: 'json' as const, codec: codec('ReloadId', z.object({ id: z.string().min(1) }).strict()) }] : [],

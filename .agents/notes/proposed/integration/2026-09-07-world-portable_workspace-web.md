@@ -2,6 +2,10 @@
 
 Status: proposed
 
+## Research 可维护性改造（2026-09-11，已完成）
+
+七项改造与最终静态、集成、安装态及九条 Linux/SSH 验收均已完成，见[维护决策与验收](../../implemented/architecture/2026-09-11-research-maintenance.md)。当前只支持 v3 状态；历史会话不自动迁移，切换时使用新的私有状态目录，项目文件保持原样。
+
 ## 当前基线
 
 第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map-1.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
@@ -14,13 +18,15 @@ World 配置重载、skill 变更预览与确认应用已通过[安装态与双 
 
 Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemented/integration/2026-09-11-local-workspaces.md)。本机首先验收 macOS；其他原生平台与 E2B provider 仍需另行定界。
 
-## 尚未完成的范围
+## 延后范围（不构成当前实现承诺）
+
+当前以个人研究与单一固定 DSH 基线为维护目标。下列项目保留问题边界，只有具体实验需要时才重新选择；不预先建设 provider、发行平台矩阵或产品生命周期框架。旧实验状态和旧附件引用不做自动迁移。
 
 | 项目 | 后续工作与边界 |
 | --- | --- |
 | 连接器鲁棒性 | 补双 Session 并发、超时/失败/取消专项验收；不改变本地连接器和远端 Shell 的分工 |
 | 远端 worktree | 明确新目录、portable_workspace、新 Agent 关系与失败清理；见下文，未授权本阶段实现 |
-| 附件后续 | 新附件远端持久源与按需宿主读取已实现，见[验收](../../implemented/integration/2026-09-10-remote-attachments.md)；旧引用迁移、存储 GC、跨 World 显式转移另行定界 |
+| 附件后续 | 新附件远端持久源与按需宿主读取已实现，见[验收](../../implemented/integration/2026-09-10-remote-attachments.md)；存储 GC、跨 World 显式转移另行定界 |
 | 远端 OS sandbox | 单独立项；目前父/子 Agent 使用 SSH 账户权限 |
 | 发行完善 | 公共 npm/Release、helper 平台矩阵、ripgrep 与可信下载清单、安装 GC；现有 CI 产物不等于公开发布 |
 | 其他消费者 | sameWorkspace Session 引用、LSP/Git 扩展、跨根 Agent 消息及外部 Agent 后端需单独适配 |

@@ -30,11 +30,12 @@ import { WorkspaceId } from '@deepseek-ai/dsh-workspace';
 import { ApiSessionAgentController } from '@dsh-test/web-agent';
 import { SessionCommandController } from '@dsh-test/web-commands';
 import { installModelSelectionProjection } from '@dsh-test/web-model-selection-projection';
-import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
-import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/execution-world/src/worlds.ts';
+import * as Routing from '../../packages/world/execution-world/src/routing.ts';
 import PortableWorkspaces, { type CatalogWorld } from '../../packages/workspace/portable-workspace/src/registry.ts';
 import * as Admission from '../../packages/workspace/portable-workspace/src/admission.ts';
+import { PortableWorkspaceFeed } from '../../packages/workspace/portable-workspace/src/api.ts';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 
 const phase = process.argv[2];
@@ -51,7 +52,7 @@ if (!phase) {
     assert.equal(selection.worlds.length, 2, 'Acceptance requires two configured Worlds');
     await writeFile(`${base}/selection.json`, JSON.stringify(selection), { mode: 0o600 });
     BindingStore.create(`${base}/bindings.json`);
-    for (const phase of ['create', 'resume', 'observed-resume', 'lookup-resume', 'missing', 'changed', 'unavailable', 'unbound', 'local-create', 'local-resume']) {
+    for (const phase of ['create', 'resume', 'observed-resume', 'lookup-resume', 'retired', 'changed', 'unavailable', 'unbound', 'local-create', 'local-resume']) {
       if (ssh && phase === 'unavailable') {
         console.log('SKIP native transport fault injection; real SSH disconnection is not covered by this fixture');
         continue;
@@ -101,7 +102,7 @@ if (!phase) {
     ]));
     await ctx.plugin(AgentPresets, { default: 'remote', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
     const configured = structuredClone(selection.worlds);
-    if (phase === 'missing') configured.splice(0, 1);
+    if (phase === 'retired') configured.splice(0, 1);
     if (phase === 'changed') {
       assert.equal(configured[0]!.target.kind, 'ssh');
       configured[0]!.target = { ...configured[0]!.target, kind: 'ssh', host: 'changed-acceptance.invalid' };
@@ -160,6 +161,21 @@ if (!phase) {
       assert.equal(serviceForAgent(ctx, ctx.agents.get(ids[0]!)!, 'fs'), serviceForAgent(ctx, ctx.agents.get(ids[1]!)!, 'fs'));
       await assert.rejects(b.attachSession(ids[0]!), { code: 'WORLD_MISMATCH' });
       console.log('PASS patched Web creates and adopts bound Agents directly under one shared preset');
+      const beforePin = a.updatedAt;
+      const boundBeforePin = ctx.executionWorlds.bindings.get(ids[0]!);
+      const feedSignal = new AbortController();
+      const feed = new PortableWorkspaceFeed(ctx).follow(feedSignal.signal)[Symbol.asyncIterator]();
+      assert.equal((await feed.next()).value?.type, 'baseline');
+      await portableWorkspaces.pinSession(ids[0]!, true);
+      assert.equal(a.updatedAt, beforePin, 'Presentation changes must not rewrite workspace timestamps');
+      assert.deepEqual(ctx.executionWorlds.bindings.get(ids[0]!), boundBeforePin);
+      assert.ok(portableWorkspaces.worlds()[0]!.pinnedSessionIds.includes(ids[0]!));
+      assert.equal((await feed.next()).value?.type, 'order', 'Preference updates notify clients without a fake workspace upsert');
+      feedSignal.abort(); await feed.return?.();
+      await portableWorkspaces.pinSession(ids[0]!, false);
+      await assert.rejects(portableWorkspaces.pinSession(SessionId('unknown-preference'), true));
+      console.log('PASS presentation changes notify feed without changing execution binding or workspace timestamps');
+
 
       // A rejected selection must fail before any host-directory side effect.
       const localSideEffect = `${base}/unprepared-web-create`;
@@ -205,6 +221,11 @@ if (!phase) {
       const sessionId = SessionId(saved.sessionIds[0]!);
       assert.equal(portableWorkspaces.list().length, 2);
       assert.ok(portableWorkspaces.get(portableWorkspaceId)!.sessionIds.includes(sessionId));
+      const savedBindings = saved.sessionIds.map(id => ctx.executionWorlds.bindings.get(id));
+      if (phase === 'retired') {
+        await assert.rejects(portableWorkspaces.createInWorld(selection.worlds[0]!.id, selection.path), { code: 'WORLD_REQUIRED' });
+        assert.equal(connections, 0, 'Retired catalog entries cannot provision new workspaces');
+      }
       if (phase === 'changed' || phase === 'unavailable' || phase === 'unbound') {
         if (phase === 'unbound') {
           const file = `${base}/bindings.json`;
@@ -253,6 +274,10 @@ if (!phase) {
           await readMarker(sessionId, markerFor(index));
         }
         console.log('PASS native Web resolves saved World and restores JSONL without an external preparation call');
+        if (phase === 'retired') {
+          assert.deepEqual(saved.sessionIds.map(id => ctx.executionWorlds.bindings.get(id)), savedBindings);
+          console.log('PASS retired catalog World refuses new workspaces while existing Sessions restore their exact saved bindings');
+        }
       }
     }
   } finally { await ctx.fiber.dispose(); }

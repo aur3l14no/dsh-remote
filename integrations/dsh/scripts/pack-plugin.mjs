@@ -10,7 +10,7 @@ const root = resolve(process.argv[2] ?? '');
 if (!process.argv[2]) throw new Error('Usage: node integrations/dsh/scripts/pack-plugin.mjs DSH_SOURCE_CHECKOUT');
 assertUnchangedSource(root);
 const source = resolve('.');
-const sourceRoots = ['runtime/client', 'runtime/ssh', 'integrations/dsh/packages/world/ssh-world'].map(path => resolve(path) + '/');
+const sourceRoots = ['runtime/client', 'runtime/ssh', 'integrations/dsh/packages/world/ssh-world', 'integrations/dsh/packages/world/execution-world', 'integrations/dsh/packages/world/local-world'].map(path => resolve(path) + '/');
 const isRepositorySource = file => sourceRoots.some(root => resolve(file).startsWith(root));
 const output = resolve('.build/dsh/plugin');
 await rm(output, { recursive: true, force: true });
@@ -21,14 +21,13 @@ await cp('integrations/dsh/tests/packaging/ssh-fixture.md', join(output, 'README
 await cp('LICENSE', join(output, 'LICENSE'));
 // Bundle only this repository's implementation. DSH/Cordis retain their host-owned identity.
 const result = await build({
-  entryPoints: { ...Object.fromEntries(Object.entries({ worlds: 'worlds', routing: 'routing', fs: 'routed-fs', subprocess: 'routed-subprocess', bindings: 'bindings' })
-    .map(([entry, file]) => [entry, join(source, 'integrations/dsh/packages/world/ssh-world/src', `${file}.ts`)])), client: join(source, 'runtime/client/src/index.ts') },
+  entryPoints: { ...Object.fromEntries(Object.entries({ worlds: 'worlds', routing: 'routing', fs: 'routed-fs', subprocess: 'routed-subprocess', bindings: 'bindings', identity: 'identity' })
+    .map(([entry, file]) => [entry, join(source, 'integrations/dsh/packages/world/execution-world/src', `${file}.ts`)])), client: join(source, 'runtime/client/src/index.ts') },
   outdir: join(output, 'lib'), bundle: true, splitting: true, format: 'esm', platform: 'node', target: 'node24',
   packages: 'external', metafile: true,
 });
-if (Object.keys(result.metafile.inputs).some(file => file.includes('node_modules') || !isRepositorySource(file))) {
-  throw new Error('Plugin bundle contains code outside this repository');
-}
+const unexpectedInputs = Object.keys(result.metafile.inputs).filter(file => file.includes('node_modules') || !isRepositorySource(file));
+if (unexpectedInputs.length) throw new Error(`Plugin bundle contains code outside its source roots: ${unexpectedInputs.join(', ')}`);
 const upstream = ts.readConfigFile(join(root, 'tsconfig.base.json'), ts.sys.readFile).config.compilerOptions.paths;
 const paths = Object.fromEntries(Object.entries(upstream).map(([name, values]) => [name, values.map(value => {
   const path = resolve(root, value);

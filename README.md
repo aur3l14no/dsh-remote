@@ -4,6 +4,8 @@
 
 为 DeepSeek Harness（DSH）提供本机与 SSH 工作区。同一实例中选择执行环境，模型调用、对话历史和 Web 界面留在 DSH 宿主；项目文件、搜索和命令按会话绑定在本机或选定的 SSH 主机／容器执行。
 
+当前是个人 research 项目，只支持 [series.json](integrations/dsh/patches/series.json) 固定的 DSH 基线和当前实验状态格式。重构允许破坏性变化，不维护历史状态迁移。升级到当前格式请使用新的私有 `DSH_HOME` 与 binding 存储，保留旧环境用于查看历史，再创建新会话；详见 [Session bindings](docs/reference/session-bindings.md)。
+
 ## 快速开始
 
 远端要求：**Linux x86_64（glibc 2.36+）**，并已配置 OpenSSH 公钥认证。请先确保终端中的 `ssh <host>` 可正常连接；扩展复用已有 SSH 配置和 `known_hosts`。
@@ -20,23 +22,24 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 
 ## 能力与边界
 
-- 本机原生文件、进程、Skills、权限与历史工作区；与 SSH 工作区共用选择器。
+- 本机原生文件、进程、Skills、权限与目录选择；与 SSH 工作区共用选择器。
 - 远端文件读写、搜索与预览，以及项目指令和 Skills。
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 
-本机附件使用原生宿主存储；SSH 附件持久存储在 Session 绑定的远端，模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map-1.md)，附件限制和旧记录兼容方式见[附件契约](docs/reference/workspace-io.md#上传附件)。
+本机附件使用原生宿主存储；SSH 附件持久存储在 Session 绑定的远端，模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map-1.md)，附件限制和身份规则见[附件契约](docs/reference/workspace-io.md#上传附件)。
 
-Web 侧边栏只展示会话列表；卡片依次显示 World / Workspace、会话名称与目录。World 颜色、待选工作区和 Skills 来源在 [worlds.json](docs/worlds.md) 中声明，也可由 Agent 协助编辑。
+Web 侧边栏使用原生 New Session 控件；工作区区域提供 Reload worlds 与会话列表，卡片依次显示 World / Workspace、会话名称与目录。World 颜色、待选工作区和 Skills 来源在 [worlds.json](docs/worlds.md) 中声明，也可由 Agent 协助编辑。
 
 ## 开发
 
 ```sh
 npm ci
-(cd runtime/helper && cargo build --locked)
-npm run check
+npm run check:runtime
 npm test
 ```
+
+完整 DSH 检查先按[开发指南](docs/development.md#统一开发入口)准备固定上游源码和官方依赖，再运行 `npm run check`、`npm run test-integration`、`npm run test-e2e`；`npm run package` 构建扩展。
 
 `runtime/` 是 DSH 无关的 helper、协议客户端与 SSH 库；`integrations/dsh/` 维护插件、补丁、装配和测试。目录职责见[系统全景](docs/system-map-1.md#源码与证据)，工具链、生成产物与聚焦检查见[开发指南](docs/development.md)。
 

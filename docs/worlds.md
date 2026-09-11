@@ -1,6 +1,6 @@
 # World 与 Workspace 配置
 
-扩展首次启动会在 `$DSH_HOME/remote/worlds.json` 创建可编辑的 World 目录。已有安装会从 `config.json` 复制原来的 `worlds`，保留会话、注册目录和绑定；文件存在后以 `worlds.json` 为准。`config.json` 中的 `bindingFile`、bootstrap 和绑定存储仍由宿主维护。
+扩展首次启动会在 `$DSH_HOME/remote/worlds.json` 创建可编辑的 World 目录。初始化时可从 `config.json` 的 `worlds` 填充目录；文件存在后以 `worlds.json` 为准。这只是配置初始化，不迁移历史会话或执行绑定。`config.json` 中的 `bindingFile`、bootstrap 和绑定存储仍由宿主维护。
 
 可以让 Agent 协助编辑这个宿主配置文件。运行中的 Web 界面检测到内容变化后显示 **Config changed**；点击后预览并确认应用，不需要重新安装扩展、重启服务或重新初始化绑定。
 
@@ -38,22 +38,22 @@
 
 - `id`：稳定且唯一的 World 身份。已有会话使用的 `id` 和 SSH target 不应改成另一个环境；更换主机时新增 World。
 - `name`：World 显示名称。
-- `color`：可选的六位十六进制颜色，用于会话卡片和选择器的 World 图标。未设置时保留旧版保存的颜色，默认蓝色。
+- `color`：可选的六位十六进制颜色，用于会话卡片和选择器的 World 图标。未设置时默认蓝色；颜色只从此配置读取。
 - `target`：`{ "kind": "local" }` 表示 DSH 宿主，且必须使用内置 ID `local`；`{ "kind": "ssh", ... }` 使用 SSH 连接参数。`host` 可以是 SSH alias 或 `user@host`；使用已有 OpenSSH 配置、公钥认证和 `known_hosts`。开发环境也可显式设置 `configFile`。
 - `workspaces`：新会话选择器中的目录列表。`path` 必须是对应环境中的绝对路径，目录必须已存在；`name` 可省略，默认使用目录名。不同 World 可以声明相同路径。
 - `skills`、`enabledSkills`：仅 SSH 可设置的同步来源和名称选择，详见 [Skills](skills.md)。
 
 点击 **New Session**，在输入框上方点击 **Choose workspace**，按 World 分组选择 Workspace。本机 **This computer → Choose a folder…** 使用原生目录选择器，不要求先编辑配置，也不建立 SSH 连接或下载 helper。选中 SSH 目录后才建立连接、安装所需 runtime 并检查远端真实路径；一个暂时离线的 World 不会阻止浏览其他选项。失败显示在选择菜单中，修复后可再次选择。
 
-已有会话始终按保存的 World × canonical Workspace 恢复。选择另一个 Workspace 会打开该目录的新会话或复用其空白会话，不会修改原会话的绑定。会话卡片显示 World / Workspace、标题和目录，长文字截断，悬停可查看完整标题、World 和目录；悬停或键盘聚焦时显示置顶与归档图标。置顶会话排在列表顶部，重启后保留；归档同时取消置顶，保留历史和远端文件。
+已有会话始终按保存的 World × canonical Workspace 恢复。选择另一个 Workspace 会打开该目录的新会话或复用其空白会话，不会修改原会话的绑定。会话卡片显示 World / Workspace、标题和目录，长文字截断，悬停可查看完整标题、World 和目录；悬停或键盘聚焦时显示置顶与归档图标。置顶会话排在列表顶部，重启后保留；归档同时取消置顶，保留历史和远端文件。两项偏好单独保存在宿主 `workspace_presentation`，不改执行身份或 workspace 时间戳。
 
 本机条目可省略，选择器仍提供默认 **This computer**。配置中的本机目录在启动／确认 Reload 后登记到原生最近工作区，按 canonical path 合并；移除配置条目不会删除最近工作区或历史。`local` 为保留 ID，不能改成 SSH 类型；本机条目禁止 `host`、`skills`、`enabledSkills` 等 SSH 专属字段。
 
-SSH 旧配置未声明 `workspaces` 时，选择器继续展示该 World 已注册的目录。显式设置 `workspaces: []` 会隐藏该 World 的新会话选项；移除一个声明不会删除远端文件或历史会话。`worlds.json` 只声明待选目录，不是 binding 存储，也不授予 Agent 通用宿主 Shell 权限。
+SSH 配置省略 `workspaces` 时，选择器展示该 World 已注册的目录。显式设置 `workspaces: []` 会隐藏该 World 的新会话选项；移除一个声明不会删除远端文件或历史会话。`worlds.json` 只声明待选目录，不是 binding 存储，也不授予 Agent 通用宿主 Shell 权限。
 
 ## 预览与重载
 
-侧边栏顶部的 **+** 图标用于新建会话，会话列表可独立滚动。旁边的刷新图标（**Reload worlds**）也支持手动检查：即使 `worlds.json` 没变，也能同步本地 skill 来源的内容更新。界面每两秒检查配置状态；没有 SSH skill 来源文件 watcher。本机目录预览只校验路径，使用原生 skill 发现，不进入远端部署流程。
+侧边栏使用原生 **New Session** 控件，会话列表可独立滚动。工作区区域的 **Reload worlds** 也支持手动检查：即使 `worlds.json` 没变，也能同步本地 skill 来源的内容更新。界面每两秒检查配置状态；没有 SSH skill 来源文件 watcher。本机目录预览只校验路径，使用原生 skill 发现，不进入远端部署流程。
 
 点击入口后，dialog 展示 World/Workspace 的增删改、每个目标上 skills 的新增、更新、移除或未变化，以及来源、版本和文件／目录的新增、修改、删除列表。较大的路径列表会截断显示，并保留完整变更数量。预览只读取远端状态，在宿主私有临时目录固定待部署内容；不会部署 runtime、安装 skill 或删除远端文件。配置错误、依赖缺失、同名目录不属于本扩展、已存版本漂移等会阻止应用。
 

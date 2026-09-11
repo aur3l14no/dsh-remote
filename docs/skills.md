@@ -8,9 +8,9 @@
 
 在 [`$DSH_HOME/remote/worlds.json`](worlds.md) 的 World 条目中添加 `skills`（如下）。`source` 必须是本地绝对路径。本地连接编排层在新 helper/runtime 创建前同步；失败会阻止此次连接，修复后可重试。运行中编辑配置后使用 **Reload worlds** 预览并确认应用。
 
-可设置 `enabledSkills: ["analysis"]` 只同步列出的已配置名称，`[]` 停止自动同步；通过 **Reload worlds** 确认应用时移除已配置名称的受管理启用链接，保留版本目录。省略时沿用旧版保存的选择；没有旧选择时同步全部配置来源。同一 SSH target 的 Worlds 必须声明相同来源和 `enabledSkills`。仅重启或独立部署不会卸载旧副本；要移除运行中配置不再选择的副本，使用带预览的重载流程。
+可设置 `enabledSkills: ["analysis"]` 只同步列出的已配置名称，`[]` 停止自动同步；通过 **Reload worlds** 确认应用时移除已配置名称的受管理启用链接，保留版本目录。省略时同步全部配置来源；选择只由当前配置决定。同一 SSH target 的 Worlds 必须声明相同来源和 `enabledSkills`。仅重启或独立部署不会卸载旧副本；要移除运行中配置不再选择的副本，使用带预览的重载流程。
 
-没有 skill 来源文件 watcher；Web 界面检查 `worlds.json` 内容变化并提示重载。同一 runtime 的传输重连不触发同步；连接期间更新文件可手动点击 **Reload worlds**，或使用下方独立部署命令。配置中显式声明的颜色和选择优先于旧的持久设置；旧设置只保留读取兼容。独立部署命令读取自己的来源列表，不读取运行中服务的选择。
+没有 skill 来源文件 watcher；Web 界面检查 `worlds.json` 内容变化并提示重载。同一 runtime 的传输重连不触发同步；连接期间更新文件可手动点击 **Reload worlds**，或使用下方独立部署命令。独立部署命令读取自己的来源列表，不读取运行中服务的选择。
 
 APM/chezmoi/skill-ops 继续管理本地来源、版本和适配。本项目复制配置中选定的完整 skill 文件夹，不运行 APM 或 skill 自带的安装脚本。同一 worlds 列表也可保存为 `.local/skills.json`，供下方独立部署命令使用：
 

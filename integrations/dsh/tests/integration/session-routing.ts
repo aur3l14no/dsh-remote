@@ -23,10 +23,10 @@ import * as FileTools from '@deepseek-ai/dsh-tool-fs';
 import * as SearchTools from '@deepseek-ai/dsh-tool-fs-search';
 import { startInProcessRun } from '@deepseek-ai/dsh-subagent-in-process-driver';
 import { MockAdapter, textResponse, toolCallResponse } from '@dsh-test/mock-adapter';
-import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
-import type { SshWorldDefinition as WorldDefinition } from '../../packages/world/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
-import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
+import type { SshWorkspaceDefinition } from '../../packages/world/execution-world/src/identity.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/execution-world/src/worlds.ts';
+import * as Routing from '../../packages/world/execution-world/src/routing.ts';
 import { sshControl } from '../../../../runtime/ssh/src/control.ts';
 import { runtime, fixture } from '../../../../runtime/tests/client/support.ts';
 
@@ -47,7 +47,7 @@ if (!phase) {
       await mkdir(`${workspaceRoot}/a`, { recursive: true }); await mkdir(`${workspaceRoot}/b`);
       workspaceRoot = await realpath(workspaceRoot);
     }
-    const definitions: WorldDefinition[] = ['a', 'b'].map(id => ({ id: `route-${id}`, kind: 'ssh',
+    const definitions: SshWorkspaceDefinition[] = ['a', 'b'].map(id => ({ id: `route-${id}`, worldId: `environment-${id}`, kind: 'ssh',
       host: process.env.DSH_TEST_HOST ?? 'native-acceptance.invalid', cwd: `${workspaceRoot}/${id}`,
       ...(process.env.DSH_TEST_SSH_CONFIG ? { configFile: process.env.DSH_TEST_SSH_CONFIG } : {}),
       ...(process.env.DSH_TEST_PODMAN_CONTAINER ? { podmanContainer: process.env.DSH_TEST_PODMAN_CONTAINER } : {}),
@@ -69,7 +69,7 @@ if (!phase) {
   }
 } else {
   const base = process.argv[3]!;
-  const definitions: WorldDefinition[] = JSON.parse(await readFile(`${base}/definitions.json`, 'utf8'));
+  const definitions: SshWorkspaceDefinition[] = JSON.parse(await readFile(`${base}/definitions.json`, 'utf8'));
   const bindingFile = `${base}/bindings.json`;
   if (phase === 'create') BindingStore.create(bindingFile);
   const originalExecPath = process.execPath, originalPkg = Reflect.get(process, 'pkg');
@@ -121,7 +121,7 @@ if (!phase) {
     ctx.llm.registerAdapter(['mock'], adapter);
     const worlds = ctx.executionWorlds;
     const setup = async (agentCtx: Context) => { await ctx.agentPresets.mount(agentCtx, 'shared'); };
-    const create = (id: string, definition: WorldDefinition) => ctx.agents.create({ sessionId: SessionId(id),
+    const create = (id: string, definition: SshWorkspaceDefinition) => ctx.agents.create({ sessionId: SessionId(id),
       meta: { cwd: definition.cwd, agentPreset: 'shared' }, agentOptions: { provider: 'mock', model: 'mock' }, setup });
     let call = 0;
     const execute = (agent: Agent | undefined, name: string, args: Record<string, unknown>) => ctx.tools.execute({
@@ -139,8 +139,8 @@ if (!phase) {
         const concrete = worlds.forAgent(agent);
         await concrete.fs.writeText(await concrete.fs.resolve('sentinel.txt'), `${concrete.remoteWorld.client.info.world}\n`);
       }
-      const approvals: string[] = [];
-      ctx.on('tools/pre-execute', async (exec, next) => { approvals.push(Routing.executionWorldContext(ctx, exec).world); return next(); });
+      const approvals: ReturnType<typeof Routing.executionWorldContext>[] = [];
+      ctx.on('tools/pre-execute', async (exec, next) => { approvals.push(Routing.executionWorldContext(ctx, exec)); return next(); });
       await Promise.all(Array.from({ length: 8 }, async (_, i) => {
         const agent = i % 2 ? a.agent : b.agent, expected = i % 2 ? 'route-a' : 'route-b';
         const name = i % 4 < 2 ? 'read' : 'grep';
@@ -149,7 +149,8 @@ if (!phase) {
         assert.ok(JSON.stringify(result).includes(expected));
         assert.ok(!JSON.stringify(result).includes(expected === 'route-a' ? 'route-b' : 'route-a'));
       }));
-      assert.deepEqual(new Set(approvals), new Set(['route-a', 'route-b']));
+      assert.deepEqual(new Set(approvals.map(facts => `${facts.world}:${facts.workspace}:${facts.kind}`)),
+        new Set(['environment-a:route-a:ssh', 'environment-b:route-b:ssh']));
       console.log('PASS persistent bindings route concurrent real DSH FS/search and approval context under one preset');
 
       const child = await startInProcessRun({ parent: a.agent, prompt: [{ type: 'text', text: 'Read the bound World' }],
@@ -160,7 +161,11 @@ if (!phase) {
       assert.equal(serviceForAgent(ctx, child.localAgent!, 'fs'), fsService);
       assert.deepEqual(ctx.tools.schemas(child.localAgent).map(t => t.name), ['read']);
       assert.ok(JSON.stringify(child.localAgent!.session.snapshotEvents()).includes('route-a'));
-      assert.ok(JSON.stringify(adapter.requests[0]).includes(worlds.forAgent(a.agent).remoteWorld.client.info.runtime));
+      const modelRequest = JSON.stringify(adapter.requests[0]);
+      assert.ok(modelRequest.includes(worlds.forAgent(a.agent).remoteWorld.client.info.runtime));
+      for (const fact of ['"world":"environment-a"', '"workspace":"route-a"', '"kind":"ssh"']) {
+        assert.ok(modelRequest.includes(JSON.stringify(fact).slice(1, -1)), `Model context is missing ${fact}`);
+      }
       await child.dispose();
       console.log('PASS unchanged DSH child persists its World identity before execution and keeps native filtering');
 
@@ -204,7 +209,8 @@ if (!phase) {
       assert.equal(await concrete.fs.readText(await concrete.fs.resolve('executed.txt')), 'once\n');
       await worlds.prepare(proof.childId);
       const child = await ctx.agents.resume({ resumeSessionId: SessionId(proof.childId), setup });
-      assert.equal(Routing.executionWorldContext(ctx, child.agent).world, 'route-a');
+      const childFacts = Routing.executionWorldContext(ctx, child.agent);
+      assert.deepEqual([childFacts.world, childFacts.workspace, childFacts.kind], ['environment-a', 'route-a', 'ssh']);
       assert.ok(JSON.stringify(child.agent.session.snapshotEvents()).includes('route-a'));
       assert.equal((await execute(child.agent, 'read', { file_path: 'sentinel.txt' })).isError, false);
       await child.dispose();

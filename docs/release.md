@@ -1,5 +1,7 @@
 # 发行
 
+个人 research 阶段只维护一条可复现的候选构建链和固定 DSH 基线，不承诺旧实验状态兼容。扩大平台范围和安装 GC 需另行定界，不预先扩展发布框架。
+
 发行单位是一个完整归档：官方 DSH 对应的扩展 tarball、目标平台 helper/ripgrep、`release.json`和许可证。官方 DSH 和 npm 依赖仍按官方安装机制准备。模型凭据、World 地址、binding 和测试日志不进入归档。源码模块保持统一发行，不要求用户分别安装 World、workspace 和 skill 模块。
 
 仓库使用 CI 验收候选，再手动触发 GitHub Actions 发布；执行结果以相应 revision 的 Actions 为准。无需发布 npm。当前完整 CI 候选针对 **Linux x86_64、glibc 2.36+** 远端，宿主按安装文档要求准备官方 DSH、Node 和 OpenSSH。其他平台已有部分开发验证，不等于发行矩阵已覆盖。
@@ -29,6 +31,6 @@ node integrations/dsh/scripts/pack-release.mjs \
 
 各个 tag 的附件保持独立；固定的是附件文件名，不是版本 tag。不要重写旧版本附件，已有版本需要修正时发布新版本。
 
-本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令见 [README](../README.md)，维护与配置迁移见 [development.md](development.md)，上游升级门槛见 [上游升级参考](reference/upstream-upgrades.md)。
+本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令见 [README](../README.md)，维护与配置初始化见 [development.md](development.md)，上游升级门槛见 [上游升级参考](reference/upstream-upgrades.md)。
 
-已有配置按[开发文档](development.md#离线产物与已有配置)升级，不重新 init；安装 GC 尚未实现。
+破坏性状态格式变化使用新的私有 `DSH_HOME` 与 binding 存储，保留旧环境用于历史查看；不要把旧状态直接复制进新环境。规则见 [Session bindings](reference/session-bindings.md)。安装 GC 尚未实现。

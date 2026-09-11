@@ -1,0 +1,87 @@
+{
+  "status": "passed",
+  "completedAt": "2026-09-11T14:44:15.437300+00:00",
+  "upstream": {
+    "revision": "183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
+    "version": "0.1.5-rc.1",
+    "patchCount": 10
+  },
+  "checks": {
+    "static": "passed",
+    "fast": {
+      "tests": 45,
+      "passed": 43,
+      "skipped": 2,
+      "failed": 0
+    },
+    "dshIntegration": "passed",
+    "packagingAndClient": {
+      "passed": 11,
+      "failed": 0
+    },
+    "nativeMacOSBrowser": "passed",
+    "linuxSshLanes": [
+      {
+        "lane": 1,
+        "command": ".build/dsh/patched-host/admission.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 2,
+        "command": "--expose-internals .build/dsh/attachment-check/lib/attachments.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 3,
+        "command": "integrations/dsh/tests/e2e/skills-deployment.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 4,
+        "command": "integrations/dsh/tests/e2e/worlds-reload.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 5,
+        "command": "integrations/dsh/scripts/web-e2e.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 6,
+        "command": "integrations/dsh/scripts/web-e2e.mjs --attachments",
+        "status": "passed"
+      },
+      {
+        "lane": 7,
+        "command": "integrations/dsh/tests/e2e/extension-install.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 8,
+        "command": "integrations/dsh/tests/e2e/connect-install.mjs",
+        "status": "passed"
+      },
+      {
+        "lane": 9,
+        "command": "integrations/dsh/scripts/local-e2e.mjs",
+        "status": "passed"
+      }
+    ],
+    "mixedLocalAndTwoSsh": "passed"
+  },
+  "scope": [
+    "current v3 state only",
+    "World and Workspace identity",
+    "presentation stream",
+    "10 pinned patches",
+    "unified npm and just commands",
+    "shared setup with fresh lane containers",
+    "research scope and current docs"
+  ],
+  "runtimeFix": "Preserve executable final symlink and invocation name for multicall binaries",
+  "boundaries": [
+    "Fresh private DSH_HOME and binding state required; no historical migration",
+    "No new provider or native platform acceptance claimed",
+    "No public release or Git commit performed"
+  ]
+}

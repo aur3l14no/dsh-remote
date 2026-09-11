@@ -2,10 +2,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname, relative } from 'node:path';
-import { createHash } from 'node:crypto';
 import ts from 'typescript';
 import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
+import { preparePatchedSource } from './prepare-patched-source.mjs';
 
 const extensionVersion = '0.3.2';
 const [sourceArg, installationArg] = process.argv.slice(2);
@@ -18,13 +18,7 @@ if (JSON.parse(await readFile(join(installation, 'node_modules/@deepseek-ai/dsh/
 const output = resolve('.build/dsh/extension');
 const sources = resolve('.build/dsh/extension-source');
 await rm(output, { recursive: true, force: true }); await mkdir(output, { recursive: true });
-await rm(sources, { recursive: true, force: true }); await mkdir(sources, { recursive: true });
-execFileSync('tar', ['-xf', '-', '-C', sources], { input: execFileSync('git', ['-C', source, 'archive', revision], { maxBuffer: 128 * 1024 * 1024 }) });
-for (const patch of series.patches) {
-  const file = resolve('integrations/dsh/patches', patch.file);
-  if (createHash('sha256').update(await readFile(file)).digest('hex') !== patch.sha256) throw new Error('Patch checksum mismatch');
-  execFileSync('git', ['apply', '--no-index', file], { cwd: sources, env: { ...process.env, GIT_CEILING_DIRECTORIES: resolve(sources, '..') } });
-}
+await preparePatchedSource(source, sources);
 const compatibilityNames = new Set(series.patches.flatMap(patch => patch.packages));
 const packages = [];
 const patchedSources = [];
@@ -49,7 +43,7 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
   const packageSource = join(sources, metadata.repository.directory, 'src') + '/';
   if (Object.keys(compiled.metafile.inputs).some(path => !resolve(path).startsWith(packageSource))) throw new Error(`Compatibility package bundled a foreign source: ${name}`);
 }
-for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right', '@deepseek-ai/dsh-client-ui-sidebar']) {
+for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right']) {
   await buildClientCompatibility(sources, installation,
     JSON.parse(await readFile(join(installation, 'node_modules', name, 'package.json'), 'utf8')),
     join(output, 'compat', name));
@@ -70,7 +64,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
+const entries = { presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -122,7 +116,7 @@ localPreset += `
 await mkdir(join(output, 'presets/standard'), { recursive: true });
 await writeFile(join(output, 'presets/standard/agent.cordis.yml'), localPreset);
 
-await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
+await build({ entryPoints: ['integrations/dsh/packages/world/execution-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await build({ entryPoints: ['runtime/ssh/src/manifest.ts'], outfile: join(output, 'manifest.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));
 await writeFile(join(output, 'extension.json'), JSON.stringify({ dshVersion: version, revision, patches: series.patches, packages }, null, 2));

@@ -4,19 +4,50 @@
   "private": true,
   "description": "SSH Execution Worlds for DSH, with remote FS/subprocess providers and local Session bindings",
   "type": "module",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "license": "MIT",
   "exports": {
-    ".": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/worlds.d.ts", "default": "./lib/worlds.js" },
-    "./routing": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routing.d.ts", "default": "./lib/routing.js" },
-    "./fs": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routed-fs.d.ts", "default": "./lib/fs.js" },
-    "./subprocess": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/routed-subprocess.d.ts", "default": "./lib/subprocess.js" },
-    "./bindings": { "types": "./types/integrations/dsh/packages/world/ssh-world/src/bindings.d.ts", "default": "./lib/bindings.js" },
-    "./client": { "types": "./types/runtime/client/src/index.d.ts", "default": "./lib/client.js" },
-    "./package.json": "./package.json"
+    ".": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/worlds.d.ts",
+      "default": "./lib/worlds.js"
+    },
+    "./routing": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/routing.d.ts",
+      "default": "./lib/routing.js"
+    },
+    "./fs": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/routed-fs.d.ts",
+      "default": "./lib/fs.js"
+    },
+    "./subprocess": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/routed-subprocess.d.ts",
+      "default": "./lib/subprocess.js"
+    },
+    "./bindings": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/bindings.d.ts",
+      "default": "./lib/bindings.js"
+    },
+    "./client": {
+      "types": "./types/runtime/client/src/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json",
+    "./identity": {
+      "types": "./types/integrations/dsh/packages/world/execution-world/src/identity.d.ts",
+      "default": "./lib/identity.js"
+    }
   },
-  "files": ["lib", "types", "README.md", "LICENSE"],
-  "dependencies": { "zod": "4.4.3" },
+  "files": [
+    "lib",
+    "types",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "zod": "4.4.3"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-agent": "0.1.5-rc.1",

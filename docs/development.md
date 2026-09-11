@@ -16,6 +16,33 @@
 
 清理命令按上述边界执行：`just clean` 只删除 `.build/`；`just clean-reports` 删除报告；`just clean-dist` 删除发行文件；`just clean-rust` 调用 helper 的 Cargo clean。测试进程结束后再清理。历史 notes 的路径保留原文，不作为当前脚本输入。
 
+## 统一开发入口
+
+根仓库只用 npm 与 `package-lock.json`。上游自己的 pnpm 配置留在上游 checkout；不要在本仓库生成第二份锁文件。`just` 的同名任务只转调 npm。
+
+| 入口 | 内容和前置条件 |
+| --- | --- |
+| `npm run check` | Rust fmt/clippy、runtime TS、原版 DSH 接口、重新准备的补丁宿主、我们自己的 host/client 类型、浏览器兼容包与附件类型；需要固定源码和官方安装 |
+| `npm test` | Cargo 测试与 debug binaries、client/bootstrap、binding、skills、release 的快速测试；无需 DSH 安装或外部服务 |
+| `npm run test-integration` | 原版 composition/package 与独立 patched-host/附件行为；需要固定源码、官方安装、`DSH_TEST_RG` 指向本机 ripgrep |
+| `npm run test-e2e` | 构建一次扩展和共享浏览器 fixture，执行原生本机、双 Linux SSH、浏览器、附件、reload、skills、官方 CLI 安装各 lane；需要 Docker Compose、SSH、Chromium |
+| `npm run package` | 唯一扩展 tarball 构建链；需要固定源码和官方安装，不宣称已通过行为验收 |
+| `npm run check:runtime` | 无 DSH 依赖的 Rust 与 runtime TS 检查，供只改 runtime 或独立 CI job 使用 |
+
+默认源码目录为 `.build/dsh/upstream`，可通过 `DSH_SOURCE` 指定。所有源码入口要求 `series.json` 指定的 revision 且 tracked files 干净；不随上游 HEAD 自动更新。准备命令独立于检查，不在检查时隐式联网安装：
+
+```sh
+npm ci
+# 将 series.json 中 repository/revision 对应的干净 checkout 放入 .build/dsh/upstream，
+# 或 export DSH_SOURCE=/absolute/path/to/pinned-checkout。
+node integrations/dsh/scripts/prepare-official.mjs
+npx --no-install playwright install chromium  # 仅浏览器验收需要
+npm run check
+npm test
+```
+
+缺少源码或官方安装时，统一入口会给出准备方法并失败，不把跳过当成通过。`test-integration` 的本机场景不能证明真实 SSH；`test-e2e` 保留每个 lane 独立输出及资源清理。双 World suite 只构建一次镜像、密钥和 helper 产物；各 lane 重建容器，避免上一个测试留下的 skills、项目文件或停机状态污染下一项。已准备扩展与浏览器 fixture 时可单独运行 `node integrations/dsh/scripts/e2e.mjs --suite`。Chromium 在 Linux 上可能需预先通过 `--with-deps` 安装系统依赖。底层聚焦入口继续可用，避免每次小修改都重复整套验收。
+
 ## 选择验证入口
 
 DSH 脚本通常放在 `integrations/dsh/scripts/`；CodeQL 入口与查询放在 `integrations/dsh/checks/codeql/`，通用 runtime 检查留在自己的子系统。按修改范围选择检查，不必每次运行全部入口。
@@ -35,10 +62,7 @@ DSH 脚本通常放在 `integrations/dsh/scripts/`；CodeQL 入口与查询放�
 ## 通用代码
 
 ```sh
-(cd runtime/helper && cargo fmt --all --check)
-(cd runtime/helper && cargo clippy --locked --all-targets -- -D warnings)
-(cd runtime/helper && cargo build --locked)
-npm run check
+npm run check:runtime
 npm test
 ```
 
@@ -123,7 +147,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
 ```
 
-`local-world` 验证显式 local 分派不会调用 bootstrap、SSH connector 或远端 skill preparation；不以替身证明原生 IO。`local-e2e` 在原版官方宿主创建本机历史，再在同一状态装扩展，检查本机迁移、权限、文件／进程、skills、子会话、附件及浏览器。通过双 World runner 运行时增加同路径混合隔离、Reload 和 SSH 容器停止后本机继续运行。只有在 macOS 上运行的本机 gate 才证明 macOS 接入。
+`local-world` 验证显式 local 分派不会调用 bootstrap、SSH connector 或远端 skill preparation；不以替身证明原生 IO。`local-e2e` 在原版官方宿主创建本机历史，再在同一状态装扩展，检查旧会话无绑定时拒绝恢复、新会话显式准入、权限、文件／进程、skills、子会话、附件及浏览器。通过双 World runner 运行时增加同路径混合隔离、Reload 和 SSH 容器停止后本机继续运行。只有在 macOS 上运行的本机 gate 才证明 macOS 接入。
 
 Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 和 Sidebar 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
 
@@ -158,6 +182,6 @@ SSH 连接使用配置中明确的 `target.host`。目录在选择工作区时�
 
 离线部署和开发 fixture 可以保留显式 `bootstrap: {manifest, cacheDir}`。`dsh-remote-config init WORLD_CONFIG.json` 初始化显式配置；`init-release RELEASE_DIRECTORY WORLDS.json` 从匹配的完整包初始化。它们是维护入口，不是用户安装步骤，不覆盖已有状态。此模式的 runtime 由维护者更新，自动下载只用于未设置 bootstrap 的配置。
 
-升级前停止 DSH 并备份 DSH_HOME 与外部 binding/Session 存储，按上游兼容矩阵成对更新 DSH 和扩展。已有配置不重新 init；要从手动 runtime 管理迁移为自动下载，仅删除配置中的 bootstrap，保留 worlds.json、bindingFile 和绑定存储。V3 会话不能直接交给旧 DSH，回退需恢复备份。
+升级前停止 DSH 并备份 DSH_HOME 与外部 binding/Session 存储，按上游兼容矩阵成对更新 DSH 和扩展。已有配置不重新 init；要从手动 runtime 管理迁移为自动下载，仅删除配置中的 bootstrap，保留 worlds.json、bindingFile 和绑定存储。研究阶段只支持当前状态格式；格式变化时显式重置实验状态，需保留的数据先另行导出。
 
 卸载使用 `dsh plugin --profile web remove @dsh-remote/extension`，保留远端配置与历史；已有远端 Session 仍需扩展才能执行。多个 profile 共享同一 DSH_HOME 时也共享远端配置。

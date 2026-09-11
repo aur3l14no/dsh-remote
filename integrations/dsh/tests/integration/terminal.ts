@@ -10,7 +10,7 @@ import { MockAdapter } from '@dsh-test/mock-adapter';
 import { presetHarness, serviceForAgent } from './preset-harness.ts';
 import type SshSubprocess from '../../packages/world/ssh-world/src/subprocess.ts';
 import { SshTerminal } from '../../packages/world/ssh-world/src/terminal.ts';
-import { RemoteProcess } from '../../../../runtime/client/src/index.ts';
+import { RemoteError, RemoteProcess } from '../../../../runtime/client/src/index.ts';
 import { runtime, fixture as nativeFixture } from '../../../../runtime/tests/client/support.ts';
 import { remoteRuntime } from './remote-runtime.ts';
 
@@ -22,7 +22,7 @@ const local = await mkdtemp('/tmp/dsh-terminal-local.');
 const oldExecPath = process.execPath, oldPkg = Reflect.get(process, 'pkg');
 const r = ssh ? await remoteRuntime('terminal-world') : await runtime({ world: 'terminal-world', lease: 5000 });
 const contexts: Context[] = [];
-const shell = process.env.DSH_TEST_TERMINAL_SHELL;
+let shell = process.env.DSH_TEST_TERMINAL_SHELL;
 const deadline = setTimeout(() => { throw new Error('Terminal acceptance exceeded 120 seconds'); }, 120000);
 async function harness(terminal?: { shell: string }) {
   const ctx = await presetHarness(`${local}/presets-${contexts.length}`, [{ id: 'terminal-world', client: r.client,
@@ -130,6 +130,12 @@ try {
   await missing.fiber.dispose();
   console.log('PASS absent target shell refuses Agent publication without local fallback');
 
+  if (!shell) {
+    // An omitted override says nothing about target capabilities. Discover on the
+    // bound helper so the native gate also exercises Bash consumers when available.
+    try { shell = (await r.client.requestWhenReady<{ path: string }>('process.resolveExecutable', { command: 'bash', cwd: r.dir })).path; }
+    catch (error) { if (!(error instanceof RemoteError) || error.code !== 'NOT_FOUND') throw error; }
+  }
   if (shell) {
     const app = await harness({ shell });
     const a = await create(app, 'terminal-owner');
@@ -168,7 +174,6 @@ try {
     await b.dispose();
     console.log('PASS Agent teardown during reconnect cancels its terminal/job while a peer World owner survives');
   } else {
-    await assert.rejects(r.client.requestWhenReady('process.resolveExecutable', { command: 'bash', cwd: r.dir }), { code: 'NOT_FOUND' });
     console.log('PASS Bash consumer unavailable on target; portable PTY primitive remains supported');
   }
   if (!ssh) {

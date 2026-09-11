@@ -33,9 +33,9 @@ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import { ApiSessionAgentController } from '@dsh-test/web-agent';
 import { SessionCommandController } from '@dsh-test/web-commands';
 import { installModelSelectionProjection } from '@dsh-test/web-model-selection-projection';
-import { BindingStore } from '../../packages/world/ssh-world/src/bindings.ts';
-import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/ssh-world/src/worlds.ts';
-import * as Routing from '../../packages/world/ssh-world/src/routing.ts';
+import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
+import ExecutionWorlds, { executionWorldsPlugin } from '../../packages/world/execution-world/src/worlds.ts';
+import * as Routing from '../../packages/world/execution-world/src/routing.ts';
 import PortableWorkspaces from '../../packages/workspace/portable-workspace/src/registry.ts';
 import * as Admission from '../../packages/workspace/portable-workspace/src/admission.ts';
 import RemoteAttachments from '../../packages/workspace/remote-attachments/src/index.ts';
@@ -167,7 +167,8 @@ try {
   const legacy = new LocalAttachmentStore(legacyCtx, { dshHome: `${base}/home` });
   const legacyRef = await legacy.saveImage({ data: png, mediaType: 'image/png' });
   assert.ok(!legacyRef.attachmentId.includes('@world-'));
-  assert.ok((await resumed.readImage(legacyRef)).data.length > 0, 'legacy refs explicitly retain their original host store');
+  await assert.rejects(resumed.readImage(legacyRef), { code: 'INVALID_ATTACHMENT_REF' });
+  await assert.rejects(host.ctx.attachments.readImage(legacyRef), { code: 'WORLD_REQUIRED' });
   const corruptOwner = host.ctx.executionWorlds.forSession(ids[0]!);
   const original = (await resumed.readImage(images[0]!)).data;
   await writeRemote(corruptOwner.remoteWorld.client, imagePath, new Uint8Array(original.length));
@@ -175,12 +176,13 @@ try {
   await assert.rejects(resumed.readImageRequest(images[0]!, { maxPixels: 1024, maxBytes: 1024 }), { code: 'ATTACHMENT_CORRUPT' });
   // A local object with the same content digest must never rescue a remote read.
   await writeRemote(corruptOwner.remoteWorld.client, imagePath, original);
-  await corruptOwner.subprocess.spawn({ argv: ['rm', '--', imagePath], cwd: selection.path, stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 500 }).done;
+  const deletion = corruptOwner.subprocess.spawn({ argv: ['rm', '--', imagePath], cwd: selection.path, stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 500 });
+  assert.deepEqual(await deletion.done, { exitCode: 0, signal: null }, deletion.collected.stderr?.readFrom(0).text);
   await assert.rejects(resumed.readImage(images[0]!), { code: 'ATTACHMENT_NOT_FOUND' });
   await assert.rejects(resumed.readImageRequest(images[0]!, { maxPixels: 1024, maxBytes: 1024 }), { code: 'ATTACHMENT_NOT_FOUND' });
   await assert.rejects(resumed.readImage({ ...images[0]!, attachmentId: legacyRef.attachmentId + '@world-' + '0'.repeat(64) } as ImageAttachmentRef), { code: 'INVALID_ATTACHMENT_REF' });
   await legacyCtx.fiber.dispose();
-  console.log('PASS legacy compatibility, cancellation cleanup and no host fallback for missing/corrupt remote images');
+  console.log('PASS unqualified SSH reference rejection, cancellation cleanup and no host fallback for missing/corrupt remote images');
 } finally {
   await ctx?.fiber.dispose();
   await new Promise<void>(accept => server.close(() => accept()));

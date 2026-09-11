@@ -11,5 +11,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["runtime/client/**/*.ts", "runtime/ssh/**/*.ts", "integrations/dsh/packages/world/ssh-world/src/bindings.ts", "runtime/tests/client/**/*.ts", "runtime/tests/bootstrap/**/*.ts", "integrations/dsh/tests/bindings/**/*.ts", "runtime/scripts/prepare-artifacts.ts"]
+  "include": ["runtime/client/**/*.ts", "runtime/ssh/**/*.ts", "integrations/dsh/packages/world/execution-world/src/bindings.ts", "runtime/tests/client/**/*.ts", "runtime/tests/bootstrap/**/*.ts", "integrations/dsh/tests/bindings/**/*.ts", "runtime/scripts/prepare-artifacts.ts"]
 }

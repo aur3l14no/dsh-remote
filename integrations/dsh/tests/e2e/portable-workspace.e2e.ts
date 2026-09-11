@@ -1,4 +1,3 @@
-import { seedLegacySession } from './remote-session-migration.ts';
 import { checkFilePreview } from './remote-file-preview.ts';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -39,7 +38,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   onTestFailed(async () => { if (page.isClosed()) return; console.error('PAGE', await page.locator('body').innerText()); await page.screenshot({ path: `${root}/artifacts/dsh/web-failure.png`, fullPage: true }); });
   await page.goto(scaffold.authenticatedUrl);
   const choose = async (index: number) => {
-    await page.locator('.workspace-new-session').click();
+    await page.getByRole('button', { name: 'New session', exact: true }).last().click();
     await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
     await page.getByRole('menuitem').filter({ hasText: '/workspace' }).nth(index).click();
   };
@@ -163,12 +162,20 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => new URL(page.url()).searchParams.get('session')).toBe(sessionId);
   const deepLink = new URL(page.url());
   const oldRuntime = owner.remoteWorld.client.info.runtime;
+  const savedSecondBinding = scaffold.ctx.get('executionWorlds').bindings.get(second.session.header.id);
+  expect(savedSecondBinding).toBeDefined();
   await page.close();
   await scaffold.close();
-  const checkMigration = await seedLegacySession(state, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
   await replay.roundScript();
   scaffold = await launch();
-  await checkMigration(scaffold);
+  const coldWorkspaceB = scaffold.ctx.get('worldPortableWorkspaces').forSession(second.session.header.id)!;
+  expect(coldWorkspaceB).toBeDefined();
+  await scaffold.ctx.get('sessionController').create({ sessionId: second.session.header.id, workspaceId: coldWorkspaceB.id });
+  const coldSecond = scaffold.ctx.agents.get(second.session.header.id)!;
+  expect(coldSecond).toBeDefined();
+  expect(scaffold.ctx.get('executionWorlds').bindings.get(coldSecond.id)).toEqual(savedSecondBinding);
+  const coldOwnerB = scaffold.ctx.get('executionWorlds').forAgent(coldSecond);
+  expect(await coldOwnerB.fs.readText(await coldOwnerB.fs.resolve('world.txt'))).toBe('b\n');
   expect(scaffold.ctx.agents.get(sessionId)).toBeUndefined();
   const coldScope = { sessionId, workspaceRoot: '/workspace' };
   expect((await scaffold.ctx.get('workspaceFiles').read(coldScope, '/tmp/dsh-present.txt', {}, AbortSignal.timeout(15000))).text).toBe('OUTSIDE_WORLD_A');
@@ -181,7 +188,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   page = await openPage(browser);
   await page.goto(scaffold.authenticatedUrl);
   await page.goto(new URL(deepLink.pathname + deepLink.search + deepLink.hash, scaffold.baseUrl).href);
-  // Reopening World B reuses its blank Session; migration updates that identity in place.
+  // Reopening World B reuses its existing Session after a current-format cold restore.
   await expect.poll(() => page.locator('.session-card').count(), { timeout: 15000 }).toBe(2);
   await expect.poll(() => cardFor(second.session.header.id).count()).toBe(1);
   expect(await cardFor(fork.session.header.id).count()).toBe(0);

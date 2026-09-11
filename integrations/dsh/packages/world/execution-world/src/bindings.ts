@@ -1,34 +1,17 @@
 import fs from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
+import { workspaceSchema, workspaceDefinition, sameWorkspace, targetFingerprint, type WorkspaceDefinition } from './identity.ts';
 
 const identifier = z.string().min(1).max(512).regex(/^[^\0\r\n]+$/);
-const path = identifier.refine(value => value.startsWith('/'), 'Absolute path required');
-const sshWorldSchema = z.object({
-  id: identifier, kind: z.literal('ssh'), host: identifier.refine(value => !value.startsWith('-')),
-  cwd: path, configFile: path.optional(), installRoot: path.optional(), runtimeBase: path.optional(),
-  podmanContainer: z.string().length(64).regex(/^[a-f0-9]{64}$/).optional(),
-}).strict();
-const localWorldSchema = z.object({ id: identifier, kind: z.literal('local'), cwd: path }).strict();
-const worldSchema = z.discriminatedUnion('kind', [sshWorldSchema, localWorldSchema]);
 const documentSchema = z.object({
-  version: z.union([z.literal(1), z.literal(2)]), worlds: z.array(worldSchema),
-  sessions: z.array(z.object({ sessionId: identifier, worldId: identifier }).strict()),
+  version: z.literal(3), workspaces: z.array(workspaceSchema),
+  sessions: z.array(z.object({ sessionId: identifier, workspaceId: identifier }).strict()),
 }).strict();
-export type SshWorldDefinition = Readonly<z.infer<typeof sshWorldSchema>>;
-export type LocalWorldDefinition = Readonly<z.infer<typeof localWorldSchema>>;
-export type WorldDefinition = SshWorldDefinition | LocalWorldDefinition;
-export type WorldTarget = Omit<SshWorldDefinition, 'id' | 'cwd'> | { kind: 'local' };
 type Document = z.infer<typeof documentSchema>;
 const MAX_BYTES = 4 * 1024 * 1024;
-
-export function worldDefinition(input: unknown): WorldDefinition {
-  const result = worldSchema.safeParse(input);
-  if (!result.success) throw new RemoteError('INVALID_WORLD', 'Invalid execution World definition');
-  return Object.freeze(result.data);
-}
 
 /** A local sidecar, independent of DSH's Session history. Writes are synchronous publication barriers. */
 export class BindingStore {
@@ -48,7 +31,7 @@ export class BindingStore {
       try { fs.lstatSync(file); }
       catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        BindingStore.publish(file, { version: 1, worlds: [], sessions: [] });
+        BindingStore.publish(file, { version: 3, workspaces: [], sessions: [] });
       }
     });
     return new BindingStore(file);
@@ -83,65 +66,54 @@ export class BindingStore {
     const parsed = documentSchema.safeParse(value);
     if (!parsed.success) throw new RemoteError('INVALID_BINDINGS', 'Unsupported or malformed binding store');
     const document = parsed.data;
-    if (document.version === 1 && document.worlds.some(world => world.kind !== 'ssh')) {
-      throw new RemoteError('INVALID_BINDINGS', 'Version 1 bindings support SSH Worlds only');
-    }
-    const worlds = new Set(document.worlds.map(world => world.id));
+    const workspaces = new Set(document.workspaces.map(workspace => workspace.id));
     const sessions = new Set(document.sessions.map(binding => binding.sessionId));
-    if (worlds.size !== document.worlds.length || sessions.size !== document.sessions.length
-        || document.sessions.some(binding => !worlds.has(binding.worldId))) {
+    if (workspaces.size !== document.workspaces.length || sessions.size !== document.sessions.length
+        || document.sessions.some(binding => !workspaces.has(binding.workspaceId))) {
       throw new RemoteError('INVALID_BINDINGS', 'Duplicate or dangling binding identity');
+    }
+    const targets = new Map<string, string>();
+    for (const workspace of document.workspaces) {
+      const target = targetFingerprint(workspace);
+      const previous = targets.get(workspace.worldId);
+      if (previous !== undefined && previous !== target) throw new RemoteError('INVALID_BINDINGS', 'World identity has conflicting execution targets');
+      targets.set(workspace.worldId, target);
     }
     return document;
   }
 
-  get(sessionId: string): WorldDefinition | undefined {
+  get(sessionId: string): WorkspaceDefinition | undefined {
     const document = this.read();
     const binding = document.sessions.find(entry => entry.sessionId === sessionId);
-    return binding && Object.freeze(document.worlds.find(world => world.id === binding.worldId)!);
+    return binding && Object.freeze(document.workspaces.find(workspace => workspace.id === binding.workspaceId)!);
   }
 
-  private check(document: Document, sessionId: string, world: WorldDefinition): boolean {
+  private check(document: Document, sessionId: string, workspace: WorkspaceDefinition): boolean {
     if (!identifier.safeParse(sessionId).success) throw new RemoteError('INVALID_ARGUMENT', 'Invalid Session identity');
-    const existing = document.worlds.find(entry => entry.id === world.id);
+    const environment = document.workspaces.find(entry => entry.worldId === workspace.worldId);
+    if (environment && targetFingerprint(environment) !== targetFingerprint(workspace)) {
+      throw new RemoteError('WORLD_MISMATCH', 'World identity is already bound to another execution target');
+    }
+    const existing = document.workspaces.find(entry => entry.id === workspace.id);
     const binding = document.sessions.find(entry => entry.sessionId === sessionId);
-    if ((existing && JSON.stringify(existing) !== JSON.stringify(world)) || (binding && binding.worldId !== world.id)) {
-      throw new RemoteError('WORLD_MISMATCH', 'Session or World identity is already bound to another definition');
+    if ((existing && !sameWorkspace(existing, workspace)) || (binding && binding.workspaceId !== workspace.id)) {
+      throw new RemoteError('WORLD_MISMATCH', 'Session or workspace identity is already bound to another definition');
     }
     return binding !== undefined;
   }
 
   /** Check before provisioning, then bind rechecks under the publication lock. */
-  assertCompatible(sessionId: string, input: WorldDefinition): void {
-    this.check(this.read(), sessionId, worldDefinition(input));
+  assertCompatible(sessionId: string, input: WorkspaceDefinition): void {
+    this.check(this.read(), sessionId, workspaceDefinition(input));
   }
 
-  bind(sessionId: string, input: WorldDefinition): void {
-    const world = worldDefinition(input);
+  bind(sessionId: string, input: WorkspaceDefinition): void {
+    const workspace = workspaceDefinition(input);
     BindingStore.withLock(this.file, () => {
       const document = this.read();
-      if (this.check(document, sessionId, world)) return;
-      if (world.kind === 'local' && document.version === 1) {
-        // Preserve the exact validated generation before the first schema upgrade.
-        const bytes = fs.readFileSync(this.file);
-        const backup = `${this.file}.v1-${createHash('sha256').update(bytes).digest('hex')}.bak`;
-        try {
-          const fd = fs.openSync(backup, 'wx', 0o600);
-          try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-          const fd = fs.openSync(backup, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-          try {
-            const info = fs.fstatSync(fd);
-            if (!info.isFile() || info.uid !== process.getuid!() || (info.mode & 0o077) !== 0 || !fs.readFileSync(fd).equals(bytes)) {
-              throw new RemoteError('UNSAFE_BINDINGS', 'Existing migration backup is not the validated v1 generation');
-            }
-          } finally { fs.closeSync(fd); }
-        }
-        document.version = 2;
-      }
-      if (!document.worlds.some(entry => entry.id === world.id)) document.worlds.push({ ...world });
-      document.sessions.push({ sessionId, worldId: world.id });
+      if (this.check(document, sessionId, workspace)) return;
+      if (!document.workspaces.some(entry => entry.id === workspace.id)) document.workspaces.push({ ...workspace });
+      document.sessions.push({ sessionId, workspaceId: workspace.id });
       try { BindingStore.publish(this.file, document); }
       catch (error) {
         if (error instanceof RemoteError && error.code === 'BINDING_COMMIT_UNKNOWN') this.uncertain = true;

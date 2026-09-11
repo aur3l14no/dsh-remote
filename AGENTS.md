@@ -2,6 +2,10 @@
 
 Before changing execution or DSH integration, read README.md and docs/system-map-1.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
+- This is personal research with no users. Support one pinned DSH baseline and the current state format; remove obsolete migrations and internal compatibility aliases instead of preserving experimental history in runtime code. Breaking changes require explicit fresh private state, never automatic deletion or rebinding.
+- Keep World, Workspace, Session binding and runtime instance identities distinct. Display preferences must not change execution identity or workspace timestamps. Prefer existing UI extension points over cosmetic upstream patches.
+- Use the documented check/test/test-integration/test-e2e/package entry points. Share build preparation while retaining independent test state and proof boundaries. Add providers, platform matrices and product lifecycle features only for a concrete research need.
+
 - Keep runtime/ DSH-independent; DSH-specific code, tests and packaging belong in integrations/dsh/. Generic tests and scripts belong in runtime/tests/ and runtime/scripts/.
 - When integrating with DSH, prefer composable approaches that minimize coupling to upstream internals and survive upgrades, such as plugins over patches where both meet the requirements.
 - Keep the standalone Cargo manifest and lockfile in runtime/helper/; run Cargo there with its default target/. No root target/ or compatibility alias.
