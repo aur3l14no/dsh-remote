@@ -14,7 +14,9 @@
 
 ## 上传附件
 
-新上传的图片、原样文件以及 `read_image` 生成的图片对象，以远端为持久源。存储位于远端账户 `$HOME/.local/share/dsh-remote/attachments/v1/<World 指纹>/`，独立于项目目录、helper 安装和临时 runtime。指纹包含完整不可变绑定；不同 World 不因内容摘要相同而共享引用。Session 继续使用原生日志格式，附件 ID 携带内容摘要和 World 指纹。
+local Session 委托原生 AttachmentStore，保留本机存储、裸摘要 ID、图片规则及历史引用；模型、预览、fork、子会话和导出均检查明确的 local binding。不会将带 SSH World 指纹的引用视为本机对象。
+
+SSH Session 新上传的图片、原样文件以及 `read_image` 生成的图片对象，以远端为持久源。存储位于远端账户 `$HOME/.local/share/dsh-remote/attachments/v1/<World 指纹>/`，独立于项目目录、helper 安装和临时 runtime。指纹包含完整不可变绑定；不同 World 不因内容摘要相同而共享引用。Session 继续使用原生日志格式，附件 ID 携带内容摘要和 World 指纹。
 
 上传、工具、模型转换、历史预览和 Session 日志导出通过 `attachments.forSession(sessionId)` 选择后端。写入先原子发布并完成 `fs.sync`，再返回可写入日志的引用；缺少该 capability 的旧 helper 明确拒绝附件写入。模型提示里的文件/图片读取路径属于远端账户，宿主缓存路径不会作为工具路径给模型。
 

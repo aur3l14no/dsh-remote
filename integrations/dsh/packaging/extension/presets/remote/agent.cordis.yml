@@ -12,6 +12,7 @@
     - name: '../../plugins/web/lib/routing.js'
       config:
         providerPaths: true
+        kind: ssh
     - name: '@deepseek-ai/dsh-bash-local'
       config:
         maxSpillBytes: 4194304

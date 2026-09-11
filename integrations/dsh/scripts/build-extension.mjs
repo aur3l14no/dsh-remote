@@ -36,16 +36,18 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
   patchedSources.push({ source: join(sources, metadata.repository.directory, 'src'), destination: join(output, directory, 'lib/types') });
   packages.push(directory);
   await cp(official, join(output, directory), { recursive: true, filter: path => !path.slice(official.length).split('/').includes('node_modules') });
-  await build({ entryPoints: [join(sources, metadata.repository.directory, 'src/index.ts')], outfile: join(output, directory, 'lib/index.js'),
-    bundle: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external',
+  const compiled = await build({ entryPoints: [join(sources, metadata.repository.directory, 'src/index.ts')], outfile: join(output, directory, 'lib/index.js'),
+    bundle: true, metafile: true, format: 'esm', platform: 'node', target: 'node24', packages: 'external',
     plugins: [{ name: 'typescript', setup(builder) {
       builder.onResolve({ filter: /^@deepseek-ai\// }, args => compatibilityNames.has(args.path) ? {
         path: './' + relative(join(output, directory, 'lib'), join(output, 'compat', args.path, 'lib/index.js')), external: true,
-      } : undefined);
+      } : { path: args.path, external: true });
       builder.onLoad({ filter: /\.ts$/ }, args => ({
       contents: ts.transpileModule(readFileSync(args.path, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText, loader: 'js',
     })); } }],
   });
+  const packageSource = join(sources, metadata.repository.directory, 'src') + '/';
+  if (Object.keys(compiled.metafile.inputs).some(path => !resolve(path).startsWith(packageSource))) throw new Error(`Compatibility package bundled a foreign source: ${name}`);
 }
 for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right']) {
   await buildClientCompatibility(sources, installation,
@@ -68,7 +70,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
+const entries = { presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/ssh-world/src/routing.ts', fs: 'world/ssh-world/src/routed-fs.ts', subprocess: 'world/ssh-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -83,7 +85,7 @@ for (const browser of [false, true]) {
     plugins: [{ name: 'compatibility-imports', setup(builder) {
       builder.onResolve({ filter: /^@deepseek-ai\// }, args => compatibilityNames.has(args.path) ? {
         path: './' + relative(join(dest, 'lib'), join(output, 'compat', args.path, 'lib/index.js')), external: true,
-      } : undefined);
+      } : { path: args.path, external: true });
     } }],
   });
   for (const imported of Object.values(built.metafile.outputs).flatMap(file => file.imports)) {
@@ -98,6 +100,28 @@ for (const browser of [false, true]) {
   }, null, 2));
 }
 await cp('integrations/dsh/packaging/extension', output, { recursive: true, filter: path => !path.endsWith('/README.md') });
+// Derive the local composition from the pinned native preset, preserving its ordinary toolset.
+// The environment router supplies the native skill provider once for the shared host catalog.
+let localPreset = await readFile(join(sources, 'packages/preset/agent-presets/presets/standard/agent.cordis.yml'), 'utf8');
+localPreset = localPreset.replace(/- id: skill-filesystem\n  name: '@deepseek-ai\/dsh-skill-filesystem'\n/, '');
+for (const name of compatibilityNames) localPreset = localPreset.replaceAll(`'${name}'`, `'../../compat/${name}/lib/index.js'`);
+localPreset += `
+- id: local-world-admission
+  name: '../../plugins/web/lib/routing.js'
+  config:
+    kind: local
+- id: local-terminals
+  name: '@deepseek-ai/cordis-plugin-group'
+  isolate:
+    terminals: true
+  config:
+    - name: '@deepseek-ai/dsh-terminal'
+    - name: '../../plugins/web/lib/terminal.js'
+    - name: '@deepseek-ai/dsh-tool-terminal'
+`;
+await mkdir(join(output, 'presets/standard'), { recursive: true });
+await writeFile(join(output, 'presets/standard/agent.cordis.yml'), localPreset);
+
 await build({ entryPoints: ['integrations/dsh/packages/world/ssh-world/src/bindings.ts'], outfile: join(output, 'bindings.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await build({ entryPoints: ['runtime/ssh/src/manifest.ts'], outfile: join(output, 'manifest.js'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' });
 await cp('LICENSE', join(output, 'LICENSE'));

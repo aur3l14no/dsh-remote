@@ -10,8 +10,8 @@ import { mkdir, mkdtemp, open, rm } from 'node:fs/promises';
 import { join, posix } from 'node:path';
 import { readFile, rawStream, writeFileStream, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import type { Client, Metadata } from '../../../../../../runtime/client/src/index.ts';
-import type { WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
-import type {} from '../../../world/ssh-world/src/worlds.ts';
+import type { WorldDefinition } from '../../../world/execution-world/src/bindings.ts';
+import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from '../../portable-workspace/src/registry.ts';
 import { observe } from '../../../../shared/lifetime.ts';
 
@@ -24,7 +24,7 @@ const missingSession = () => new RemoteError('WORLD_REQUIRED', 'Attachment stora
 /** New writes belong to the selected World. Unqualified historical refs retain their explicit host ownership. */
 export default class RemoteAttachments extends LocalAttachmentStore {
   static inject = ['executionWorlds', 'worldPortableWorkspaces'];
-  private readonly scoped = new Map<string, SessionAttachments>();
+  private readonly scoped = new Map<string, SessionAttachments | LocalSessionAttachments>();
   readonly lifetime = new AbortController();
   readonly localConfig: LocalConfig;
   get host(): Context { return this.ctx; }
@@ -42,7 +42,7 @@ export default class RemoteAttachments extends LocalAttachmentStore {
     if (!definition) throw missingSession();
     let scoped = this.scoped.get(sessionId);
     if (!scoped) {
-      scoped = new SessionAttachments(this, sessionId, definition);
+      scoped = definition.kind === 'local' ? new LocalSessionAttachments(this, sessionId, definition) : new SessionAttachments(this, sessionId, definition);
       this.scoped.set(sessionId, scoped);
     }
     scoped.assertBinding();
@@ -67,6 +67,30 @@ export default class RemoteAttachments extends LocalAttachmentStore {
   prepareImage(input: SaveImageAttachment) {
     return this.compression.run(() => prepareImageFile(input, this.imageLimits, this.normalizationPolicy));
   }
+}
+
+/** Native storage mechanics and historical ids, gated by an explicit local Session binding. */
+class LocalSessionAttachments extends LocalAttachmentStore {
+  private readonly key: string;
+  constructor(private readonly parent: RemoteAttachments, private readonly sessionId: string, definition: WorldDefinition) {
+    super(new Context(), parent.localConfig);
+    this.key = fingerprint(definition);
+  }
+  assertBinding(): void {
+    this.parent.lifetime.signal.throwIfAborted();
+    const saved = this.parent.host.executionWorlds.bindings.get(this.sessionId);
+    if (!saved || saved.kind !== 'local' || fingerprint(saved) !== this.key) throw new RemoteError('WORLD_MISMATCH', 'Local attachment Session binding is missing or changed');
+  }
+  override forSession(id: string | undefined): AttachmentStore { return this.parent.forSession(id); }
+  override saveImages(inputs: readonly SaveImageAttachment[]) { this.assertBinding(); return super.saveImages(inputs); }
+  override saveImage(input: SaveImageAttachment) { this.assertBinding(); return super.saveImage(input); }
+  override saveFile(input: SaveFileAttachment) { this.assertBinding(); return super.saveFile(input); }
+  override saveFileStream(input: SaveFileStreamAttachment) { this.assertBinding(); return super.saveFileStream(input); }
+  override readImage(ref: ImageAttachmentRef, signal?: AbortSignal) { this.assertBinding(); return super.readImage(ref, signal); }
+  override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal) { this.assertBinding(); return super.readFileStream(ref, signal); }
+  override readImageRequest(ref: ImageAttachmentRef, policy: ImageRequestPolicy, signal?: AbortSignal) { this.assertBinding(); return super.readImageRequest(ref, policy, signal); }
+  override imageHostPath(ref: ImageAttachmentRef) { this.assertBinding(); return super.imageHostPath(ref); }
+  override fileHostPath(ref: FileAttachmentRef) { this.assertBinding(); return super.fileHostPath(ref); }
 }
 
 class SessionAttachments extends LocalAttachmentStore {

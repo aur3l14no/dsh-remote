@@ -40,6 +40,9 @@ export function sshTransport(target: SuppliedRuntime): TransportFactory {
     signal.throwIfAborted();
     const child = spawn('ssh', argv, { stdio: ['pipe', 'pipe', 'pipe'] });
     const transport = Duplex.from({ readable: child.stdout, writable: child.stdin });
+    // The client's iterator reports transport failures. Duplex destruction can emit a
+    // later AbortError after that iterator ends; keep it handled through close.
+    transport.on('error', () => {});
     // Drain diagnostics boundedly without exposing account/config details or credentials as protocol data.
     child.stderr.resume();
     child.on('error', () => transport.destroy(new RemoteError('SSH_FAILED', 'Could not start system OpenSSH')));

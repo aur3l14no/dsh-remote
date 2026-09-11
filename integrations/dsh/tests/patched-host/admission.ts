@@ -1,3 +1,4 @@
+import * as NativeWorkspaces from '../../packages/workspace/local-workspace/src/native.ts';
 /** Patched native Web admission, using real Agent/Session services and native or real SSH helper fixtures. */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, realpath, rm, stat } from 'node:fs/promises';
@@ -92,16 +93,20 @@ if (!phase) {
     await ctx.plugin(provider, { bindingFile: `${base}/bindings.json`, packagedRipgrep: await SearchTools.resolveRgPath(),
       bootstrap: { manifest: ssh ? JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST!, 'utf8')) : {}, cacheDir: ssh ? process.env.DSH_TEST_ARTIFACT_CACHE! : base, graceMs: 15000, leaseMs: 5000 } });
     await ctx.plugin(AgentLoop, { agents: [] });
-    await mkdir(`${base}/shared`, { recursive: true });
-    await writeFile(`${base}/shared/agent.cordis.yml`, JSON.stringify(phase.startsWith('local-') ? [] : [
+    await mkdir(`${base}/remote`, { recursive: true });
+    await writeFile(`${base}/remote/agent.cordis.yml`, JSON.stringify(phase.startsWith('local-') ? [] : [
       { id: 'world-routing', name: 'cordis:group', isolate: { fs: true, subprocess: true }, config: [
         { name: 'cordis:fs' }, { name: 'cordis:subprocess' }, { name: 'cordis:routing' }, { name: 'cordis:files' },
       ] },
     ]));
-    await ctx.plugin(AgentPresets, { default: 'shared', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
+    await ctx.plugin(AgentPresets, { default: 'remote', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
     const configured = structuredClone(selection.worlds);
     if (phase === 'missing') configured.splice(0, 1);
-    if (phase === 'changed') configured[0]!.target = { ...configured[0]!.target, host: 'changed-acceptance.invalid' };
+    if (phase === 'changed') {
+      assert.equal(configured[0]!.target.kind, 'ssh');
+      configured[0]!.target = { ...configured[0]!.target, kind: 'ssh', host: 'changed-acceptance.invalid' };
+    }
+    await ctx.plugin(NativeWorkspaces);
     await ctx.plugin(PortableWorkspaces, { worlds: configured });
     assert.ok(ctx.workspaceRegistry instanceof PortableWorkspaces, 'The local Workspace registry must be replaced');
     const portableWorkspaces = ctx.worldPortableWorkspaces;
@@ -200,7 +205,7 @@ if (!phase) {
       const sessionId = SessionId(saved.sessionIds[0]!);
       assert.equal(portableWorkspaces.list().length, 2);
       assert.ok(portableWorkspaces.get(portableWorkspaceId)!.sessionIds.includes(sessionId));
-      if (phase === 'missing' || phase === 'changed' || phase === 'unavailable' || phase === 'unbound') {
+      if (phase === 'changed' || phase === 'unavailable' || phase === 'unbound') {
         if (phase === 'unbound') {
           const file = `${base}/bindings.json`;
           const data = JSON.parse(await readFile(file, 'utf8'));

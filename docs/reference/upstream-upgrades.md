@@ -33,6 +33,7 @@
 | 0007 session-attachments | 附件消费者传递 Session，后端可提供执行环境路径和复用图片校验/归一化；模型上传索引接受不透明附件 ID |
 | 0008 sidebar-resource-dot-segments | 原生侧栏 URI glob 能识别包含 `.` / `..` 的地址，且保留 Session 与路径原文 |
 | 0009 present-desktop-availability | 禁用宿主打开时，交付文件 HTTP 元数据与拒绝入口不再依赖宿主 FS / sandboxPolicy |
+| 0010 local-workspace-admission | 准入可选择 Session preset；权限初始化可按 Session 选择缺失默认值；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
 
 补丁间有顺序依赖，尤其 0005/0006 也修改 Session controller；不要把“上游出现类似接口”直接当成可以删补丁。
 
@@ -40,7 +41,7 @@
 
 1. 检查上表接口和原生本地行为，更新 series 及官方依赖锁；在隔离源码副本验证补丁与摘要。
 2. 跑 **unchanged-source** gates，确认上游本身提供什么；再跑独立 **patched-host** gate，确认补丁提供什么。两者不能合并为一个“兼容通过”。
-3. 构建扩展，用官方 CLI 安装同一 tarball；跑双 Linux/SSH World、浏览器、冷恢复、child/terminal、日志迁移。浏览器代码另做类型检查。
+3. 构建扩展，用官方 CLI 安装同一 tarball；跑原版到安装态的本机历史迁移、本机与双 Linux/SSH World 混合浏览器、冷恢复、child/terminal、日志迁移。浏览器代码另做类型检查。Standard preset 从固定上游派生；构建须排除误打包的外部 Cordis/scope 源码，原生 AgentPresets 的 standing mount 状态不能复制。
 4. 通过后才形成发行候选。用户备份 DSH_HOME 和外部 binding 存储，按 [升级说明](../development.md#离线产物与已有配置) 成对更新。
 
 具体命令见 [开发指南](../development.md)；新消费者先对照 [消费者接入契约](../system-map-1.md#新增消费者与升级)。

@@ -15,27 +15,13 @@
   disabled: true
 - id: ui-workspace
   disabled: true
-- id: directory-picker
-  disabled: true
 - id: session-reference
   disabled: true
 - id: file-reference-local
   disabled: true
-- id: fs-sandbox
-  disabled: true
-- id: subprocess
-  disabled: true
-- id: bash-sandbox
-  disabled: true
-- id: pwsh-sandbox
-  disabled: true
-- id: sandbox
-  disabled: true
 - id: sandbox-policy
   disabled: true
 - id: permission
-  disabled: true
-- id: ui-permission
   disabled: true
 - insert:
     - id: remote-workspaces
@@ -73,12 +59,31 @@
       config:
         cache: false
 - id: agent-presets
-  inject: [remoteSetup]
-  config:
-    default: remote
-    includeShippedRoot: false
-    includeUserRoot: false
-    roots: !!js ctx.remoteSetup.roots
+  disabled: true
+- insert:
+    - id: world-agent-presets
+      name: './plugins/web/lib/presets.js'
+      inject: [remoteSetup]
+      config:
+        default: remote
+        includeShippedRoot: false
+        includeUserRoot: false
+        roots: !!js ctx.remoteSetup.roots
+    - id: world-permission
+      name: './compat/@deepseek-ai/dsh-permission-presets/lib/index.js'
+      inject: [remoteSetup, sessionPermissionDefaults]
+      config:
+        defaultPreset: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+        presets:
+          read-only:
+            sandbox: read-only
+            approval: ask
+          workspace-write:
+            sandbox: workspace-write
+            approval: ask
+          danger-full-access:
+            sandbox: danger-full-access
+            approval: never
 
 - id: workspace-files
   disabled: true

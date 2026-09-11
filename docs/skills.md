@@ -1,6 +1,8 @@
 # Skills 与项目指令
 
-remote profile 从 Session 绑定的 World 发现项目 AGENTS.md 和 skills。模型、skill parser 和对话历史留在宿主；读取项目指令、skill 资源及执行项目命令使用远端环境。
+扩展从 Session 绑定的 World 发现项目 AGENTS.md 和 skills。local 复用 DSH 原生文件系统 skill provider、默认本机来源与 watcher，以及本机项目／个人指令；无需部署副本。SSH 使用下文的远端来源与同步机制，不扫描本机个人来源。模型、skill parser 和对话历史留在宿主。
+
+本机 World 禁止 `skills`／`enabledSkills` 远端部署字段；目录 Reload 不触发本机 skill 复制。Skill 内容及所在目录不会改变会话的执行环境或权限。
 
 ## 同步选定 skills
 

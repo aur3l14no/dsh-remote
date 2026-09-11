@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile as localRead } from 'node:fs/promises';
+import { readFile as localRead, mkdtemp, writeFile as localWrite, rm } from 'node:fs/promises';
+import { Client } from '../../client/src/index.ts';
 import { RemoteProcess, writeFile, readFile } from '../../client/src/index.ts';
-import { connectSuppliedRuntime, sshArguments } from '../../ssh/src/index.ts';
+import { connectSuppliedRuntime, sshArguments, sshTransport } from '../../ssh/src/index.ts';
 
 const host = process.env.DSH_TEST_HOST;
 const helper = process.env.DSH_TEST_REMOTE_HELPER;
@@ -55,4 +56,19 @@ test('system OpenSSH: remote files, large collection, raw resume, search and sco
     client?.dispose();
     await command(['rm', '-r', root]);
   }
+});
+
+
+test('failed SSH handshakes contain late duplex destruction errors', async () => {
+  const directory = await mkdtemp('/tmp/dsh-ssh-exit-');
+  const prior = process.env.PATH;
+  try {
+    await localWrite(`${directory}/ssh`, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+    process.env.PATH = `${directory}:${prior}`;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await assert.rejects(Client.open({ world: 'failed-ssh', connect: sshTransport({ host: 'fixture', world: 'failed-ssh', helper: '/unused', socket: '/unused' }) }), { code: 'TRANSPORT_CLOSED' });
+    }
+    // Node's test runner treats any late unhandled stream error as a failure.
+    await new Promise(resolve => setTimeout(resolve, 30));
+  } finally { process.env.PATH = prior; await rm(directory, { recursive: true }); }
 });

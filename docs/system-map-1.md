@@ -8,15 +8,14 @@
 
 ## 先认识这些概念
 
-**DSH 留在本地管理对话，我们为它接入选定远端的文件和进程能力。** 项目路径由远端解释；模型请求、插件代码和 Session 历史仍在宿主。
-  ∑
+**DSH 留在宿主管理对话，项目操作按绑定选择本机或 SSH provider。** 本机复用原生能力；SSH 项目路径由远端解释。模型请求、插件代码和 Session 历史仍在宿主。
 | 概念／设施 | 谁提供 | 在这里负责什么 |
 | --- | --- | --- |
 | Session | DSH | 保存对话和历史；不是 SSH 连接。我们另外保存它的执行绑定 |
 | Agent、child、continuation | DSH | 执行模型循环、委派和续接；复用原生生命周期与工具过滤 |
-| Workspace、workspace controller | DSH | 工作区列表与操作入口；我们通过外部 feed 接入远端目录 |
+| Workspace、workspace controller | DSH | 原生本机 registry 与远端目录经统一 facade/feed 进入同一选择器 |
 | World、portable_workspace、binding | 本项目 | World 描述环境；portable_workspace 表示其中的 canonical 项目目录；binding 固定 Session 的执行身份 |
-| FS、subprocess、shell、jobs、terminal | DSH 接口与消费者 + 我们的 provider | 工具继续调用服务，我们把文件和进程操作交给远端 |
+| FS、subprocess、shell、jobs、terminal | DSH 接口与消费者 + 我们的 provider | 工具按显式 World 使用原生本机服务或 SSH provider |
 | Cordis、profile、preset | DSH 使用的插件基础设施 | 注册和装配服务，决定消费者拿到哪个实例；不等于 OS 安全隔离 |
 | Remote、Typert、client factory | DSH 的宿主／浏览器基础设施 | UI 与服务通信、模块加载和协议身份；这里的 Remote 不表示 SSH World |
 | client、OpenSSH、helper | 本项目运行库 + 系统 SSH | 从宿主传递协议请求，在目标环境读写文件、管理进程和 PTY |
@@ -29,13 +28,13 @@ flowchart LR
   A -->|"继承完整绑定与 cwd"| C["DSH child Agent<br/>原生委派与续接"]
 ```
 
-World catalog 和具体执行绑定有区别：v1 `WorldDefinition` 同时含 SSH 坐标与 cwd，registry 为每个组合生成 binding ID。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。提交顺序见 [Session bindings](reference/session-bindings.md)。
+World catalog 和具体执行绑定有区别：`WorldDefinition` 是显式 local/SSH 联合，registry 为每个环境与 canonical cwd 生成 binding ID。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。存储兼容 v1 SSH，首次 local 写入先备份再升级 v2；提交与迁移见 [Session bindings](reference/session-bindings.md)。
 
 ## 功能怎样落到上游设施
 
-每张功能图均按 **功能 → 机制 → 我们的方案／状态 → 上游接点** 阅读。图后的说明区分“复用上游”“插件扩展”“下游补丁”，不把本项目增加的接口写成上游原生能力。0001–0007 对应[补丁清单](../integrations/dsh/patches/series.json)。
+每张功能图均按 **功能 → 机制 → 我们的方案／状态 → 上游接点** 阅读。图后的说明区分“复用上游”“插件扩展”“下游补丁”，不把本项目增加的接口写成上游原生能力。0001–0010 对应[补丁清单](../integrations/dsh/patches/series.json)。
 
-### 打开远端项目，创建和恢复会话
+### 打开本机或 SSH 项目，创建和恢复会话
 
 ```mermaid
 flowchart LR
@@ -48,7 +47,9 @@ DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。
 
 新会话入口读取 [worlds.json](worlds.md) 中声明的 World 与 Workspace，选中后才连接和登记 canonical 目录。配置变化通过 **Reload worlds** 的只读预览和确认热加载；skill 增删改列出远端目标与版本，已有 Session 保留原绑定。侧栏仅显示紧凑会话卡片，支持悬停置顶／归档；这些展示偏好保存在宿主 registry，不改变绑定。
 
-恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/ssh-world/src/worlds.ts)。
+**This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择、为权限初始化增加按 Session 的默认值，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。旧本机会话只从已核对的持久 membership 采用。
+
+恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/execution-world/src/worlds.ts)。
 
 ### 读写、搜索和运行命令
 
@@ -61,7 +62,9 @@ flowchart LR
 
 复用原生文件、搜索和 Bash 工具。我们的 `ssh-world` 在 `tools/execute` hook 里根据 Session 查 binding，用 AsyncLocalStorage 保存本次调用的 World provider；`ctx.fs` / `ctx.subprocess` 经 client、SSH 转发到 helper。**0003 为 Bash 接入所属 Agent 的 workdir resolver，0004 让文件工具用注入 FS 解析 cwd**，避免路径提前在宿主解析。
 
-路径、symlink 和 `..` 由目标 FS 解释；未打路径补丁的组合继续拒绝 `..`。shell、可执行文件和路径规则按目标平台选择。只传明确的 `spec.env`，不复制宿主 `process.env`。仅 DSH 已知 packaged ripgrep 路径映射到目标 rg；其他 argv[0] 仍发远端，这不是命令白名单或 Shell 字符串改写。实现见[路由](../integrations/dsh/packages/world/ssh-world/src/routing.ts)。
+通用 binding、准入后分派与生命周期位于 `world/execution-world/`；`local-world` 借用原生 FS/subprocess，`ssh-world/adapter` 独立拥有 bootstrap、helper client 和远端服务。Standard preset 组合本机能力，remote preset 组合 SSH 能力；切换 preset 不能改变已绑定的执行环境。本机权限保留原生 sandbox，SSH 继续使用账户权限。
+
+路径、symlink 和 `..` 由目标 FS 解释；未打路径补丁的组合继续拒绝 `..`。shell、可执行文件和路径规则按目标平台选择。只传明确的 `spec.env`，不复制宿主 `process.env`。仅 DSH 已知 packaged ripgrep 路径映射到目标 rg；其他 argv[0] 仍发远端，这不是命令白名单或 Shell 字符串改写。实现见[路由](../integrations/dsh/packages/world/execution-world/src/routing.ts)。
 
 ### 后台任务、终端和断线恢复
 
@@ -89,6 +92,8 @@ flowchart LR
 
 当前来源为项目 `.dsh/skills`、项目 `.agents/skills`、远端 home `.agents/skills`，依次优先。未隐式扫描宿主默认 skills 或合并宿主个人 AGENTS.md。无远端 watcher，catalog 每次请求重新发现；已进入历史的说明不追溯替换。选定本地内容可部署到远端，但本地脚本路径、应用、凭据和依赖不会因此自动远端可用。**Skill 的位置不授予执行权**。配置、同步和冲突处理见 [Skills 使用指南](skills.md)。
 
+上述来源限制仅针对 SSH。本机复用原生 skill provider 名称、默认来源、watcher 与指令环境；两种 provider 按保存的 Session binding 分派。
+
 ### 浏览文件、图片和上传附件
 
 ```mermaid
@@ -101,6 +106,8 @@ flowchart LR
 DSH rc.1 原生文件地址保留 Session 身份。**0006 为 workspace-files 和媒体增加 Session 所属 FS/root**；`portable-workspace` 按持久绑定解析冷会话及子会话的远端预览环境。普通文件读取允许 SSH 账户有权读取的项目外路径；目录和变更流仍限项目根，最终 symlink 拒绝。原生 `present` 文件交付可在侧栏打开，宿主 Open/Reveal 禁用。无 OS watcher，外部编辑手动刷新。
 
 **0007 让上传、工具、模型转换、历史预览、导出与子 Agent 传递 Session，并允许后端提供执行路径**。我们的 `remote-attachments` 通过 `attachments.forSession(sessionId)` 选择远端持久源。DSH 继续负责图片校验／归一化、模型编码和原生日志格式。模型按需读回，工具获得远端路径；宿主缓存不可替代失效的远端源。
+
+local 分支委托原生 AttachmentStore，保留裸摘要 ID、存储路径及历史兼容；每次访问仍检查 local binding。SSH 引用不转成本机来源。两类 Session 的上传、模型读取、子会话读取和 ZIP 导出共用原生消费者。
 
 原样文件当前上限 64 MiB；旧裸摘要引用继续读旧宿主 store，远端工具需要时重新上传。**🔴 自动迁移、存储 GC 和跨 World 转移未提供**。精确命名空间、原子发布、旧 helper 与 profile 兼容见[文件预览与附件契约](reference/workspace-io.md)。
 
@@ -127,7 +134,7 @@ flowchart LR
   class S1,S2 missing
 ```
 
-**Workspace 是工作目录，不是权限围栏。** 目前仅允许 `danger-full-access`，其他模式在写入前拒绝；remote overlay 禁用原生 permission/UI，不承诺逐次审批界面。tool allow/deny 只控制可见性与调用权限，允许 Bash 就仍可执行命令。执行事实可以投影给模型和审批，不代表已有远端强制隔离；helper 参数／资源检查也不隔离同进程插件的任意本地代码。
+**Workspace 是工作目录，不是权限围栏。** SSH 仅允许 `danger-full-access`，其他模式在权限记录写入前拒绝；本机保留原生 permission/UI 与 sandbox 行为。缺少权限记录的旧 SSH 会话也按 SSH 账户模式补齐默认值。tool allow/deny 只控制可见性与调用权限，允许 Bash 就仍可执行命令。执行事实可以投影给模型和审批，不代表已有远端强制隔离；helper 参数／资源检查也不隔离同进程插件的任意本地代码。
 
 worktree 已有可组合基础：远端 subprocess 可运行目标 Git，registry 可登记已有目录并创建绑定的新独立 Session。尚未形成“创建 worktree → 注册目录 → 启动 Agent → 失败清理”的产品流程；目标 Git／仓库条件也未专项验收。普通 child 必须继承完整 binding/cwd，Web fork 复制源 cwd，上游 workflow isolation 仍是 deferred 选项，不能仅改 cwd 绕过检查。后续定界见[worktree 计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
 
@@ -185,7 +192,7 @@ flowchart TD
 | 连接器与插件控制数据 | 明确的宿主网络／存储接口 | 只传所需数据，不把凭据或所有文件操作搬到远端 |
 | 指令与 skill 资源 | 显式 Agent/Session 的环境发现 | 来源不授予执行权限，依赖不偷偷复制 |
 
-未适配的 workspace 消费者必须排除；本项目不全局 monkey-patch Node，也不隔离恶意同进程插件。原生 sameWorkspace 会话引用只比较 cwd，当前排除；LSP/Git 扩展、跨根 Agent 消息和外部 Agent 后端需单独适配。实现参考[非工具预览入口](../integrations/dsh/packages/workspace/portable-workspace/src/file-preview.ts)和[路由／executionWorldContext](../integrations/dsh/packages/world/ssh-world/src/routing.ts)；事实投影不含 SSH 凭据。
+未适配的 workspace 消费者必须排除；本项目不全局 monkey-patch Node，也不隔离恶意同进程插件。原生 sameWorkspace 会话引用只比较 cwd，当前排除；LSP/Git 扩展、跨根 Agent 消息和外部 Agent 后端需单独适配。实现参考[非工具预览入口](../integrations/dsh/packages/workspace/portable-workspace/src/file-preview.ts)和[路由／executionWorldContext](../integrations/dsh/packages/world/execution-world/src/routing.ts)；事实投影不含 SSH 凭据。
 
 ### 验收证明哪一层成立
 
@@ -202,7 +209,7 @@ flowchart TD
 
 优先复用可组合接口，只有宿主缺少入口才维护补丁；上游补齐后逐个移除补丁及兼容包。不能因为出现同名接口就删除补丁：还需验证准入时序、身份传递、失败语义、服务域与浏览器模块身份。
 
-[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证；Session V2→V3 迁移后回退需恢复状态备份，不能只降 npm 版本。逐项风险、七个补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
+[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证；Session V2→V3 迁移后回退需恢复状态备份，不能只降 npm 版本。逐项风险、补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
 
 ## 源码与证据
 
@@ -211,7 +218,10 @@ flowchart TD
 | `runtime/helper/` | 通用远端文件、进程、PTY、协议；独立 Cargo manifest/lockfile，使用自己的默认 target/ |
 | `runtime/client/`、`runtime/ssh/` | 通用 Node 协议客户端、OpenSSH、安装/bootstrap；不导入 DSH API |
 | `runtime/tests/`、`runtime/scripts/` | 通用 runtime 测试与产物准备 |
-| `integrations/dsh/packages/world/ssh-world/` | World、绑定、路由、账户权限、terminal backend |
+| `integrations/dsh/packages/world/execution-world/` | 通用 local/SSH binding、分派、生命周期与 preset 选择 |
+| `integrations/dsh/packages/world/local-world/` | 组合原生本机 FS/subprocess，无 helper |
+| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、账户权限、绑定 owner 的 terminal backend；旧通用入口保留 re-export |
+| `integrations/dsh/packages/workspace/local-workspace/` | 独立原生 registry 域及 facade 桥接 |
 | `integrations/dsh/packages/workspace/` | portable-workspace 的 registry/准入/UI；remote-attachments 的 Session 附件策略 |
 | `integrations/dsh/packages/skill/`、`bundle/` | Skills 发现／同步；整体装配和激活顺序 |
 | `integrations/dsh/shared/` | 少量共享工具，不存 World/Session 领域逻辑 |

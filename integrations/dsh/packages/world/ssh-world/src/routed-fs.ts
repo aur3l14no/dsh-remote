@@ -1,2 +1,2 @@
 /** Cordis Loader entry for the shared filesystem router. */
-export { RoutedFileSystem as default } from './routing.ts';
+export { RoutedFileSystem as default } from '../../execution-world/src/routing.ts';

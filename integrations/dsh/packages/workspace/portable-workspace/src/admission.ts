@@ -1,8 +1,10 @@
+import type {} from '@deepseek-ai/dsh-agent-presets';
+import type {} from '@deepseek-ai/dsh-permission-presets';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ApiSessionAdmissionRequest } from '@deepseek-ai/dsh-api-session-controller';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import type { WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
-import type {} from '../../../world/ssh-world/src/worlds.ts';
+import type { WorldDefinition } from '../../../world/execution-world/src/bindings.ts';
+import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from './registry.ts';
 
 export const name = 'remote-session-admission';
@@ -10,7 +12,27 @@ export const inject = ['executionWorlds', 'worldPortableWorkspaces', 'sessionPer
 
 /** Source-profile adapter for the patched host. It grants no local workspace fallback. */
 export function apply(ctx: Context): void {
-  ctx.provide('apiSessionAdmission', { prepare: (request: ApiSessionAdmissionRequest) => prepare(ctx, request) });
+  function preset(sessionId: string, requested: string | undefined) {
+    const saved = ctx.executionWorlds.bindings.get(sessionId);
+    if (!saved) throw new RemoteError('WORLD_REQUIRED', 'Preset selection requires an admitted Session');
+    const expected = saved.kind === 'local' ? 'standard' : 'remote';
+    if (requested !== undefined && requested !== expected) {
+      throw new RemoteError('WORLD_MISMATCH', 'Preset does not belong to the Session execution environment');
+    }
+    return expected;
+  }
+  ctx.provide('apiSessionAdmission', { prepare: (request: ApiSessionAdmissionRequest) => prepare(ctx, request), preset });
+  ctx.provide('sessionPermissionDefaults', { preset(session, configured) {
+    const saved = ctx.executionWorlds.bindings.get(session.id);
+    // Children receive their parent's domain before their own binding publication.
+    const definition = saved ?? (session.header.origin === 'subagent' && session.header.parentSession ? ctx.executionWorlds.bindings.get(session.header.parentSession) : undefined);
+    if (!definition) throw new RemoteError('WORLD_REQUIRED', 'Permission initialization requires a bound execution environment');
+    return definition.kind === 'ssh' ? 'danger-full-access' : configured;
+  }, validate(session, selected) {
+    const definition = ctx.executionWorlds.bindings.get(session.id);
+    if (!definition) throw new RemoteError('WORLD_REQUIRED', 'Permission selection requires a bound execution environment');
+    if (definition.kind === 'ssh' && selected !== 'danger-full-access') throw new RemoteError('WORLD_MISMATCH', 'SSH Worlds use account permissions; sandbox presets are unavailable');
+  } });
 }
 
 async function prepare(ctx: Context, request: ApiSessionAdmissionRequest): Promise<void> {

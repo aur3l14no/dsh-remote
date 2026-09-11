@@ -1,4 +1,4 @@
-/** Durable World-qualified workspace registry; workspace files never live in the host registry. */
+/** World-qualified facade over native local membership and durable SSH workspace records. */
 import { Service, type Context } from '@deepseek-ai/cordis';
 import { WorkspaceRegistry, WorkspaceId, type Workspace } from '@deepseek-ai/dsh-workspace';
 import { defineDomain, type DomainGlobal } from '@deepseek-ai/dsh-storage-domain';
@@ -7,20 +7,22 @@ import { createHash, randomUUID } from 'node:crypto';
 import { posix } from 'node:path';
 import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import { worldDefinition, type WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
-import '../../../world/ssh-world/src/worlds.ts';
+import { worldDefinition, type WorldDefinition, type WorldTarget } from '../../../world/execution-world/src/bindings.ts';
+import '../../../world/execution-world/src/worlds.ts';
 import type { SkillInstall } from '../../../skill/remote-skills/src/deploy.ts';
 
 export interface CatalogWorld {
   id: string;
   name: string;
-  target: Omit<WorldDefinition, 'id' | 'cwd'>;
+  target: WorldTarget;
   skills?: SkillInstall[];
   color?: string;
   enabledSkills?: string[];
   workspaces?: { name?: string; path: string }[];
 }
+export const LOCAL_WORLD_ID = 'local';
 export interface Config { worlds: CatalogWorld[] }
+declare module '@deepseek-ai/cordis' { interface Context { nativeWorkspaceRegistry: WorkspaceRegistry } }
 const targetSchema = z.unknown().transform(worldDefinition);
 const recordSchema = z.object({
   id: z.string(), worldId: z.string(), worldName: z.string(), environment: targetSchema,
@@ -32,10 +34,10 @@ type Record = z.infer<typeof recordSchema>;
 const recordsKey = 'projects';
 const domainName = 'remote_project_experiment';
 const bindingPrefix = 'project-';
-const stateSchema = z.object({ [recordsKey]: z.array(recordSchema), archivedSessionIds: z.array(z.string()).default([]), pinnedSessionIds: z.array(z.string()).default([]), worldColors: z.record(z.string(), z.string().regex(/^#[0-9a-fA-F]{6}$/)).default({}), skillSelections: z.record(z.string(), z.array(z.string())).default({}) }).strict();
+const stateSchema = z.object({ nativeAdoptionComplete: z.boolean().default(false), [recordsKey]: z.array(recordSchema), archivedSessionIds: z.array(z.string()).default([]), pinnedSessionIds: z.array(z.string()).default([]), worldColors: z.record(z.string(), z.string().regex(/^#[0-9a-fA-F]{6}$/)).default({}), skillSelections: z.record(z.string(), z.array(z.string())).default({}) }).strict();
 type State = z.infer<typeof stateSchema>;
 const spec = defineDomain({ name: domainName, version: 1,
-  global: { schema: stateSchema, initial: { [recordsKey]: [], archivedSessionIds: [], pinnedSessionIds: [], worldColors: {}, skillSelections: {} } }, tables: {} });
+  global: { schema: stateSchema, initial: { nativeAdoptionComplete: false, [recordsKey]: [], archivedSessionIds: [], pinnedSessionIds: [], worldColors: {}, skillSelections: {} } }, tables: {} });
 
 declare module '@deepseek-ai/cordis' { interface Context { worldPortableWorkspaces: WorldPortableWorkspaceRegistry } }
 
@@ -43,6 +45,8 @@ export function parseCatalog(worlds: CatalogWorld[]) {
   if (!Array.isArray(worlds)) throw new Error('worlds.json requires a worlds array');
   const catalog = new Map<string, { name: string; environment: WorldDefinition; color?: string; enabledSkills?: string[]; workspaces?: { name?: string; path: string }[] }>();
     for (const world of worlds) {
+      if ((world.id === LOCAL_WORLD_ID) !== (world.target?.kind === 'local')) throw new Error('The reserved World id local identifies This computer');
+      if (world.target?.kind === 'local' && (world.skills !== undefined || world.enabledSkills !== undefined)) throw new Error('Local Worlds use native skills; remote deployment fields are not allowed');
       if (typeof world.id !== 'string' || !world.id.trim() || typeof world.name !== 'string' || !world.name.trim()) throw new Error('World id and name are required');
       if (world.enabledSkills !== undefined && (!Array.isArray(world.enabledSkills)
         || world.enabledSkills.some(name => !world.skills?.some(skill => skill.name === name)))) {
@@ -52,31 +56,43 @@ export function parseCatalog(worlds: CatalogWorld[]) {
       if (world.workspaces !== undefined && (!Array.isArray(world.workspaces)
         || world.workspaces.some(item => !item || typeof item.path !== 'string' || !item.path.startsWith('/')
           || /[\0\r\n]/.test(item.path) || (item.name !== undefined && (typeof item.name !== 'string' || !item.name.trim()))))) {
-        throw new Error('Workspaces require absolute remote paths and nonempty names');
+        throw new Error('Workspaces require absolute paths and nonempty names');
       }
       if (new Set(world.workspaces?.map(item => item.path)).size !== (world.workspaces?.length ?? 0)) throw new Error('Duplicate configured workspace path');
       if (catalog.has(world.id)) throw new Error('Duplicate catalog World');
       catalog.set(world.id, { name: world.name, color: world.color, enabledSkills: world.enabledSkills, workspaces: world.workspaces, environment: worldDefinition({ ...world.target, id: world.id, cwd: '/' }) });
     }
+  if (!catalog.has(LOCAL_WORLD_ID)) catalog.set(LOCAL_WORLD_ID, { name: 'This computer', environment: worldDefinition({ id: LOCAL_WORLD_ID, kind: 'local', cwd: '/' }), workspaces: [] });
   return catalog;
 }
 
-/** Replaces only the Workspace service. No local workspace lookup or Session storage. */
+/** Unifies workspace identity and selection without taking ownership of Session logs. */
 export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
-  static inject = ['storageDomain', 'sessionPersistence', 'sessions', 'executionWorlds'];
+  static inject = ['storageDomain', 'sessionPersistence', 'sessions', 'executionWorlds', 'nativeWorkspaceRegistry'];
   private portableWorkspaceGlobal?: DomainGlobal<State>;
   private portableWorkspaceTail: Promise<unknown> = Promise.resolve();
   private listeners = new Set<() => void>();
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
+  private changed(): void { for (const listener of this.listeners) listener(); }
+  private get native(): WorkspaceRegistry { return this.ctx.nativeWorkspaceRegistry; }
+  private async registerLocalChoices(choices: { name?: string; path: string }[]) {
+    for (const configured of choices) {
+      const workspace = await this.native.create(configured.path, configured.name);
+      if (configured.name !== undefined && configured.name !== workspace.title) await workspace.setTitle(configured.name);
+    }
+  }
+  private localChoices() { return this.native.list().map(row => ({ name: row.title, path: row.path })); }
   worlds() {
     const state = this.portableWorkspaceGlobal!.get();
     const display = new Map(this.catalog);
     for (const row of this.records()) if (!display.has(row.worldId)) display.set(row.worldId, { name: row.worldName, environment: row.environment, workspaces: [] });
-    return [...display].map(([id, world]) => ({ id, name: world.name,
+    return [...display].map(([id, world]) => ({ kind: world.environment.kind, id, name: world.name,
       color: world.color ?? state.worldColors[id] ?? '#60a5fa',
-      workspaces: world.workspaces ?? this.records().filter(row => row.worldId === id && !row.deleted).map(row => ({ name: row.title.startsWith(world.name + ' · ') ? row.title.slice(world.name.length + 3) : row.title, path: row.path })),
-      pinnedSessionIds: state.pinnedSessionIds.filter(sessionId => this.records().some(row => row.worldId === id && row.sessionIds.includes(sessionId))),
-      workspaceIds: this.records().filter(row => row.worldId === id && !row.deleted).map(row => row.id),
+      workspaces: world.environment.kind === 'local' ? this.localChoices() : world.workspaces ?? this.records().filter(row => row.worldId === id && !row.deleted).map(row => ({ name: row.title.startsWith(world.name + ' · ') ? row.title.slice(world.name.length + 3) : row.title, path: row.path })),
+      pinnedSessionIds: state.pinnedSessionIds.filter(sessionId => world.environment.kind === 'local'
+        ? this.native.list().some(row => row.sessionIds.includes(SessionId(sessionId)))
+        : this.records().some(row => row.worldId === id && row.sessionIds.includes(sessionId))),
+      workspaceIds: world.environment.kind === 'local' ? this.native.list().map(row => row.id) : this.records().filter(row => row.worldId === id && !row.deleted).map(row => row.id),
     }));
   }
   legacyEnabledSkills(target: CatalogWorld['target']): string[] | undefined {
@@ -88,8 +104,17 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     const { id: _id, cwd: _cwd, ...target } = world.environment;
     return world.enabledSkills ?? this.legacyEnabledSkills(target);
   }
-  world(id: WorkspaceId) { const row = this.row(id); return { id: row.worldId, name: row.worldName }; }
-  forSession(id: SessionId) { const row = this.records().find(row => row.sessionIds.includes(id)); return row && this.get(WorkspaceId(row.id)); }
+  world(id: WorkspaceId) {
+    if (this.native.get(id)) return { id: LOCAL_WORLD_ID, name: this.catalog.get(LOCAL_WORLD_ID)!.name };
+    const row = this.row(id); return { id: row.worldId, name: row.worldName }; }
+  forSession(id: SessionId) {
+    const row = this.records().find(row => row.sessionIds.includes(id));
+    if (row) return this.get(WorkspaceId(row.id));
+    const saved = this.ctx.executionWorlds.bindings.get(id);
+    if (saved?.kind === 'ssh') return undefined;
+    const native = this.native.list().find(row => row.sessionIds.includes(id));
+    return native && this.get(native.id);
+  }
   /** Resolve descendant context without making children top-level Workspace members. */
   async contextForSession(id: SessionId, signal?: AbortSignal): Promise<Workspace> {
     const visited = new Set<SessionId>();
@@ -131,25 +156,71 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     ctx.provide('worldPortableWorkspaces', this);
   }
 
-  validateCatalog(worlds: CatalogWorld[]) {
+  async validateCatalog(worlds: CatalogWorld[]) {
     const next = parseCatalog(worlds);
     for (const [id, world] of next) {
       const saved = this.catalog.get(id)?.environment ?? this.records().find(row => row.worldId === id)?.environment;
       if (saved && JSON.stringify(saved) !== JSON.stringify(world.environment)) throw new Error(`World ${id}: target changed; use a new World id`);
     }
+    const local = next.get(LOCAL_WORLD_ID)!;
+    if (local.workspaces?.length) {
+      const owner = await this.ctx.executionWorlds.prepareWorld(local.environment);
+      const seen = new Set<string>();
+      for (const workspace of local.workspaces) {
+        const target = await owner.fs.resolve(workspace.path);
+        if ((await owner.fs.stat(target))?.type !== 'directory') throw new RemoteError('NOT_DIRECTORY', 'Configured local workspace must be an existing directory');
+        const canonical = owner.fs.processPath(target);
+        if (seen.has(canonical)) throw new RemoteError('INVALID_ARGUMENT', 'Configured local workspaces resolve to the same directory');
+        seen.add(canonical);
+      }
+    }
   }
-  replaceCatalog(worlds: CatalogWorld[]) {
-    this.validateCatalog(worlds);
-    this.catalog = parseCatalog(worlds);
-    for (const listener of this.listeners) listener();
+  async replaceCatalog(worlds: CatalogWorld[]) {
+    await this.validateCatalog(worlds);
+    const next = parseCatalog(worlds);
+    await this.registerLocalChoices(next.get(LOCAL_WORLD_ID)!.workspaces ?? []);
+    this.catalog = next;
+    this.changed();
   }
 
   protected override async [Service.init](): Promise<void> {
-    // Deliberately do not initialize the built-in local Workspace domain/indexer.
+    // The separate native registry owns its domain; this facade initializes only its metadata.
     const domain = await this.ctx.storageDomain.open(spec);
     this.ctx.effect(() => () => domain.close());
     this.portableWorkspaceGlobal = domain.global;
     const rows = this.records();
+    if (rows.some(row => this.native.get(WorkspaceId(row.id)))) throw new Error('Local and SSH workspace identities collide');
+    await this.registerLocalChoices(this.catalog.get(LOCAL_WORLD_ID)!.workspaces ?? []);
+    if (!this.portableWorkspaceGlobal.get().nativeAdoptionComplete) {
+      // Only durable native membership, with verified headers, authorizes this one-time adoption.
+      const headers = new Map((await this.ctx.sessionPersistence.list()).map(row => [row.header.id, row.header]));
+      for (const session of this.ctx.sessions.list()) headers.set(session.id, session.header);
+      const adopted = new Map<SessionId, WorldDefinition>();
+      for (const workspace of this.native.list()) for (const id of workspace.sessionIds) {
+        const saved = this.ctx.executionWorlds.bindings.get(id);
+        if (saved?.kind === 'ssh') continue;
+        const header = headers.get(id);
+        if (!header || header.origin === 'subagent' || header.agentPreset === 'remote'
+          || rows.some(row => row.sessionIds.includes(id))) throw new RemoteError('WORLD_REQUIRED', 'Ambiguous historical Session cannot be adopted as local');
+        if (header.cwd !== workspace.path) throw new RemoteError('WORLD_MISMATCH', 'Historical native Session cwd is not canonical; explicit migration is required');
+        const definition = this.definition(workspace.id);
+        this.ctx.executionWorlds.bindings.bind(id, definition);
+        adopted.set(id, definition);
+      }
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const [id, header] of headers) {
+          if (adopted.has(id) || header.origin !== 'subagent' || !header.parentSession) continue;
+          const parent = adopted.get(header.parentSession);
+          if (!parent) continue;
+          if (header.cwd !== parent.cwd || header.agentPreset === 'remote') throw new RemoteError('WORLD_MISMATCH', 'Historical child crosses native workspace identity');
+          this.ctx.executionWorlds.bindings.bind(id, parent);
+          adopted.set(id, parent); changed = true;
+        }
+      }
+      await this.portableWorkspaceGlobal.set({ ...this.portableWorkspaceGlobal.get(), nativeAdoptionComplete: true });
+    }
     if (new Set(rows.map(row => row.id)).size !== rows.length
         || new Set(rows.map(row => JSON.stringify([row.worldId, row.path]))).size !== rows.length) {
       throw new Error('Duplicate PortableWorkspace identity');
@@ -169,7 +240,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     const pending = this.portableWorkspaceTail.then(async () => {
       const portableWorkspaces = await operation(this.records());
       await this.portableWorkspaceGlobal!.set(changeState({ ...this.portableWorkspaceGlobal!.get(), [recordsKey]: portableWorkspaces }));
-      for (const listener of this.listeners) listener();
+      this.changed();
     });
     this.portableWorkspaceTail = pending.catch(() => {});
     return pending;
@@ -186,6 +257,12 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   async createInWorld(worldId: string, path: string): Promise<Workspace> {
     if (!path.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Absolute workspace path required');
     const world = this.environment(worldId);
+    if (world.environment.kind === 'local') {
+      const configured = world.workspaces?.find(item => item.path === path);
+      const workspace = await this.native.create(path, configured?.name);
+      this.changed();
+      return this.get(workspace.id)!;
+    }
     const hash = createHash('sha256').update(JSON.stringify(world.environment)).digest('hex');
     const owner = await this.ctx.executionWorlds.prepareWorld({ ...world.environment, id: `catalog-${hash}` });
     const target = await owner.fs.resolve(path);
@@ -206,6 +283,8 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   }
 
   definition(id: WorkspaceId): WorldDefinition {
+    const local = this.native.get(id);
+    if (local) return worldDefinition({ id: `local-${id}`, kind: 'local', cwd: local.path });
     const row = this.row(id);
     // Saved bindings remain authoritative when a catalog entry is retired.
     if (this.catalog.has(row.worldId)) this.environment(row.worldId, row.environment);
@@ -233,6 +312,8 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   }
 
   override get(id: WorkspaceId): Workspace | undefined {
+    const native = this.native.get(id);
+    if (native) return this.localWorkspace(native);
     if (!this.records().some(row => row.id === id)) return undefined;
     const registry = this;
     return {
@@ -261,32 +342,54 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
       },
     };
   }
+  private localWorkspace(native: Workspace): Workspace {
+    const registry = this;
+    const change = async (operation: () => Promise<void>) => { await operation(); registry.changed(); };
+    return {
+      get id() { return native.id; }, get path() { return native.path; }, get title() { return native.title; },
+      get createdAt() { return native.createdAt; }, get updatedAt() { return native.updatedAt; },
+      get sessionIds() { return native.sessionIds.filter(id => {
+        const saved = registry.ctx.executionWorlds.bindings.get(id);
+        return !saved || (saved.kind === 'local' && JSON.stringify(saved) === JSON.stringify(registry.definition(native.id)));
+      }); },
+      status: () => native.status(),
+      setTitle: title => change(() => native.setTitle(title)),
+      async attachSession(id) { await registry.validateSession(native.id, id); await change(() => native.attachSession(id)); },
+      detachSession: id => change(() => native.detachSession(id)),
+      insertSessionBefore: (id, before) => change(() => native.insertSessionBefore(id, before)),
+    };
+  }
   private update(id: WorkspaceId, change: (row: Record) => Record): Promise<void> {
     return this.mutate(async rows => {
       this.row(id);
       return rows.map(row => row.id === id ? { ...change(row), updatedAt: new Date().toISOString() } : row);
     });
   }
-  override list(): Workspace[] { return this.records().filter(row => !row.deleted).map(row => this.get(WorkspaceId(row.id))!); }
-  override async create(_path: string): Promise<Workspace> { throw new RemoteError('WORLD_REQUIRED', 'PortableWorkspace creation requires World + workspace'); }
+  override list(): Workspace[] { return [...this.native.list().map(row => this.localWorkspace(row)), ...this.records().filter(row => !row.deleted).map(row => this.get(WorkspaceId(row.id))!)]; }
+  override async create(_path: string): Promise<Workspace> { throw new RemoteError('WORLD_REQUIRED', 'Workspace creation requires an explicit World'); }
   override async resolveByPath(_path: string): Promise<Workspace | undefined> { throw new RemoteError('WORLD_REQUIRED', 'A path alone cannot identify a PortableWorkspace'); }
   override async delete(id: WorkspaceId): Promise<boolean> {
+    if (this.native.get(id)) { const removed = await this.native.delete(id); this.changed(); return removed; }
     if (!this.get(id)) return false;
     await this.update(id, row => ({ ...row, deleted: true }));
     return true;
   }
   override async insertBefore(id: WorkspaceId, before?: WorkspaceId): Promise<readonly WorkspaceId[]> {
+    if (this.native.get(id)) {
+      if (before !== undefined && !this.native.get(before)) throw new RemoteError('WORLD_MISMATCH', 'Workspace order is per environment');
+      await this.native.insertBefore(id, before); this.changed(); return this.list().map(row => row.id);
+    }
     await this.mutate(async rows => {
       const ids = move(rows.filter(row => !row.deleted).map(row => row.id), id, before);
       return [...ids.map(id => rows.find(row => row.id === id)!), ...rows.filter(row => row.deleted)];
     });
     return this.list().map(row => row.id);
   }
-  override get archivedSessionIds(): readonly SessionId[] { return this.portableWorkspaceGlobal!.get().archivedSessionIds.map(SessionId); }
+  override get archivedSessionIds(): readonly SessionId[] { return [...new Set([...this.native.archivedSessionIds, ...this.portableWorkspaceGlobal!.get().archivedSessionIds.map(SessionId)])]; }
   async pinSession(id: SessionId, pinned: boolean): Promise<void> {
     await this.mutate(async rows => {
       const row = rows.find(row => row.sessionIds.includes(id));
-      if (!row) throw new RemoteError('INVALID_ARGUMENT', 'Unknown Session membership');
+      if (!row && !this.forSession(id)) throw new RemoteError('INVALID_ARGUMENT', 'Unknown Session membership');
       if (pinned && this.archivedSessionIds.includes(id)) throw new RemoteError('INVALID_ARGUMENT', 'Archived Sessions cannot be pinned');
       // Touch the owning feed row so other clients reload presentation preferences.
       return rows.map(item => item !== row ? item : { ...item,
@@ -297,7 +400,9 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   }
 
   override async archiveSession(id: SessionId): Promise<void> {
-    if (!this.forSession(id)) throw new RemoteError('INVALID_ARGUMENT', 'Unknown Session membership');
+    const workspace = this.forSession(id);
+    if (!workspace) throw new RemoteError('INVALID_ARGUMENT', 'Unknown Session membership');
+    if (this.native.get(workspace.id)) await this.native.archiveSession(id);
     await this.mutate(async rows => rows, state => state.archivedSessionIds.includes(id)
       ? state : { ...state, archivedSessionIds: [...state.archivedSessionIds, id], pinnedSessionIds: state.pinnedSessionIds.filter(value => value !== id) });
   }

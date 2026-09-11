@@ -1,3 +1,4 @@
+import type { ClientRemote, DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client';
 import { Service, type Context } from '@deepseek-ai/cordis';
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client';
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client';
@@ -13,7 +14,7 @@ export class Navigation extends Service implements UiWorkspace {
   private initial = new URL(location.href).searchParams.get('session');
   private get sessions(): ISessions { return this.ctx.get('sessions') as unknown as ISessions; }
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, private readonly directoryPicker: ClientRemote['directoryPicker']) {
     super(ctx, 'uiWorkspace');
     const restoring = ctx.layout.beginNavigation();
     const reconcile = () => {
@@ -119,7 +120,20 @@ export class Navigation extends Service implements UiWorkspace {
     if (!this.lifetime.signal.aborted && this.sessions.list.getSnapshot().current === id) this.sessions.clear();
   }
 
-  async pickDirectory(): Promise<never> { throw new Error('Choose an explicit World and remote directory'); }
-  async listDirectory(): Promise<never> { throw new Error('Directory browsing requires a World'); }
-  async createDirectory(): Promise<never> { throw new Error('Create directories through the bound remote workspace'); }
+  /** These human directory-picker actions explicitly address the DSH host. */
+  async pickDirectory(): Promise<string | null> {
+    const result = await this.directoryPicker.pick();
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
+  }
+  async listDirectory(path?: string, signal?: AbortSignal): Promise<DirectoryListing> {
+    const result = await this.directoryPicker.list(path, signal);
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
+  }
+  async createDirectory(path: string, name: string): Promise<string> {
+    const result = await this.directoryPicker.createDirectory(path, name);
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
+  }
 }

@@ -1,21 +1,37 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import FileReferenceService, { FILE_REFERENCE_PROMPT, type FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference';
-import { DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES } from '@deepseek-ai/dsh-file-reference-local';
+import { WorkspaceFileSearch, DEFAULT_FILE_SEARCH_MAX_ENTRIES, DEFAULT_FILE_SEARCH_MAX_RESULTS, DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES } from '@deepseek-ai/dsh-file-reference-local';
 import { posix } from 'node:path';
-import type {} from '../../../world/ssh-world/src/worlds.ts';
+import type {} from '../../../world/execution-world/src/worlds.ts';
 
 /** Path-only discovery; contents remain behind the normal remote read tool. */
 export default class RemoteFileReferences extends FileReferenceService {
-  static inject = ['executionWorlds', 'systemPrompt'];
+  static inject = ['executionWorlds', 'systemPrompt', 'agents'];
+  private readonly localSearches = new Map<Agent, WorkspaceFileSearch>();
   constructor(ctx: Context) {
     super(ctx);
+    ctx.on('agent/disposed', ({ agent }) => { this.localSearches.get(agent)?.dispose(); this.localSearches.delete(agent); });
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'tool/result') return;
+      const agent = ctx.agents.get(session.id);
+      if (agent) this.localSearches.get(agent)?.invalidate();
+    });
+    ctx.effect(() => () => { for (const search of this.localSearches.values()) search.dispose(); this.localSearches.clear(); });
     ctx.systemPrompt.context({ name: 'remote-file-references', order: 100, text: () => FILE_REFERENCE_PROMPT });
   }
   async list(agent: Agent, query: string, signal: AbortSignal): Promise<FileReferenceCandidate[]> {
     const owner = this.ctx.executionWorlds.forAgent(agent);
     const cwd = agent.session.header.cwd;
     if (!cwd) throw new Error('File references require a bound workspace');
+    if (this.ctx.executionWorlds.bindings.get(agent.session.header.id)?.kind === 'local') {
+      let search = this.localSearches.get(agent);
+      if (!search) {
+        search = new WorkspaceFileSearch(cwd, { maxResults: DEFAULT_FILE_SEARCH_MAX_RESULTS, maxEntries: DEFAULT_FILE_SEARCH_MAX_ENTRIES, excludedDirectories: [...DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES] });
+        this.localSearches.set(agent, search);
+      }
+      return search.list(query, signal);
+    }
     const root = await owner.fs.resolve(cwd, { signal });
     const rootPath = owner.fs.processPath(root);
     const pending = [root];

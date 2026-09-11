@@ -3,7 +3,7 @@ import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types'
 import { z } from 'zod';
 
 const codec = (name: string, schema: z.ZodType): TypertCodec => ({ mode: 'strict', typeSymbol: `portableWorkspace#${name}`, schema });
-const worldView = z.object({ id: z.string(), name: z.string(), color: z.string(), workspaceIds: z.array(z.string()), pinnedSessionIds: z.array(z.string()), workspaces: z.array(z.object({ name: z.string().optional(), path: z.string() })) });
+const worldView = z.object({ kind: z.enum(['local', 'ssh']), id: z.string(), name: z.string(), color: z.string(), workspaceIds: z.array(z.string()), pinnedSessionIds: z.array(z.string()), workspaces: z.array(z.object({ name: z.string().optional(), path: z.string() })) });
 const reloadStatus = z.object({ changed: z.boolean(), applying: z.boolean(), generation: z.number(), error: z.string().optional(), current: z.string().optional(), completed: z.number(), total: z.number() });
 const reloadPreview = z.object({ id: z.string(), errors: z.array(z.string()),
   changes: z.array(z.object({ world: z.string(), kind: z.string(), detail: z.string() })),

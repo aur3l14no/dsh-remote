@@ -13,12 +13,12 @@ const paths = Object.fromEntries(Object.entries(upstream).map(([key, values]) =>
 })]));
 paths['@dsh-test/mock-adapter'] = [join(root, 'packages/core/agent-loop/tests/mock-adapter.ts')];
 for (const name of ['agent', 'commands', 'model-selection-projection']) paths[`@dsh-test/web-${name}`] = [join(root, 'packages/api/session-controller/src', name + '.ts')];
-const program = ts.createProgram([...['world', 'context', 'fs', 'subprocess', 'terminal', 'bindings', 'worlds', 'routing'].map(name => join(local, 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'preset-harness', 'terminal-consumers', 'terminal', 'session-routing', 'portable_workspace'].map(name => resolve('integrations/dsh/tests/integration', name + '.ts'))], {
+const program = ts.createProgram([...['world', 'context', 'fs', 'subprocess', 'terminal', 'bindings', 'worlds', 'routing'].map(name => join(local, 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'preset-harness', 'terminal-consumers', 'terminal', 'session-routing', 'local-world', 'portable_workspace'].map(name => resolve('integrations/dsh/tests/integration', name + '.ts'))], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext, strict: true, noEmit: true, skipLibCheck: true,
   allowImportingTsExtensions: true, paths, types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
 // Check our providers against the pinned source interfaces. Upstream owns its full repository gate.
-const diagnostics = ts.getPreEmitDiagnostics(program).filter(d => !d.file || ['runtime/client', 'runtime/ssh', 'integrations/dsh/plugins', 'integrations/dsh/experiments', 'integrations/dsh/tests'].some(dir => d.file.fileName.startsWith(resolve(dir) + '/')));
+const diagnostics = ts.getPreEmitDiagnostics(program).filter(d => !d.file || ['runtime/client', 'runtime/ssh', 'integrations/dsh/packages/world', 'integrations/dsh/plugins', 'integrations/dsh/experiments', 'integrations/dsh/tests'].some(dir => d.file.fileName.startsWith(resolve(dir) + '/')));
 if (diagnostics.length) {
   console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics, { getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n' }));
   process.exitCode = 1;

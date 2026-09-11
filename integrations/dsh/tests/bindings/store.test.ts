@@ -68,7 +68,7 @@ test('missing, corrupt, future-format, duplicate and unsafe maps fail without re
     const file = `${dir}/bindings.json`, store = BindingStore.create(file);
     store.bind('one', definition);
     const valid = fs.readFileSync(file, 'utf8');
-    for (const invalid of ['{', JSON.stringify({ version: 2, worlds: [], sessions: [] }),
+    for (const invalid of ['{', JSON.stringify({ version: 3, worlds: [], sessions: [] }),
       JSON.stringify({ version: 1, worlds: [definition, definition], sessions: [] }),
       JSON.stringify({ version: 1, worlds: [], sessions: [{ sessionId: 'one', worldId: 'missing' }] })]) {
       fs.writeFileSync(file, invalid);
@@ -128,4 +128,44 @@ test('process killed before rename leaves the prior complete map and refuses loc
     store.bind('next', definition);
     assert.deepEqual(new BindingStore(file).get('next'), definition);
   } finally { child?.kill('SIGKILL'); await rm(dir, { recursive: true, force: true }); }
+});
+
+
+test('first local binding backs up v1, preserves SSH identities and upgrades only once', async () => {
+  const dir = await mkdtemp('/tmp/dsh-bindings.');
+  try {
+    const file = `${dir}/bindings.json`, store = BindingStore.create(file);
+    store.bind('remote', definition);
+    const original = fs.readFileSync(file);
+    const local = { id: 'native-project', kind: 'local', cwd: '/workspace' } as const;
+    store.bind('local', local);
+    const backups = fs.readdirSync(dir).filter(name => name.endsWith('.bak'));
+    assert.equal(backups.length, 1);
+    assert.deepEqual(fs.readFileSync(`${dir}/${backups[0]}`), original);
+    assert.equal(fs.statSync(`${dir}/${backups[0]}`).mode & 0o777, 0o600);
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(saved.version, 2);
+    assert.deepEqual(new BindingStore(file).get('remote'), definition);
+    assert.deepEqual(new BindingStore(file).get('local'), local);
+    assert.throws(() => store.bind('remote', local), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('local', { ...definition, id: local.id }), { code: 'WORLD_MISMATCH' });
+    store.bind('another-local-session', local);
+    assert.equal(fs.readdirSync(dir).filter(name => name.endsWith('.bak')).length, 1);
+    // A crash after writing the backup but before publication remains retryable.
+    fs.writeFileSync(file, original);
+    new BindingStore(file).bind('local', local);
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).version, 2);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('v1 never infers local authority and local definitions reject SSH fields', async () => {
+  const dir = await mkdtemp('/tmp/dsh-bindings.');
+  try {
+    const file = `${dir}/bindings.json`, store = BindingStore.create(file);
+    const original = fs.readFileSync(file);
+    assert.throws(() => store.bind('bad', { id: 'local', kind: 'local', cwd: '/workspace', host: 'example.invalid' } as any), { code: 'INVALID_WORLD' });
+    assert.deepEqual(fs.readFileSync(file), original);
+    fs.writeFileSync(file, JSON.stringify({ version: 1, worlds: [{ id: 'local', kind: 'local', cwd: '/workspace' }], sessions: [] }));
+    assert.throws(() => new BindingStore(file), { code: 'INVALID_BINDINGS' });
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

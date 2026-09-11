@@ -25,6 +25,7 @@ Private inputs stay under `.build/dsh/e2e/run-*`; the runner does not load perso
 | Gate | Coverage |
 | --- | --- |
 | patched-host admission | Controller creation/adoption, fork and cold activation over real SSH; separate from browser and model acceptance |
+| `local-workspace.e2e.ts` | Official vanilla native baseline and preserved membership/logs after extension install; local permissions, skills/instructions, jobs, terminals, child/fork, browser directory selection, file/image uploads, model reads, child attachment reads, ZIP export and cold restore. With the two-World runner: concurrent native macOS/two Linux SSH operation at an identical path, local catalog reload and SSH shutdown without local fallback |
 | patched-host attachments | Remote storage, World isolation, native pi-ai request serialization to a synthetic endpoint, image tools, restart/fork, legacy refs and missing/corrupt source rejection over native or Linux/SSH providers |
 | `attachments.e2e.ts` | Installed extension with Chromium picking images/files, real upload transport and file/image tools, remote paths, preview, fork and cold restart; uses an image-capable MockAdapter |
 | `portable-workspace.e2e.ts` | Product UI and providers with model replay: two same-path Worlds, remote writes, workspace picker and registry mutations, fork, cold deep links/new runtime, child continuation, terminal/jobs ownership and cancellation, missing bindings and stopped World |

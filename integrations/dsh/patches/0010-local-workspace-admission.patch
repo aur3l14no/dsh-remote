@@ -1,0 +1,134 @@
+--- a/packages/api/session-controller/src/admission.ts
++++ b/packages/api/session-controller/src/admission.ts
+@@ -14,6 +14,8 @@
+ export interface ApiSessionAdmission {
+   /** Owns directory preparation when installed; rejection never falls back to local mkdir. */
+   prepare(request: ApiSessionAdmissionRequest): Promise<void>
++  /** Select a composition only after the Session execution identity is admitted. */
++  preset?(sessionId: SessionId, requested: string | undefined): string | undefined
+ }
+ 
+ declare module '@deepseek-ai/cordis' {
+--- a/packages/api/session-controller/src/agent.ts
++++ b/packages/api/session-controller/src/agent.ts
+@@ -394,10 +394,11 @@
+    * @param presetId - requested preset or the configured default when omitted.
+    * @returns the resolved preset identity and Agent setup callback.
+    */
+-  async composeAgent(presetId: string | undefined): Promise<{
++  async composeAgent(presetId: string | undefined, sessionId?: SessionId): Promise<{
+     readonly agentPreset?: string
+     readonly setup: AgentSetup
+   }> {
++    if (sessionId !== undefined) presetId = this.ctx.get('apiSessionAdmission')?.preset?.(sessionId, presetId) ?? presetId
+     const presets = this.ctx.get('agentPresets')
+     if (presets === undefined) {
+       return { setup: (_agentCtx, agent) => { this.installSelection(agent) } }
+@@ -452,7 +453,7 @@
+       throw new ApiSessionSubagentOwnership(sessionId)
+     }
+     await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
+-    const composition = await this.composeAgent(this.presetForObservation(observation))
++    const composition = await this.composeAgent(this.presetForObservation(observation), sessionId)
+     const published = this.ctx.sessions.get(sessionId)
+     const live = this.ctx.agents.get(sessionId)
+     if (published !== undefined && hasApiSessionSubagentOwner(this.ctx, published, live)) {
+@@ -491,7 +492,7 @@
+         const storedPreset = this.presetForObservation(observation)
+         this.assertPresetUnchanged(sessionId, presetId, storedPreset)
+         await this.prepareSession({ operation: 'resume', sessionId, cwd: observation.header.cwd })
+-        const composition = await this.composeAgent(storedPreset)
++        const composition = await this.composeAgent(storedPreset, sessionId)
+         return (await this.ctx.agents.resume({
+           resumeSessionId: sessionId,
+           agentOptions: this.agentOptions(),
+@@ -508,7 +509,7 @@
+     } catch (error: unknown) {
+       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+     }
+-    const composition = await this.composeAgent(presetId)
++    const composition = await this.composeAgent(presetId, sessionId)
+     return (await this.ctx.agents.create({
+       sessionId,
+       agentOptions: this.agentOptions(),
+--- a/packages/api/session-controller/src/commands.ts
++++ b/packages/api/session-controller/src/commands.ts
+@@ -259,7 +259,7 @@
+     await this.agents.prepareSession({ operation: 'fork', sessionId: childId,
+       sourceSessionId: source.header.id, cwd: source.header.cwd,
+       ...(workspace === undefined ? {} : { workspaceId: workspace.id }) })
+-    const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
++    const composition = await this.agents.composeAgent(this.agents.presetForObservation(source), childId)
+     try {
+       const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
+       await this.ctx.agents.create({
+--- a/packages/interaction/permission-presets/src/index.ts
++++ b/packages/interaction/permission-presets/src/index.ts
+@@ -140,6 +140,12 @@
+ }
+ 
+ /** The {@link PermissionPresetService} config: preset table and composition default. */
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    sessionPermissionDefaults: { preset(session: Session, configured: string): string; validate?(session: Session, selected: string): void }
++  }
++}
++
+ export interface Config {
+   /**
+    * The preset table: name → knob bundle. Defaults to `workspace-write`
+@@ -377,6 +383,7 @@
+    * @param name - the preset to switch to; unknown names throw.
+    */
+   set(session: Session, name: string): void {
++    this.ctx.get('sessionPermissionDefaults')?.validate?.(session, name)
+     this.apply(session, name, (policy) =>{  setApprovalPolicy(session, policy) })
+   }
+ 
+@@ -407,8 +414,9 @@
+     const sandbox = state.sandbox
+     const approval = state.approval
+     const seeded = state.seeded
++    const environmentDefault = this.ctx.get('sessionPermissionDefaults')?.preset(session, this.defaultPreset)
+     if (selected === null && sandbox === null && approval === null && !seeded) {
+-      const name = this.defaultPreset
++      const name = environmentDefault ?? this.defaultPreset
+       const spec = this.resolve(name)
+       session.append('permission/preset', { preset: name })
+       setSandboxMode(session, spec.sandbox)
+@@ -416,12 +424,13 @@
+       return
+     }
+ 
+-    const effective = this.derive(state)
++    const fallbackSandbox = environmentDefault === undefined ? this.ctx.shell.sandboxMode as SandboxMode : this.resolve(environmentDefault).sandbox
++    const effective = this.derive(environmentDefault === undefined ? state : { ...state, sandbox: sandbox ?? fallbackSandbox })
+     if (selected === null && effective !== CUSTOM_PRESET) {
+       session.append('permission/preset', { preset: effective })
+     }
+     if (sandbox === null) {
+-      setSandboxMode(session, this.ctx.shell.sandboxMode as SandboxMode)
++      setSandboxMode(session, fallbackSandbox)
+     }
+     if (approval === null) {
+       setApprovalPolicy(session, this.ctx.approval.config.policy ?? 'ask')
+--- a/packages/workspace/workspace/src/index.ts
++++ b/packages/workspace/workspace/src/index.ts
+@@ -110,7 +110,7 @@
+     },
+   }
+ 
+-  constructor(ctx: Context) {
++  constructor(ctx: Context, private readonly config: { bootstrapHistory?: boolean } = {}) {
+     super(ctx, 'workspaceRegistry')
+   }
+ 
+@@ -127,7 +127,7 @@
+     if (!this.state.initialized) {
+       const headers = await this.listStoredHeaders()
+       await this.replaceHeaderIndex(headers)
+-      await this.bootstrap(headers)
++      await this.bootstrap(this.config.bootstrapHistory === false ? [] : headers)
+     } else if (this.table.size > 0) {
+       await this.replaceHeaderIndex(await this.listStoredHeaders())
+     }

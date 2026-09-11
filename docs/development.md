@@ -78,6 +78,8 @@ Session 准入和路径补丁有独立源码 gate：从干净基线导出隔离�
 ```sh
 node integrations/dsh/scripts/check-patched-host.mjs "$DSH_SOURCE"
 DSH_TEST_RG="$LOCAL_RG" node .build/dsh/patched-host/admission.mjs
+node integrations/dsh/scripts/build-composition.mjs "$DSH_SOURCE" local-world
+node .build/dsh/composition/local-world.mjs
 node integrations/dsh/scripts/check-attachments.mjs
 DSH_TEST_RG="$LOCAL_RG" node --expose-internals .build/dsh/attachment-check/lib/attachments.mjs
 ```
@@ -109,12 +111,16 @@ node integrations/dsh/scripts/prepare-browser-fixtures.mjs
 npx --no-install playwright install chromium
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/skills-deployment.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/worlds-reload.mjs
+node integrations/dsh/scripts/local-e2e.mjs
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/local-e2e.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs
 node integrations/dsh/scripts/e2e.mjs -- node --expose-internals .build/dsh/attachment-check/lib/attachments.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --attachments
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extension-install.mjs
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/connect-install.mjs
 ```
+
+`local-world` 验证显式 local 分派不会调用 bootstrap、SSH connector 或远端 skill preparation；不以替身证明原生 IO。`local-e2e` 在原版官方宿主创建本机历史，再在同一状态装扩展，检查本机迁移、权限、文件／进程、skills、子会话、附件及浏览器。通过双 World runner 运行时增加同路径混合隔离、Reload 和 SSH 容器停止后本机继续运行。只有在 macOS 上运行的本机 gate 才证明 macOS 接入。
 
 Linux CI 使用 Playwright 的 `--with-deps` 安装浏览器系统依赖。`prepare-official` 从维护中的 lockfile 安装官方包及测试声明依赖。`build-extension` 导出固定源码，编译补丁涉及的兼容包（含 ui-chat 和 Sidebar 浏览器模块）和外部插件。fixture 准备只复制测试、录制与 mock，不作为产品宿主。`DSH_TEST_INSTALL` 可指定另一安装目录。
 
@@ -143,7 +149,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 
 正常使用只需 README 中的插件安装命令，首次启动自动创建私有配置、`worlds.json` 和绑定存储；按 [World 配置](worlds.md) 声明目录，在 Web 的 **Reload worlds** 中预览并确认，再到新会话选择器中选择。缺失已有绑定文件时仍拒绝重建。连接使用非交互模式，认证方式、主机密钥检查和 SSH 连接超时遵循用户的 OpenSSH 配置；需要交互的密码、私钥口令和主机信任在终端 OpenSSH 中处理。
 
-SSH 连接使用配置中明确的 `target.host`。目录在选择工作区时通过现有 World provider 校验；不再提供主机发现、连接管理或目录浏览 API。
+SSH 连接使用配置中明确的 `target.host`。目录在选择工作区时通过现有 World provider 校验；SSH 不提供主机发现、连接管理或目录浏览 API。本机人机目录选择复用原生 picker，显式访问 DSH 宿主；不向模型授予未绑定的宿主文件／进程能力。
 
 运行时随扩展版本从对应 GitHub Release 下载到 `$DSH_HOME/remote/releases/<version>/`，校验后才通过 SSH 部署。缓存可离线复用；新扩展使用新版本目录，不替换活跃 runtime。远端不需要公网或编译器。平台选择仍由远端探测决定。
 

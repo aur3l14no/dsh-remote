@@ -1,7 +1,8 @@
+import * as NativeWorkspaces from '../../../workspace/local-workspace/src/native.ts';
 import * as FilePreview from '../../../workspace/portable-workspace/src/file-preview.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import * as SearchTools from '@deepseek-ai/dsh-tool-fs-search';
-import ExecutionWorlds, { type Config as ExecutionConfig } from '../../../world/ssh-world/src/worlds.ts';
+import ExecutionWorlds, { type Config as ExecutionConfig } from '../../../world/execution-world/src/worlds.ts';
 import Registry, { type Config as RegistryConfig } from '../../../workspace/portable-workspace/src/registry.ts';
 import { PortableWorkspaceApi, PortableWorkspaceFeed } from '../../../workspace/portable-workspace/src/api.ts';
 import AccountPolicy from '../../../world/ssh-world/src/account-policy.ts';
@@ -20,13 +21,14 @@ export const inject = ['storageDomain', 'sessionPersistence', 'sessions', 'agent
 export async function apply(ctx: Context, config: Config) {
   const sync = new SkillSynchronizer(config.worlds);
   ctx.effect(() => () => sync.dispose());
-  await ctx.plugin(ExecutionWorlds, { bindingFile: config.bindingFile, bootstrap: config.bootstrap,
+  await ctx.plugin(ExecutionWorlds, { local: ctx, bindingFile: config.bindingFile, bootstrap: config.bootstrap,
     packagedRipgrep: await SearchTools.resolveRgPath(), beforeConnect: definition => sync.beforeConnect(definition) });
   // A separate active fiber makes the feed visible before the registry releases
   // the controller. Services on this still-applying parent are not visible yet.
   await ctx.plugin(function workspaceFeed(ctx: Context) {
     ctx.provide('workspaceFeed', new PortableWorkspaceFeed(ctx));
   });
+  await ctx.plugin(NativeWorkspaces);
   await ctx.plugin(Registry, { worlds: config.worlds });
   await ctx.plugin({ inject: ['worldPortableWorkspaces'], apply(ctx: Context) {
     if (config.worldsFile) {

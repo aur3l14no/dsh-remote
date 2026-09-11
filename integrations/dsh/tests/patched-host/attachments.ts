@@ -1,3 +1,4 @@
+import * as NativeWorkspaces from '../../packages/workspace/local-workspace/src/native.ts';
 /** Real Session/World storage and native model conversion; runs with native or Linux/SSH providers. */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, readdir } from 'node:fs/promises';
@@ -89,11 +90,12 @@ async function start() {
     cacheDir: ssh ? process.env.DSH_TEST_ARTIFACT_CACHE! : base, graceMs: 15000, leaseMs: 5000,
   } });
   await current.plugin(AgentLoop, { agents: [] });
-  await mkdir(`${base}/shared`, { recursive: true });
-  await writeFile(`${base}/shared/agent.cordis.yml`, JSON.stringify([{ name: 'cordis:group', isolate: { fs: true, subprocess: true, toolBashWorkdir: true }, config: [
+  await mkdir(`${base}/remote`, { recursive: true });
+  await writeFile(`${base}/remote/agent.cordis.yml`, JSON.stringify([{ name: 'cordis:group', isolate: { fs: true, subprocess: true, toolBashWorkdir: true }, config: [
     { name: 'cordis:fs' }, { name: 'cordis:subprocess' }, { name: 'cordis:routing', config: { providerPaths: true } }, { name: 'cordis:files' },
   ] }]));
-  await current.plugin(AgentPresets, { default: 'shared', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
+  await current.plugin(AgentPresets, { default: 'remote', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
+  await current.plugin(NativeWorkspaces);
   await current.plugin(PortableWorkspaces, { worlds: selection.worlds });
   await current.plugin(Admission);
   await current.plugin(RemoteAttachments, { dshHome: `${base}/home` });

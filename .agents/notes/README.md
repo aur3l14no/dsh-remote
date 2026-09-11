@@ -14,6 +14,7 @@ archived/                   被替代的历史记录与原始验收证据
 
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 仅维护后续事项和未决验收要求。
 - [补丁审计](archived/2026-09-patch-audit/2026-09-07-patch-surface.md) 保留早期静态范围推导，不是当前补丁清单或实现保证。
+- [本机与 SSH 工作区验收](implemented/integration/2026-09-11-local-workspaces.md) 记录显式本机身份、原生历史迁移、混合隔离与安装态验收。
 - [DSH 0.1.5-rc.1 适配验收](implemented/integration/2026-09-10-dsh-rc1-upgrade.md) 记录原生文档预览、World 路由、导航生命周期、子 Agent catalog 与安装态回归。
 - [DSH 0.1.5-alpha.1 适配验收](implemented/integration/2026-09-09-dsh-upgrade.md) 记录范围读取、文件预览、V2/V3 和新版安装回归。
 - [远端附件验收](implemented/integration/2026-09-10-remote-attachments.md) 记录远端持久源、按需模型/预览读取、旧引用边界和安装态上传回归。

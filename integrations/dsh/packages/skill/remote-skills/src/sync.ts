@@ -1,8 +1,8 @@
 import { isAbsolute } from 'node:path';
 import { deploySkills, type SkillInstall } from './deploy.ts';
-import { worldDefinition, type WorldDefinition } from '../../../world/ssh-world/src/bindings.ts';
+import { worldDefinition, type WorldDefinition, type WorldTarget } from '../../../world/execution-world/src/bindings.ts';
 
-interface SkillWorld { id: string; target: Omit<WorldDefinition, 'id' | 'cwd'>; skills?: SkillInstall[]; enabledSkills?: string[] }
+interface SkillWorld { id: string; target: WorldTarget; skills?: SkillInstall[]; enabledSkills?: string[] }
 export const destinationKey = (target: SkillWorld['target']) => JSON.stringify(worldDefinition({ ...target, id: 'skills', cwd: '/' }));
 
 /** Host-owned sources and explicit catalog targets; no model-provided paths. */
@@ -18,6 +18,10 @@ export class SkillSynchronizer {
     for (const world of worlds) {
       if (ids.has(world.id)) throw new Error('Duplicate skill World');
       ids.add(world.id);
+      if (world.target.kind === 'local') {
+        if (world.skills !== undefined || world.enabledSkills !== undefined) throw new Error('Local Worlds do not support remote skill deployment');
+        continue;
+      }
       if (world.skills?.some(skill => !isAbsolute(skill.source))) throw new Error('Automatic skill sources require absolute local paths');
       const key = destinationKey(world.target);
       const previous = this.destinations.get(key);
@@ -27,17 +31,19 @@ export class SkillSynchronizer {
   }
 
   async beforeConnect(definition: WorldDefinition): Promise<void> {
+    if (definition.kind === 'local') return;
     if (this.reloading || this.blocked) throw new Error('World reload is applying or needs repair; finish Reload worlds before connecting');
     const world = this.destinations.get(destinationKey(definition));
-    if (!world) return; // Retired Worlds restore their saved binding without catalog synchronization.
+    if (!world || world.target.kind !== 'ssh') return; // Retired Worlds restore their saved binding without catalog synchronization.
     this.lifecycle.signal.throwIfAborted();
-    const key = destinationKey(world.target);
+    const target = world.target;
+    const key = destinationKey(target);
     const previous = this.queues.get(key) ?? Promise.resolve();
     const pending = previous.catch(() => {}).then(async () => {
       this.lifecycle.signal.throwIfAborted();
       const selected = this.selection?.(world.id);
       const skills = (world.skills ?? []).filter(skill => selected === undefined || selected.includes(skill.name));
-      if (skills.length) await deploySkills({ target: world.target, skills }, this.lifecycle.signal);
+      if (skills.length) await deploySkills({ target, skills }, this.lifecycle.signal);
     });
     this.queues.set(key, pending);
     try { await pending; }

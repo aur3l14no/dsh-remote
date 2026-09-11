@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-api-workspace-files';
 import type {} from '@deepseek-ai/dsh-api-session-controller';
-import type {} from '../../../world/ssh-world/src/worlds.ts';
+import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from './registry.ts';
 import { observe } from '../../../../shared/lifetime.ts';
 

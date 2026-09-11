@@ -1,3 +1,4 @@
+import * as NativeWorkspaces from '../../packages/workspace/local-workspace/src/native.ts';
 /** Real PortableWorkspace service replacement + native Web activation witnesses; no browser/UI claim. */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, realpath, rm, stat } from 'node:fs/promises';
@@ -100,7 +101,11 @@ if (!phase) {
     await ctx.plugin(AgentPresets, { default: 'shared', roots: [{ path: base, trust: 'system' }], includeShippedRoot: false, includeUserRoot: false });
     const configured = structuredClone(selection.worlds);
     if (phase === 'missing') configured.splice(0, 1);
-    if (phase === 'changed') configured[0]!.target = { ...configured[0]!.target, host: 'changed-acceptance.invalid' };
+    if (phase === 'changed') {
+      assert.equal(configured[0]!.target.kind, 'ssh');
+      configured[0]!.target = { ...configured[0]!.target, kind: 'ssh', host: 'changed-acceptance.invalid' };
+    }
+    await ctx.plugin(NativeWorkspaces);
     await ctx.plugin(PortableWorkspaces, { worlds: configured });
     assert.ok(ctx.workspaceRegistry instanceof PortableWorkspaces, 'The local Workspace registry must be replaced');
     const portableWorkspaces = ctx.worldPortableWorkspaces;

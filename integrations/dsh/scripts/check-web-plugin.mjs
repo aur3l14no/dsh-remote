@@ -13,13 +13,15 @@ const paths = Object.fromEntries(Object.entries(raw).map(([name, values]) => [na
 for (const name of ['ui-workspace', 'ui-sidebar', 'ui-layout']) {
   paths[`@deepseek-ai/dsh-client-${name}/client`] = [join(upstream, `packages/client/${name}/src/client/index.ts`)];
 }
+// The native directory-picker RPC face is generated only in the published package.
+paths['@deepseek-ai/dsh-api-workspace-controller/remote'] = [join(root, '.build/dsh/official-install/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/typert.remote-client.d.ts')];
 paths.react = [join(root, 'node_modules/@types/react/index.d.ts')];
 paths['react/jsx-runtime'] = [join(root, 'node_modules/@types/react/jsx-runtime.d.ts')];
 paths['@deepseek-ai/dsh-api-workspace-controller/types'] = [join(upstream, 'packages/api/workspace-controller/src/types.ts')];
 paths['@deepseek-ai/dsh-client-file-upload/types'] = [join(upstream, 'packages/client/file-upload/src/types.ts')];
 const format = { getCurrentDirectory: () => root, getCanonicalFileName: name => name, getNewLine: () => '\n' };
 let failures = 0;
-for (const entry of ['workspace/remote-attachments/src/index.ts', 'bundle/remote/src/index.ts', 'workspace/portable-workspace/src/client/index.tsx', 'skill/remote-skills/src/deploy.ts', 'world/ssh-world/src/terminal-backend.ts']) {
+for (const entry of ['world/execution-world/src/presets.ts', 'workspace/remote-attachments/src/index.ts', 'bundle/remote/src/index.ts', 'workspace/portable-workspace/src/client/index.tsx', 'skill/remote-skills/src/deploy.ts', 'world/ssh-world/src/terminal-backend.ts']) {
   const program = ts.createProgram([join(root, 'integrations/dsh/packages', entry)], {
     target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, jsx: ts.JsxEmit.ReactJSX,
     strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,

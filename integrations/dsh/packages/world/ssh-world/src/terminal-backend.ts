@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { BashTerminalBackend } from '@deepseek-ai/dsh-terminal-bash';
 import type { TerminalBackendSpawnSpec } from '@deepseek-ai/dsh-terminal';
-import type {} from './worlds.ts';
+import type {} from '../../execution-world/src/worlds.ts';
 
 export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'executionWorlds'];
 const config: ConstructorParameters<typeof BashTerminalBackend>[1] = {

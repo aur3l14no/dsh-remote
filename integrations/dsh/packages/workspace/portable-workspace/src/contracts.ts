@@ -1,7 +1,7 @@
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol';
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types';
 
-export interface WorldView { id: string; name: string; color: string; workspaceIds: string[]; pinnedSessionIds: string[]; workspaces: { name?: string; path: string }[] }
+export interface WorldView { kind: 'local' | 'ssh'; id: string; name: string; color: string; workspaceIds: string[]; pinnedSessionIds: string[]; workspaces: { name?: string; path: string }[] }
 export interface PortableWorkspaceSelection { worldId: string; path: string }
 export interface PortableWorkspaceRemote {
   reloadStatus(): Promise<RemoteResult<ReloadStatus>>;

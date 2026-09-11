@@ -47,7 +47,7 @@ const program = ts.createProgram([entry, preview, deliverables], {
   types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
 // Changed host package and our integration are this gate's type surface, not the whole upstream tree.
-const checked = [join(root, 'packages/api/session-controller/src/'), join(root, 'packages/api/workspace-files/src/'), join(root, 'packages/client/ui-deliverables/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
+const checked = [join(root, 'packages/workspace/workspace/src/'), join(root, 'packages/interaction/permission-presets/src/'), join(root, 'packages/api/session-controller/src/'), join(root, 'packages/api/workspace-files/src/'), join(root, 'packages/client/ui-deliverables/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
 const errors = ts.getPreEmitDiagnostics(program).filter(d => !d.file || checked.some(path => d.file.fileName.startsWith(path)));
 if (errors.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(errors, {
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n',

@@ -10,7 +10,8 @@ import { SkillSynchronizer, destinationKey } from '../../../skill/remote-skills/
 import { sshControl } from '../../../../../../runtime/ssh/src/control.ts';
 
 declare module '@deepseek-ai/cordis' { interface Context { worldsReload: WorldsReload } }
-interface TargetPlan { world: CatalogWorld; prepared: PreparedSkills; skills: ReloadSkill[] }
+type SshCatalogWorld = CatalogWorld & { target: Extract<CatalogWorld['target'], { kind: 'ssh' }> };
+interface TargetPlan { world: SshCatalogWorld; prepared: PreparedSkills; skills: ReloadSkill[] }
 interface Plan { preview: ReloadPreview; digest: string; worlds: CatalogWorld[]; targets: TargetPlan[]; expires: number }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -73,7 +74,7 @@ export class WorldsReload {
     const signal = AbortSignal.any([this.lifecycle.signal, AbortSignal.timeout(120000)]);
     try {
       const next = await this.read();
-      this.ctx.worldPortableWorkspaces.validateCatalog(next.worlds);
+      await this.ctx.worldPortableWorkspaces.validateCatalog(next.worlds);
       new SkillSynchronizer(next.worlds); // Same target/source compatibility gate as startup.
       const previous = new Map(this.worlds.map(world => [world.id, world]));
       for (const world of next.worlds) {
@@ -89,7 +90,9 @@ export class WorldsReload {
       for (const world of this.worlds) byTarget.set(destinationKey(world.target), { old: world });
       for (const world of next.worlds) { const key = destinationKey(world.target); byTarget.set(key, { ...byTarget.get(key), next: world }); }
       for (const { old, next: world } of byTarget.values()) {
-        const owner = world ?? old!;
+        const candidate = world ?? old!;
+        if (candidate.target.kind === 'local') continue;
+        const owner: SshCatalogWorld = { ...candidate, target: candidate.target };
         try {
           const selected = world && (world.enabledSkills ?? this.ctx.worldPortableWorkspaces.legacyEnabledSkills(world.target));
           const desired = (world?.skills ?? []).filter(skill => selected === undefined || selected.includes(skill.name));
@@ -130,7 +133,7 @@ export class WorldsReload {
     try {
       return await this.sync.exclusive(async () => {
         if ((await this.read()).digest !== plan.digest) throw new Error('Worlds config changed since preview; preview again');
-        this.ctx.worldPortableWorkspaces.validateCatalog(plan.worlds);
+        await this.ctx.worldPortableWorkspaces.validateCatalog(plan.worlds);
         // Check every destination before the first write. Each write checks again under its lock.
         for (const target of plan.targets) for (const skill of target.skills) {
           if (await inspectSkill(target.world.target, skill.name, signal) !== skill.before) throw new Error(`${skill.world}/${skill.name} changed since preview; preview again`);
@@ -157,8 +160,8 @@ export class WorldsReload {
         }
         if (signal.aborted) result.results.push({ world: 'Worlds', skill: 'catalog', ok: false, error: 'Reload interrupted; preview again' });
         if (result.results.every(item => item.ok)) {
+          await this.ctx.worldPortableWorkspaces.replaceCatalog(plan.worlds);
           this.sync.replace(plan.worlds);
-          this.ctx.worldPortableWorkspaces.replaceCatalog(plan.worlds);
           this.worlds = structuredClone(plan.worlds); this.baseline = plan.digest; this.generation++;
           this.sync.blocked = false; result.applied = true;
         }
