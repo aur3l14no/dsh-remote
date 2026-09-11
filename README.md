@@ -4,8 +4,6 @@
 
 为 DeepSeek Harness（DSH）提供本机与 SSH 工作区。同一实例中选择执行环境，模型调用、对话历史和 Web 界面留在 DSH 宿主；项目文件、搜索和命令按会话绑定在本机或选定的 SSH 主机／容器执行。
 
-当前是个人 research 项目，只支持 [series.json](integrations/dsh/patches/series.json) 固定的 DSH 基线和当前实验状态格式。重构允许破坏性变化，不维护历史状态迁移。升级到当前格式请使用新的私有 `DSH_HOME` 与 binding 存储，保留旧环境用于查看历史，再创建新会话；详见 [Session bindings](docs/reference/session-bindings.md)。
-
 ## 快速开始
 
 远端要求：**Linux x86_64（glibc 2.36+）**，并已配置 OpenSSH 公钥认证。请先确保终端中的 `ssh <host>` 可正常连接；扩展复用已有 SSH 配置和 `known_hosts`。

@@ -2,10 +2,6 @@
 
 Status: proposed
 
-## Research 可维护性改造（2026-09-11，已完成）
-
-七项改造与最终静态、集成、安装态及九条 Linux/SSH 验收均已完成，见[维护决策与验收](../../implemented/architecture/2026-09-11-research-maintenance.md)。当前只支持 v3 状态；历史会话不自动迁移，切换时使用新的私有状态目录，项目文件保持原样。
-
 ## 当前基线
 
 第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
@@ -18,9 +14,7 @@ World 配置重载、skill 变更预览与确认应用已通过[安装态与双 
 
 Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemented/integration/2026-09-11-local-workspaces.md)。本机首先验收 macOS；其他原生平台与 E2B provider 仍需另行定界。
 
-## 延后范围（不构成当前实现承诺）
-
-当前以个人研究与单一固定 DSH 基线为维护目标。下列项目保留问题边界，只有具体实验需要时才重新选择；不预先建设 provider、发行平台矩阵或产品生命周期框架。旧实验状态和旧附件引用不做自动迁移。
+## 后续工作
 
 | 项目 | 后续工作与边界 |
 | --- | --- |

@@ -78,4 +78,4 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 
 离线维护可指定 `bootstrap: {manifest, cacheDir}`，或使用 `dsh-remote-config init-release RELEASE_DIRECTORY WORLDS.json` 初始化匹配的完整发行包；已有状态不覆盖。移除显式 bootstrap 后恢复自动下载。
 
-升级需成对验证 DSH 与扩展。破坏性状态变化使用新的私有 `DSH_HOME` 和 binding 存储，详见[绑定契约](reference/session-bindings.md)。卸载扩展保留配置与历史，已有 SSH Session 仍需扩展才能执行。
+升级需成对验证 DSH 与扩展。卸载扩展保留配置与历史，已有 SSH Session 仍需扩展才能执行。

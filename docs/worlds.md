@@ -1,6 +1,6 @@
 # World 与 Workspace 配置
 
-扩展首次启动会在 `$DSH_HOME/remote/worlds.json` 创建可编辑的 World 目录。初始化时可从 `config.json` 的 `worlds` 填充目录；文件存在后以 `worlds.json` 为准。这只是配置初始化，不迁移历史会话或执行绑定。`config.json` 中的 `bindingFile`、bootstrap 和绑定存储仍由宿主维护。
+扩展首次启动会在 `$DSH_HOME/remote/worlds.json` 创建可编辑的 World 目录。初始化时可从 `config.json` 的 `worlds` 填充目录；文件存在后以 `worlds.json` 为准。`config.json` 中的 `bindingFile`、bootstrap 和绑定存储仍由宿主维护。
 
 可以让 Agent 协助编辑这个宿主配置文件。运行中的 Web 界面检测到内容变化后显示 **Config changed**；点击后预览并确认应用，不需要重新安装扩展、重启服务或重新初始化绑定。
 

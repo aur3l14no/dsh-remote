@@ -30,7 +30,7 @@ flowchart LR
 
 [identity.ts](../integrations/dsh/packages/world/execution-world/src/identity.ts) 集中定义身份：`WorldDefinition` 是不含 cwd 的 local/SSH 执行环境；`WorkspaceDefinition` 保存独立的 workspace ID、worldId、canonical cwd 与目标配置快照；binding 把 Session 固定到 Workspace。helper runtime 则是当前连接与资源的运行实例。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。
 
-registry 的 `portable_workspaces` 保存工作区与 membership；`workspace_presentation` 单独保存置顶和归档，颜色与 skill 选择由配置提供。展示字段不参与身份比较，也不通过修改 workspace 时间戳触发刷新。工作区 membership 使用原生 feed；World 名称、颜色、选择项与置顶通过独立 `followWorlds` stream 发布完整视图，断线重连后重新取得快照。绑定存储只接受当前 v3，历史格式与未绑定的原生历史会话明确拒绝；破坏性重构使用新的私有 DSH_HOME 与 binding 存储，保留旧实验目录。提交、失败与状态重置规则见 [Session bindings](reference/session-bindings.md)。
+registry 的 `portable_workspaces` 保存工作区与 membership；`workspace_presentation` 单独保存置顶和归档，颜色与 skill 选择由配置提供。展示字段不参与身份比较，也不通过修改 workspace 时间戳触发刷新。工作区 membership 使用原生 feed；World 名称、颜色、选择项与置顶通过独立 `followWorlds` stream 发布完整视图，断线重连后重新取得快照。绑定存储与提交规则见 [Session bindings](reference/session-bindings.md)。
 
 ## 功能怎样落到上游设施
 
@@ -211,9 +211,9 @@ flowchart TD
 
 ### 上游升级时看什么
 
-个人 research 阶段固定一个上游 revision，按实验需要升级；新 provider、平台、worktree 或 GC 需要另行定界，不提前设计通用框架。优先复用可组合接口，只有宿主缺少执行身份、生命周期或 provider 入口才维护补丁；上游补齐后逐个移除补丁及兼容包。不能因为出现同名接口就删除补丁：还需验证准入时序、身份传递、失败语义、服务域与浏览器模块身份。
+优先复用可组合接口，只有宿主缺少执行身份、生命周期或 provider 入口才维护补丁；上游补齐后逐个移除补丁及兼容包。不能因为出现同名接口就删除补丁：还需验证准入时序、身份传递、失败语义、服务域与浏览器模块身份。
 
-[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证；本项目不承诺旧实验状态兼容，破坏性变化使用新的私有状态目录。DSH 自身日志格式仍由上游管理，旧环境与其匹配版本一并保留，不能只降 npm 版本。逐项风险、补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
+[series.json](../integrations/dsh/patches/series.json)是官方版本、revision、修改包和补丁摘要的唯一配置源。版本检查仅提前拒绝不支持的组合，不证明语义兼容。按“原生 gate → patched-host → 扩展安装／SSH／浏览器 → 发行候选”验证。逐项风险、补丁的移除条件与升级顺序见[上游升级参考](reference/upstream-upgrades.md)，命令见[开发指南](development.md)。
 
 ## 源码与证据
 

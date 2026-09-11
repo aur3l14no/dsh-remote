@@ -11,9 +11,7 @@
 
 同名 cwd 不能标识同一 World，相同 workspace ID 的不同定义或已绑定 Session 改向都会拒绝。registry 的 `portable_workspaces` domain 保存 workspace 与 membership；`workspace_presentation` 独立保存置顶、归档。展示偏好更新不修改 workspace 时间戳或绑定。浏览器通过独立的 `followWorlds` stream 接收 World 展示快照，不依赖原生 workspace feed 为未改变的 workspace 发出事件；每次连接有初始快照，取消请求会释放订阅。
 
-绑定存储仅接受当前 v3：`{ version: 3, workspaces, sessions: [{ sessionId, workspaceId }] }`。不读取 v1/v2，不自动迁移或备份。历史原生本机会话也不自动采用；缺失绑定明确拒绝，只有显式选择目录创建的新会话进入当前执行模型。
-
-这是允许破坏性变化的个人 research 仓库，不承诺旧实验状态兼容。切换到这套格式时使用新的私有 `DSH_HOME` 和新的 binding 存储，重新声明需要的 World 并创建会话；保留旧目录用于查看历史，不把旧 registry 或绑定复制进新环境，也不只删除绑定后继续打开旧 Session。现有项目文件无需删除。
+绑定存储格式为 v3：`{ version: 3, workspaces, sessions: [{ sessionId, workspaceId }] }`。缺失绑定明确拒绝。
 
 ```ts
 // bindingFile 的父目录必须由本地账户私有管理；首次显式创建。
