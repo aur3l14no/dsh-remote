@@ -62,7 +62,7 @@ flowchart LR
   class S done
 ```
 
-复用原生文件、搜索和 Bash 工具。我们的 `ssh-world` 在 `tools/execute` hook 里根据 Session 查 binding，用 AsyncLocalStorage 保存本次调用的 World provider；`ctx.fs` / `ctx.subprocess` 经 client、SSH 转发到 helper。**0003 为 Bash 接入所属 Agent 的 workdir resolver，0004 让文件工具用注入 FS 解析 cwd**，避免路径提前在宿主解析。
+复用原生文件、搜索和 Bash 工具。`execution-world` 在 `tools/execute` hook 里按 Session binding 选择 World provider；SSH 操作经 client 转发到 helper。**0003 为 Bash 接入所属 Agent 的 workdir resolver，0004 让文件工具用注入 FS 解析 cwd**，避免路径提前在宿主解析。
 
 通用 binding、准入后分派与生命周期位于 `world/execution-world/`；`local-world` 借用原生 FS/subprocess，`ssh-world/adapter` 独立拥有 bootstrap、helper client 和远端服务。Standard preset 组合本机能力，remote preset 组合 SSH 能力；切换 preset 不能改变已绑定的执行环境。本机权限保留原生 sandbox，SSH 继续使用账户权限。
 

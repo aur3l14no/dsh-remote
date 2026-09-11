@@ -1,6 +1,6 @@
 # 上游升级参考
 
-功能与上游概念的对应关系、整体装配见[系统全景](../system-map-1.md)。本页只维护逐项升级风险、补丁移除条件与操作顺序。标准 bundle 安装不代表任意上游版本兼容。
+功能与上游概念的对应关系、整体装配见[系统全景](../system-map.md)。本页只维护逐项升级风险、补丁移除条件与操作顺序。标准 bundle 安装不代表任意上游版本兼容。
 
 版本、源码 revision、补丁摘要和修改包的唯一权威是 [series.json](../../integrations/dsh/patches/series.json)。启动检查版本；升级必须成对验证官方 DSH 和扩展，不能仅放宽版本号。
 
@@ -46,4 +46,4 @@
 3. 构建扩展，用官方 CLI 安装同一 tarball；跑本机与双 Linux/SSH World 混合浏览器、冷恢复、child/terminal、当前格式历史恢复。浏览器代码另做类型检查。Standard preset 从固定上游派生；构建须排除误打包的外部 Cordis/scope 源码，原生 AgentPresets 的 standing mount 状态不能复制。
 4. 通过后才形成发行候选。保留原 DSH_HOME 和外部 binding 存储；破坏性状态变化使用新的私有目录与绑定文件，按 [升级说明](../development.md#离线产物与已有配置) 成对更新。
 
-具体命令见 [开发指南](../development.md)；新消费者先对照 [消费者接入契约](../system-map-1.md#新增消费者与升级)。
+具体命令见 [开发指南](../development.md)；新消费者先对照 [消费者接入契约](../system-map.md#新增消费者与升级)。

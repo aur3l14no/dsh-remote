@@ -25,7 +25,7 @@ Manifest format 1 为目标 OS/arch/ABI 提供唯一 bundle，记录 helper/rg �
 
 ## runtime 与连接
 
-每个绑定启动独立私有 runtime。协商验证 build、platform、arch、canonical cwd 和 required capabilities；目标 rg 通过远程 subprocess 运行验证。默认 disconnect grace 30 秒、inbound lease 10 秒、连接/校验预算 15 秒；可按实现参数限制配置。
+DSH 按 Workspace 复用私有 runtime。协商验证 build、platform、arch、canonical cwd 和 required capabilities；目标 rg 通过远程 subprocess 运行验证。默认 disconnect grace 30 秒、inbound lease 10 秒、连接/校验预算 15 秒；可按实现参数限制配置。
 
 重连只恢复同一活跃 runtime。新 runtime 不恢复旧句柄、进程或请求执行。`close()` 先确认 shutdown，再清理该 World 的私有临时父目录；失败不会被报告为成功。控制 stdout、artifact 大小、socket path 和资源限制见实现及 [helper 协议](helper-api.md)。
 

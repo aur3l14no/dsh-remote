@@ -8,7 +8,7 @@ Status: proposed
 
 ## 当前基线
 
-第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map-1.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
+第一阶段已实现。用户、开发者和 CI 共用官方 DSH + 标准扩展 bundle，源码仅用于构建局部兼容包，不再提供源码宿主安装路径。当前架构与支持范围以 [系统全景](../../../../docs/system-map.md) 为准；版本与补丁列表以 [series.json](../../../../integrations/dsh/patches/series.json) 为准。
 
 rc.1 适配、导航与预览重构、子 Agent catalog 提交失败清理已通过[独立复审和安装态验收](../../implemented/integration/2026-09-10-dsh-rc1-upgrade.md)。
 
@@ -36,7 +36,7 @@ Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemen
 
 新消费者必须说明执行地点、身份来源和缺失上下文时的失败行为。新补丁记录修改包、输入与 local profile 回归，通过独立 patched-host gate 后才纳入 series.json；unchanged-source gate 保留。不可为 skill 提供通用本地 shell、隐式传凭据或改写命令。
 
-保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；当前契约见[系统全景](../../../../docs/system-map-1.md)。
+保留 Agent/Session 原生实现，不采用 Fake portable_workspace 或复制模型循环。重大接口变化先重新定界；当前契约见[系统全景](../../../../docs/system-map.md)。
 
 ## Web Search 重点验收
 

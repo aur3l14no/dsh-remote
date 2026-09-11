@@ -7,4 +7,4 @@ DSH-specific code and tooling live here; generic execution belongs in [runtime](
 - [packaging](packaging/README.md): extension inputs and official build dependencies.
 - [integration fixtures](tests/integration/README.md), [E2E environment](tests/e2e/README.md): verification scopes and environment contracts.
 
-Commands are maintained in [development](../../docs/development.md); architecture and service ownership in [system map](../../docs/system-map-1.md).
+Commands are maintained in [development](../../docs/development.md); architecture and service ownership in [system map](../../docs/system-map.md).

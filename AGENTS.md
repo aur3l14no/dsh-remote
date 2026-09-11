@@ -1,6 +1,6 @@
 # Repository maintenance
 
-Before changing execution or DSH integration, read README.md and docs/system-map-1.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
+Before changing execution or DSH integration, read README.md and docs/system-map.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
 - This is personal research with no users. Support one pinned DSH baseline and the current state format; remove obsolete migrations and internal compatibility aliases instead of preserving experimental history in runtime code. Breaking changes require explicit fresh private state, never automatic deletion or rebinding.
 - Keep World, Workspace, Session binding and runtime instance identities distinct. Display preferences must not change execution identity or workspace timestamps. Prefer existing UI extension points over cosmetic upstream patches.

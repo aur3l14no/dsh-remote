@@ -27,7 +27,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 
-本机附件使用原生宿主存储；SSH 附件持久存储在 Session 绑定的远端，模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map-1.md)，附件限制和身份规则见[附件契约](docs/reference/workspace-io.md#上传附件)。
+本机附件使用原生宿主存储；SSH 附件持久存储在 Session 绑定的远端，模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map.md)，附件限制和身份规则见[附件契约](docs/reference/workspace-io.md#上传附件)。
 
 Web 侧边栏使用原生 New Session 控件；工作区区域提供 Reload worlds 与会话列表，卡片依次显示 World / Workspace、会话名称与目录。World 颜色、待选工作区和 Skills 来源在 [worlds.json](docs/worlds.md) 中声明，也可由 Agent 协助编辑。
 
@@ -41,13 +41,13 @@ npm test
 
 完整 DSH 检查先按[开发指南](docs/development.md#统一开发入口)准备固定上游源码和官方依赖，再运行 `npm run check`、`npm run test-integration`、`npm run test-e2e`；`npm run package` 构建扩展。
 
-`runtime/` 是 DSH 无关的 helper、协议客户端与 SSH 库；`integrations/dsh/` 维护插件、补丁、装配和测试。目录职责见[系统全景](docs/system-map-1.md#源码与证据)，工具链、生成产物与聚焦检查见[开发指南](docs/development.md)。
+`runtime/` 是 DSH 无关的 helper、协议客户端与 SSH 库；`integrations/dsh/` 维护插件、补丁、装配和测试。目录职责见[系统全景](docs/system-map.md#源码与证据)，工具链、生成产物与聚焦检查见[开发指南](docs/development.md)。
 
 ## 文档入口
 
 | 任务 | 文档 |
 | --- | --- |
-| 理解系统：功能 → 机制 → 方案 → DSH 概念与设施 | [系统全景](docs/system-map-1.md)（含架构、边界、插件兼容与状态） |
+| 理解系统：功能 → 机制 → 方案 → DSH 概念与设施 | [系统全景](docs/system-map.md)（含架构、边界、插件兼容与状态） |
 | 操作与开发：配置 Skills、构建、测试、发行 | [Skills](docs/skills.md)、[开发指南](docs/development.md)、[发行](docs/release.md) |
 | 升级 DSH：接口风险、补丁移除条件 | [上游升级参考](docs/reference/upstream-upgrades.md) |
 | 查询底层契约 | [文件预览与附件](docs/reference/workspace-io.md)、[helper 协议](docs/reference/helper-api.md)、[bootstrap](docs/reference/bootstrap.md)、[Session bindings](docs/reference/session-bindings.md) |

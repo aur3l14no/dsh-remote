@@ -1,6 +1,6 @@
 # Agent Notes
 
-Notes 保存待办、重要决策和按时间记录的验收；当前使用方式与契约以 [docs/](../../docs/system-map-1.md) 为准。
+Notes 保存待办、重要决策和按时间记录的验收；当前使用方式与契约以 [docs/](../../docs/system-map.md) 为准。
 
 ```text
 proposed/integration/        已选方向或待决方案，仍未完成实现
