@@ -66,7 +66,8 @@ test('failed SSH handshakes contain late duplex destruction errors', async () =>
     await localWrite(`${directory}/ssh`, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
     process.env.PATH = `${directory}:${prior}`;
     for (let attempt = 0; attempt < 3; attempt++) {
-      await assert.rejects(Client.open({ world: 'failed-ssh', connect: sshTransport({ host: 'fixture', world: 'failed-ssh', helper: '/unused', socket: '/unused' }) }), { code: 'TRANSPORT_CLOSED' });
+      // The child may close stdout or break the handshake write first.
+      await assert.rejects(Client.open({ world: 'failed-ssh', connect: sshTransport({ host: 'fixture', world: 'failed-ssh', helper: '/unused', socket: '/unused' }) }), { code: /^(TRANSPORT_CLOSED|EPIPE)$/ });
     }
     // Node's test runner treats any late unhandled stream error as a failure.
     await new Promise(resolve => setTimeout(resolve, 30));
