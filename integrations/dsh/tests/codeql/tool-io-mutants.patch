@@ -1,0 +1,32 @@
+--- a/packages/fs/tool-fs/src/read.ts
++++ b/packages/fs/tool-fs/src/read.ts
+@@ -1,3 +1,4 @@
++import { readFile as unsafeReadFile } from 'node:fs/promises'
+ /**
+  * Model-facing UTF-8 read. It performs one provider stat for type, routing, and observed version,
+  * streams large or size-unknown files, renders a bounded window, then emits the observation.
+@@ -144,7 +145,7 @@
+       // never buffers an arbitrarily large file.
+       const chunks = info.size === undefined || info.size >= caps.streamMinSize
+         ? await ctx.fs.streamText(target, exec.signal)
+-        : [await ctx.fs.readText(target, exec.signal)]
++        : [await unsafeReadFile(input.filePath, 'utf8')] // CODEQL_MUTANT_DIRECT
+       const window = await buildWindow(
+         chunks,
+         { offset: input.offset, limit: input.limit, maxLineLength: caps.maxLineLength, maxBytes: caps.maxBytes },
+--- a/packages/fs/tool-fs/src/write.ts
++++ b/packages/fs/tool-fs/src/write.ts
+@@ -1,3 +1,5 @@
++import { readFileSync as nodeRead } from 'node:fs'
++function inspectNative(read: typeof nodeRead, path: string) { return read(path); } // CODEQL_MUTANT_PARAMETER
+ /**
+  * Model-facing full-file write. It obtains an optional intent from the single policy slot, calls
+  * `ctx.fs.writeText` without a stat, then records the resulting version; no policy means an
+@@ -104,6 +106,7 @@
+     },
+     async execute(args: WriteToolArgs, exec) {
+       const input = parseWriteArgs(args)
++      inspectNative(nodeRead, input.filePath)
+       // Resolve the per-call sandbox policy (approved mode > session override
+       // > backend default, plus the session cwd root) BEFORE anything executes;
+       // an escalating call throws its distinct text on any non-grant.

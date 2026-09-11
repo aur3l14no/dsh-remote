@@ -1,0 +1,11 @@
+# Generated/private state is outside the source audit. No consumer exemptions.
+disable-default-queries: true
+queries:
+  - uses: ./integrations/dsh/checks/codeql/queries
+paths-ignore:
+  - .build/**
+  - .local/**
+  - artifacts/**
+  - dist/**
+  - node_modules/**
+  - runtime/helper/target/**

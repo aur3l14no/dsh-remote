@@ -18,7 +18,7 @@
 
 ## 选择验证入口
 
-DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自己的子系统。按修改范围选择检查，不必每次运行全部入口。
+DSH 脚本通常放在 `integrations/dsh/scripts/`；CodeQL 入口与查询放在 `integrations/dsh/checks/codeql/`，通用 runtime 检查留在自己的子系统。按修改范围选择检查，不必每次运行全部入口。
 
 | 修改范围 | 主要入口 | 证明范围 |
 | --- | --- | --- |
@@ -28,6 +28,9 @@ DSH 脚本集中在 `integrations/dsh/scripts/`；通用 runtime 检查留在自
 | 浏览器兼容包 | `check-preview-client` + 构建扩展、浏览器验收 | 独立浏览器类型环境与实际 UI |
 | 发行组装 / 初始化 | `node --test integrations/dsh/tests/release/*.test.mjs`；构建扩展后跑 packaging 与 extension-install | 摘要、拒绝损坏、私有 cache 与官方 CLI / SSH 安装 |
 | 纯文档 | 相对链接、路径、当前事实与历史记录一致性 | 不以无关运行测试替代文档审查 |
+| World IO 数据流 / CI | CodeQL 提取与查询；`npm run test:world-io -- RESULTS.sarif` | 关键回归用例与候选数据流路径；不是自动 World 兼容证明 |
+
+每次 push/PR 的 CodeQL job 扫描本仓库与固定上游的补丁后源码，输出含候选位置与数据流路径的 SARIF；不安装或运行上游。工具安装、范围、成本和误报／漏报边界见 [World IO 数据流审查](reference/node-io-inventory.md)。
 
 ## 通用代码
 

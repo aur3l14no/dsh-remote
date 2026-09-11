@@ -1,0 +1,4 @@
+name: dsh-remote/world-boundary
+version: 0.0.1
+dependencies:
+  codeql/javascript-all: '2.10.1'

@@ -12,7 +12,9 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts integrations/dsh/tests/bindings/*.test.ts integrations/dsh/tests/skills/*.test.ts",
-    "test:bootstrap": "node --test runtime/tests/bootstrap/*.test.ts"
+    "test:bootstrap": "node --test runtime/tests/bootstrap/*.test.ts",
+    "scan:world-io": "bash integrations/dsh/checks/codeql/scan.sh",
+    "test:world-io": "node integrations/dsh/tests/codeql/check.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/node-addon-system": "0.1.2",
