@@ -9,7 +9,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-tool-present/types';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
-import { checkChildLifecycle } from './remote-children.ts';
+import { checkChildLifecycle, checkCrossWorldInspection } from './remote-children.ts';
 import { prepareReplay } from './remote-replay.ts';
 import { newEnglishPage } from './support.ts';
 
@@ -238,6 +238,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.close();
   await scaffold.close();
   await checkChildLifecycle(async () => { scaffold = await launch(true); return scaffold; }, sessionId, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
+  await checkCrossWorldInspection(async () => { scaffold = await launch(true); return scaffold; }, browser, { provider: first.options.provider!, model: first.options.model! });
   const bindingFile = `${state}/bindings.json`;
   const bindings = JSON.parse(await readFile(bindingFile, 'utf8'));
   bindings.sessions = bindings.sessions.filter((entry: { sessionId: string }) => entry.sessionId !== sessionId);

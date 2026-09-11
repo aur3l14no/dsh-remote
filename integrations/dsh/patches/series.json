@@ -87,6 +87,16 @@
         "@deepseek-ai/dsh-permission-presets",
         "@deepseek-ai/dsh-workspace"
       ]
+    },
+    {
+      "file": "0011-child-execution-environment.patch",
+      "sha256": "8f5d307a3fc018d083d2eaf7384fbb5ab64485f9208f38dd34d671c9bd985a7c",
+      "packages": [
+        "@deepseek-ai/dsh-subagent",
+        "@deepseek-ai/dsh-subagent-in-process-driver",
+        "@deepseek-ai/dsh-subagent-spawn-in-process",
+        "@deepseek-ai/dsh-tool-subagent"
+      ]
     }
   ],
   "release": {

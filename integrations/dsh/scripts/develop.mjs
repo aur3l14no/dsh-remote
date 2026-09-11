@@ -52,6 +52,7 @@ if (task === 'check') {
   run(process.execPath, ['.build/dsh/package-check/accept.mjs'], { ...process.env, DSH_TEST_PACKAGED: '1' });
   patched();
   node('.build/dsh/patched-host/admission.mjs');
+  node('.build/dsh/patched-host/lib/child-environment.mjs');
   script('check-attachments', patchedSource);
   node('--expose-internals', '.build/dsh/attachment-check/lib/attachments.mjs');
 } else {

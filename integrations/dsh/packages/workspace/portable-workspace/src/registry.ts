@@ -8,6 +8,7 @@ import { posix } from 'node:path';
 import { z } from 'zod';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { worldDefinition, workspaceFor, sameWorkspace, worldFingerprint, type WorkspaceDefinition, type WorldDefinition, type WorldTarget } from '../../../world/execution-world/src/identity.ts';
+import { worldCommand } from '../../../world/execution-world/src/command.ts';
 import { WorkspacePresentation, worldView } from './presentation.ts';
 import '../../../world/execution-world/src/worlds.ts';
 import type { SkillInstall } from '../../../skill/remote-skills/src/deploy.ts';
@@ -22,6 +23,7 @@ export interface CatalogWorld {
   workspaces?: { name?: string; path: string }[];
 }
 export const LOCAL_WORLD_ID = 'local';
+const executionId = (id: string): string => `workspace:${id}`;
 export interface Config { worlds: CatalogWorld[] }
 declare module '@deepseek-ai/cordis' { interface Context { nativeWorkspaceRegistry: WorkspaceRegistry } }
 const targetSchema = z.unknown().transform(worldDefinition);
@@ -117,6 +119,18 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
       if (!header || header.cwd !== saved.cwd) {
         throw new RemoteError('WORLD_MISMATCH', 'Session is absent or its cwd differs from the saved binding');
       }
+      const explicitParent = this.ctx.executionWorlds.bindings.explicitParent(current);
+      if (explicitParent !== undefined) {
+        if (header.origin !== 'subagent' || header.parentSession !== explicitParent
+          || !this.ctx.executionWorlds.bindings.get(explicitParent)) {
+          throw new RemoteError('WORLD_MISMATCH', 'Invalid explicit child lineage');
+        }
+        const workspace = this.list().find(workspace => executionId(workspace.id) === saved.id);
+        if (!workspace || bindings.some(binding => !sameWorkspace(binding, this.definition(workspace.id)))) {
+          throw new RemoteError('WORLD_MISMATCH', 'Explicit child workspace is absent or changed');
+        }
+        return workspace;
+      }
       const workspace = this.forSession(current);
       if (workspace) {
         if (header.origin === 'subagent') throw new RemoteError('WORLD_MISMATCH', 'Subagent cannot be a top-level workspace member');
@@ -209,6 +223,22 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     return world;
   }
 
+  executionTargets() {
+    return [...this.catalog].map(([id, world]) => ({ id, name: world.name, kind: world.environment.kind }));
+  }
+
+  /** Preparation may write a private temporary directory; subsequent inspection is read-only. */
+  async createScratchInWorld(worldId: string, signal: AbortSignal): Promise<Workspace> {
+    const world = this.environment(worldId);
+    if (world.environment.kind !== 'ssh') throw new RemoteError('INVALID_WORLD', 'Inspection scratch workspaces require an SSH target');
+    signal.throwIfAborted();
+    const owner = await this.ctx.executionWorlds.prepareWorld(workspaceFor(world.environment, `selection:${worldId}`, '/'));
+    const path = await worldCommand(owner, '/', ['mktemp', '-d', '/tmp/dsh-inspect.XXXXXXXXXX'], signal);
+    if (!/^\/tmp\/dsh-inspect\.[A-Za-z0-9]+$/.test(path)) throw new RemoteError('INVALID_WORLD', 'Target returned an invalid scratch path');
+    signal.throwIfAborted();
+    return this.createInWorld(worldId, path);
+  }
+
   async createInWorld(worldId: string, path: string): Promise<Workspace> {
     if (!path.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Absolute workspace path required');
     const world = this.environment(worldId);
@@ -238,11 +268,11 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
 
   definition(id: WorkspaceId): WorkspaceDefinition {
     const local = this.native.get(id);
-    if (local) return workspaceFor(worldDefinition({ id: LOCAL_WORLD_ID, kind: 'local' }), `workspace:${id}`, local.path);
+    if (local) return workspaceFor(worldDefinition({ id: LOCAL_WORLD_ID, kind: 'local' }), executionId(id), local.path);
     const row = this.row(id);
     // Saved bindings remain authoritative when a catalog entry is retired.
     if (this.catalog.has(row.worldId)) this.environment(row.worldId, row.environment);
-    return workspaceFor(row.environment, `workspace:${row.id}`, row.path);
+    return workspaceFor(row.environment, executionId(row.id), row.path);
   }
   async validate(id: WorkspaceId): Promise<void> {
     const definition = this.definition(id);

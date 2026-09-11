@@ -14,6 +14,8 @@ World 配置重载、skill 变更预览与确认应用已通过[安装态与双 
 
 Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemented/integration/2026-09-11-local-workspaces.md)。本机首先验收 macOS；其他原生平台与 E2B provider 仍需另行定界。
 
+本机 leader 显式跨 World child 与只读机器巡检已实现，见[巡检验收](../../implemented/integration/2026-09-12-cross-world-inspection.md)。
+
 ## 后续工作
 
 | 项目 | 后续工作与边界 |
@@ -55,7 +57,7 @@ Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemen
 
 当前可组合的部分：远端 subprocess 可以运行 Git；维护中 registry 的 createInWorld 只接收已存在的目录；startPortableWorkspaceSession 显式绑定后创建独立 Session。仓库中没有 worktree 创建器、模型工具、UI 流程或相关验收，不能称为自动支持。目标 Git、权限与仓库条件也未专项验证。
 
-当前阻碍：worlds.ts 的 inherited/adopt 要求普通子 Agent 的 cwd 和完整绑定与父级相同，直接替换 cwd 或预绑定另一目录仍会冲突。固定 DSH 基线的 Web fork 复制源 cwd，不创建 Git worktree；workflow-worker-thread 的 isolation 属于 deferred options，现有测试明确拒绝 worktree 隔离。独立 Session 的源码入口可作为未来编排基础，但不等于已支持保留父子 lineage 的隔离子 Agent。
+普通子 Agent 的 cwd 和完整绑定仍与父级相同；新增的显式执行环境入口允许新 spawn child 在保存 parent 授权后绑定另一个已登记 Workspace。此入口可作为未来 worktree 委派基础，但不创建 Git worktree。固定 DSH 基线的 Web fork 复制源 cwd，不创建 Git worktree；workflow-worker-thread 的 isolation 属于 deferred options，现有测试明确拒绝 worktree 隔离。显式 child 执行环境入口不负责自动 worktree 创建与清理。
 
 后续需要定界和验收：
 

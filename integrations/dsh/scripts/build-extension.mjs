@@ -64,7 +64,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
+const entries = { inspection: 'inspection/machine-inspection/src/index.ts', presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -100,6 +100,8 @@ let localPreset = await readFile(join(sources, 'packages/preset/agent-presets/pr
 localPreset = localPreset.replace(/- id: skill-filesystem\n  name: '@deepseek-ai\/dsh-skill-filesystem'\n/, '');
 for (const name of compatibilityNames) localPreset = localPreset.replaceAll(`'${name}'`, `'../../compat/${name}/lib/index.js'`);
 localPreset += `
+- id: world-inspection-tools
+  name: '../../plugins/web/lib/inspection.js'
 - id: local-world-admission
   name: '../../plugins/web/lib/routing.js'
   config:

@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Cordis 服务身份与隔离域 | 相同类名不等于相同服务实例。兼容包相互 import 必须指向同一份包内实现；FS/subprocess/router 和消费者必须在同一 preset 域。不能用 Node resolve hook 修补身份冲突 | composition、packaging、安装态测试 |
 | 插件激活顺序 | feed 必须独立激活后，registry 才能释放 controller；Remote namespace 也要先于消费者可用。在尚未激活的父插件里提供服务，可能造成启动等待或缺失服务 | patched-host、官方 CLI 冷启动 |
-| Session 创建 / 恢复 / fork / child continuation | 上游调度、事件顺序或 lineage 字段变化，可能使 Agent 在绑定持久化前发布。恢复以保存的 binding 为准；child 逐级核对父绑定；缺失身份拒绝，不能根据 cwd 猜 World | admission、子 Agent、重启恢复和丢失 binding 负例 |
+| Session 创建 / 恢复 / fork / child continuation | 上游调度、事件顺序或 lineage 字段变化，可能使 Agent 在绑定持久化前发布。恢复以保存的 binding 为准；普通 child 逐级核对父绑定，显式 child 复查保存的 parent 授权与目标 Workspace；缺失身份拒绝，不能根据 cwd 猜 World | admission、子 Agent、重启恢复和丢失 binding 负例 |
 | 工具之外的文件访问 | 替换 ctx.fs 不会拦截 node:fs。instructions、skill lookup、图片/目录预览和文件引用发生在不同生命周期；它们也必须拿到明确的 Session/Agent 身份。上游新增一个宿主 realpath/readFile 就可能绕过远端 | 同路径宿主 / 双 World 的指令、skill、预览测试 |
 | 浏览器模块与协议身份 | 最近的 package.json、dsh.client 注入、client factory、ModuleLoader ID 和 Typert namespace 共同决定加载与通信。单独编译通过不代表浏览器识别的是同一个模块；图片 URL 必须携带渲染所属 Session | preview-client 类型检查、安装态 Playwright、图片与 deep link |
 | 原生 Session 日志格式 | 上游 Session 存储在宿主，日志格式变化需验证恢复与绑定 | 当前格式冷恢复、fork、child 与 binding 保持测试 |
@@ -34,6 +34,7 @@
 | 0008 sidebar-resource-dot-segments | 原生侧栏 URI glob 能识别包含 `.` / `..` 的地址，且保留 Session 与路径原文 |
 | 0009 present-desktop-availability | 禁用宿主打开时，交付文件 HTTP 元数据与拒绝入口不再依赖宿主 FS / sandboxPolicy |
 | 0010 local-workspace-admission | 准入可选择 Session preset；权限初始化可按 Session 选择缺失默认值；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
+| 0011 child-execution-environment | 原生 child 创建／续接提供可等待的执行环境准备与发布校验，显式选择目标 preset/cwd，保留普通 child 的 standing composition、原生 Session lineage 与工具过滤 |
 
 新增补丁应直接服务执行身份、生命周期或 provider 接口；展示便利优先使用现有插件槽位。New Session 使用原生控件，Reload worlds 位于工作区插件，不再维护侧栏 primary actions 补丁。
 

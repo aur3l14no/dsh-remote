@@ -11,7 +11,7 @@
 
 同名 cwd 不能标识同一 World，相同 workspace ID 的不同定义或已绑定 Session 改向都会拒绝。registry 的 `portable_workspaces` domain 保存 workspace 与 membership；`workspace_presentation` 独立保存置顶、归档。展示偏好更新不修改 workspace 时间戳或绑定。浏览器通过独立的 `followWorlds` stream 接收 World 展示快照，不依赖原生 workspace feed 为未改变的 workspace 发出事件；每次连接有初始快照，取消请求会释放订阅。
 
-绑定存储格式为 v3：`{ version: 3, workspaces, sessions: [{ sessionId, workspaceId }] }`。缺失绑定明确拒绝。
+绑定存储格式为 v3：`{ version: 3, workspaces, sessions: [{ sessionId, workspaceId, parentSessionId? }] }`。缺失绑定明确拒绝。
 
 ```ts
 // bindingFile 的父目录必须由本地账户私有管理；首次显式创建。
@@ -27,7 +27,9 @@ await ctx.executionWorlds.prepare(savedSessionId);
 
 写入采用本地锁、私有临时 JSON、sync、rename 和目录 sync；读者看到完整 generation。文件有 4 MiB 限制。根绑定先于 Agent 创建提交；后者失败时保留绑定供同 World 重试，不承诺跨 binding 文件和 DSH 日志的事务。
 
-新子 Agent 依据 parent Session metadata 继承，在 `agent/session-start` 落盘；该通知不能否决发布，因此提交失败可能留下已发布但模型上下文/工具均被阻止的 Agent。恢复要求已有记录。严格发布前原子准入是独立的下一阶段改动，不是当前保证。
+原生 spawn child 通过 0011 的可等待环境入口，在 Agent 创建／指令发现前保存绑定，发布时再次验证。普通 child 继承父级完整绑定；显式选择 Workspace 的新 child 同时持久保存不可变的 `parentSessionId`，作为执行边界授权。该 parent 必须已有绑定，悬空或循环关系拒绝读取；原生 child header 也必须匹配。沿 lineage 查询时仅在此显式边界使用自身 Workspace，不添加顶层 membership。恢复不允许重新选择 Workspace。其他未使用此入口的原生生命周期仍由 World 准入与工具上下文检查约束。
+
+绑定与原生 Session/catalog 不跨存储事务：后续创建或发布失败可以留下已绑定但未发布的 child ID；不能用该 ID 改向重试，应创建新 child。
 
 缺失、损坏、非当前格式、悬空 binding 明确失败。rename 后目录 sync 失败报告不确定提交并阻止该 store 继续工作，重新打开再判断。强制终止写进程可能遗留锁；确认写者已退出后才能手工处理，不自动偷锁。
 

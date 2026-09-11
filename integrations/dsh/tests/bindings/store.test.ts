@@ -197,3 +197,26 @@ test('one World keeps one target across workspaces and corrupted target reuse is
     assert.throws(() => new BindingStore(file), { code: 'INVALID_BINDINGS' });
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('explicit child execution retains immutable parent authority across reopen', async () => {
+  const dir = await mkdtemp('/tmp/dsh-bindings-child.');
+  try {
+    const file = `${dir}/bindings.json`, store = BindingStore.create(file);
+    const local = workspaceFor(worldDefinition({ id: 'local', kind: 'local' }), 'local-workspace', '/local');
+    store.bind('leader', local);
+    store.bind('child', definition, 'leader');
+    assert.equal(new BindingStore(file).explicitParent('child'), 'leader');
+    assert.deepEqual(store.get('child'), definition);
+    assert.throws(() => store.bind('child', definition), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('child', local, 'leader'), { code: 'WORLD_MISMATCH' });
+    assert.throws(() => store.bind('orphan', definition, 'missing'), { code: 'WORLD_REQUIRED' });
+    store.bind('child', definition, 'leader');
+    const saved = fs.readFileSync(file, 'utf8');
+    const corrupt = JSON.parse(saved);
+    corrupt.sessions.find((row: { sessionId: string }) => row.sessionId === 'leader').parentSessionId = 'child';
+    fs.writeFileSync(file, JSON.stringify(corrupt));
+    assert.throws(() => new BindingStore(file), { code: 'INVALID_BINDINGS' });
+    fs.writeFileSync(file, saved);
+    assert.deepEqual(new BindingStore(file).get('leader'), local);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

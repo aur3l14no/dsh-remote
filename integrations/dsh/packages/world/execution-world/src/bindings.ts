@@ -8,7 +8,7 @@ import { workspaceSchema, workspaceDefinition, sameWorkspace, targetFingerprint,
 const identifier = z.string().min(1).max(512).regex(/^[^\0\r\n]+$/);
 const documentSchema = z.object({
   version: z.literal(3), workspaces: z.array(workspaceSchema),
-  sessions: z.array(z.object({ sessionId: identifier, workspaceId: identifier }).strict()),
+  sessions: z.array(z.object({ sessionId: identifier, workspaceId: identifier, parentSessionId: identifier.optional() }).strict()),
 }).strict();
 type Document = z.infer<typeof documentSchema>;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -72,6 +72,16 @@ export class BindingStore {
         || document.sessions.some(binding => !workspaces.has(binding.workspaceId))) {
       throw new RemoteError('INVALID_BINDINGS', 'Duplicate or dangling binding identity');
     }
+    const parents = new Map(document.sessions.filter(row => row.parentSessionId !== undefined).map(row => [row.sessionId, row.parentSessionId!]));
+    for (const [id, parent] of parents) {
+      if (!sessions.has(parent)) throw new RemoteError('INVALID_BINDINGS', 'Explicit child has no parent binding');
+      const visited = new Set([id]);
+      let current: string | undefined = parent;
+      while (current !== undefined) {
+        if (visited.has(current)) throw new RemoteError('INVALID_BINDINGS', 'Cyclic child binding');
+        visited.add(current); current = parents.get(current);
+      }
+    }
     const targets = new Map<string, string>();
     for (const workspace of document.workspaces) {
       const target = targetFingerprint(workspace);
@@ -86,6 +96,10 @@ export class BindingStore {
     const document = this.read();
     const binding = document.sessions.find(entry => entry.sessionId === sessionId);
     return binding && Object.freeze(document.workspaces.find(workspace => workspace.id === binding.workspaceId)!);
+  }
+
+  explicitParent(sessionId: string): string | undefined {
+    return this.read().sessions.find(row => row.sessionId === sessionId)?.parentSessionId;
   }
 
   private check(document: Document, sessionId: string, workspace: WorkspaceDefinition): boolean {
@@ -107,13 +121,21 @@ export class BindingStore {
     this.check(this.read(), sessionId, workspaceDefinition(input));
   }
 
-  bind(sessionId: string, input: WorkspaceDefinition): void {
+  bind(sessionId: string, input: WorkspaceDefinition, parentSessionId?: string): void {
     const workspace = workspaceDefinition(input);
     BindingStore.withLock(this.file, () => {
       const document = this.read();
-      if (this.check(document, sessionId, workspace)) return;
+      if (parentSessionId !== undefined && (parentSessionId === sessionId || !document.sessions.some(row => row.sessionId === parentSessionId))) {
+        throw new RemoteError('WORLD_REQUIRED', 'Explicit child requires a saved parent binding');
+      }
+      if (this.check(document, sessionId, workspace)) {
+        if (document.sessions.find(row => row.sessionId === sessionId)!.parentSessionId !== parentSessionId) {
+          throw new RemoteError('WORLD_MISMATCH', 'Session delegation cannot change');
+        }
+        return;
+      }
       if (!document.workspaces.some(entry => entry.id === workspace.id)) document.workspaces.push({ ...workspace });
-      document.sessions.push({ sessionId, workspaceId: workspace.id });
+      document.sessions.push({ sessionId, workspaceId: workspace.id, ...(parentSessionId === undefined ? {} : { parentSessionId }) });
       try { BindingStore.publish(this.file, document); }
       catch (error) {
         if (error instanceof RemoteError && error.code === 'BINDING_COMMIT_UNKNOWN') this.uncertain = true;

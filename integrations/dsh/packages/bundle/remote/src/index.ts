@@ -9,6 +9,8 @@ import AccountPolicy from '../../../world/ssh-world/src/account-policy.ts';
 import RemoteFileReferences from '../../../workspace/portable-workspace/src/file-references.ts';
 import * as RemoteSkills from '../../../skill/remote-skills/src/index.ts';
 import * as Admission from '../../../workspace/portable-workspace/src/admission.ts';
+import InspectionStore from '../../../inspection/machine-inspection/src/store.ts';
+import * as ChildEnvironment from '../../../workspace/portable-workspace/src/child-environment.ts';
 import { WorldsReload } from '../../../workspace/portable-workspace/src/reload.ts';
 import { SkillSynchronizer } from '../../../skill/remote-skills/src/sync.ts';
 
@@ -40,6 +42,8 @@ export async function apply(ctx: Context, config: Config) {
     ctx.effect(() => () => { sync.selection = undefined; });
   } });
   await ctx.plugin(Admission);
+  await ctx.plugin(ChildEnvironment);
+  await ctx.plugin(InspectionStore);
   await ctx.plugin(PortableWorkspaceApi);
   await ctx.plugin(AccountPolicy);
   await ctx.plugin(RemoteSkills);

@@ -227,7 +227,7 @@ function installWorkspaceUi(ctx: Context) {
         const isPinned = pinned.includes(id);
         return <div className="workspace-session" key={id}>
           <Tooltip label={`${title}\n${rowWorld?.name ?? 'Unavailable World'} / ${name}\n${row.path}`} side="right" delayMs={650} maxWidth={360}>
-          <button className="session-card" aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => navigation.openSession(id)}>
+          <button className="session-card" disabled={!sessions.byId[id]} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => navigation.openSession(id)}>
             <span className="session-context"><WorldLogo color={rowWorld?.color ?? '#94a3b8'} /><span>{rowWorld?.name ?? 'Unavailable World'} / {name}</span></span>
             <span className="session-title">{title}</span>
             <span className="session-path"><IconFolderClose16 size={12} /><span>{row.path}</span></span>

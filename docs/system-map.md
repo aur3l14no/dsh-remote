@@ -25,10 +25,10 @@ flowchart LR
   W["我们的 World<br/>选定执行环境"] --> P["我们的 portable_workspace<br/>该环境中的项目目录"]
   P -->|"持久 binding"| S["DSH Session<br/>对话历史留宿主"]
   S --> A["DSH Agent<br/>原生模型循环"]
-  A -->|"继承完整绑定与 cwd"| C["DSH child Agent<br/>原生委派与续接"]
+  A -->|"默认继承；显式选择目标 Workspace"| C["DSH child Agent<br/>原生委派与续接"]
 ```
 
-[identity.ts](../integrations/dsh/packages/world/execution-world/src/identity.ts) 集中定义身份：`WorldDefinition` 是不含 cwd 的 local/SSH 执行环境；`WorkspaceDefinition` 保存独立的 workspace ID、worldId、canonical cwd 与目标配置快照；binding 把 Session 固定到 Workspace。helper runtime 则是当前连接与资源的运行实例。同名 cwd 不能标识同一 World。child 沿 parent lineage 找顶层 portable_workspace，逐级核对完整绑定，不成为顶层列表成员。
+[identity.ts](../integrations/dsh/packages/world/execution-world/src/identity.ts) 集中定义身份：`WorldDefinition` 是不含 cwd 的 local/SSH 执行环境；`WorkspaceDefinition` 保存独立的 workspace ID、worldId、canonical cwd 与目标配置快照；binding 把 Session 固定到 Workspace。helper runtime 则是当前连接与资源的运行实例。同名 cwd 不能标识同一 World。普通 child 沿 parent lineage 逐级核对完整绑定；显式委派在持久保存的 parent 授权边界使用目标 portable_workspace。两者均不成为顶层列表成员。
 
 registry 的 `portable_workspaces` 保存工作区与 membership；`workspace_presentation` 单独保存置顶和归档，颜色与 skill 选择由配置提供。展示字段不参与身份比较，也不通过修改 workspace 时间戳触发刷新。工作区 membership 使用原生 feed；World 名称、颜色、选择项与置顶通过独立 `followWorlds` stream 发布完整视图，断线重连后重新取得快照。绑定存储与提交规则见 [Session bindings](reference/session-bindings.md)。
 
@@ -52,6 +52,10 @@ DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。
 **This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择、为权限初始化增加按 Session 的默认值，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。新本机会话通过显式目录选择建立绑定；未绑定的历史本机会话不自动采用。
 
 恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/execution-world/src/worlds.ts)。
+
+### 本机 leader 委派远端巡检
+
+0011 为原生 spawn child 提供可等待的执行环境准备入口；`child-environment` 插件在原生 Agent 初始化前校验、绑定和选择目标 preset。Team、child Session、工具过滤、消息和完成通知仍由 DSH 管理。`machine-inspection` 插件提供已配置目标发现、只读巡检与 HTML 地图，使用原生 `present` 预览。普通 child 默认继承，显式跨 World child 保持父子关系并按保存绑定续接。准备阶段的安装／临时目录与巡检阶段的只读工具权限分开，见[机器巡检](machine-inspection.md)。
 
 ### 读写、搜索和运行命令
 

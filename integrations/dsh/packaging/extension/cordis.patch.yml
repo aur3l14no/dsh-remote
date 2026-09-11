@@ -141,3 +141,13 @@
     - id: remote-ui-sidebar-right
       name: './compat/@deepseek-ai/dsh-client-ui-sidebar-right/lib/index.js'
       inject: [remoteSetup]
+
+# Keep native spawn lifecycle, selecting execution through the optional child seam.
+- id: subagent-spawn-in-process
+  disabled: true
+- insert:
+    - id: remote-subagent-spawn-in-process
+      name: './compat/@deepseek-ai/dsh-subagent-spawn-in-process/lib/index.js'
+      inject: [remoteSetup]
+      config:
+        providerName: spawn

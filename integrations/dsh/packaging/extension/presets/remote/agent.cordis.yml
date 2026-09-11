@@ -33,8 +33,11 @@
     - name: '@deepseek-ai/dsh-terminal'
     - name: '../../plugins/web/lib/terminal.js'
     - name: '@deepseek-ai/dsh-tool-terminal'
-    - name: '@deepseek-ai/dsh-tool-subagent'
+    - name: '../../compat/@deepseek-ai/dsh-tool-subagent/lib/index.js'
       config:
         provider: spawn
         backgroundMode: continuable
     - name: '@deepseek-ai/dsh-tool-subagent-control'
+
+- id: world-inspection-tools
+  name: '../../plugins/web/lib/inspection.js'

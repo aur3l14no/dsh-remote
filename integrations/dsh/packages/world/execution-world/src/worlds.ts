@@ -134,6 +134,13 @@ export default class ExecutionWorlds extends Service {
     if (header.origin !== 'subagent' || !header.parentSession) return undefined;
     const parent = this.bindings.get(header.parentSession);
     if (!parent) throw new RemoteError('WORLD_REQUIRED', 'Parent Session has no saved World binding');
+    const explicitParent = this.bindings.explicitParent(header.id);
+    if (explicitParent !== undefined) {
+      if (explicitParent !== header.parentSession) throw new RemoteError('WORLD_MISMATCH', 'Explicit child belongs to another parent');
+      const own = this.bindings.get(header.id)!;
+      this.available(own, header.cwd);
+      return own;
+    }
     this.available(parent, header.cwd);
     return parent;
   }
@@ -141,6 +148,9 @@ export default class ExecutionWorlds extends Service {
   adopt(agent: Agent): void {
     const definition = this.bindings.get(agent.session.header.id);
     if (!definition) throw new RemoteError('WORLD_REQUIRED', 'Session has no saved World binding');
+    if (this.bindings.explicitParent(agent.session.header.id) && agent.session.header.origin !== 'subagent') {
+      throw new RemoteError('WORLD_MISMATCH', 'Explicit child binding requires child Session metadata');
+    }
     const inherited = this.inherited(agent);
     if (inherited) this.same(inherited, definition);
     this.available(definition, agent.session.header.cwd);
