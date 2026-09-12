@@ -10,7 +10,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-tool-present/types';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
-import { checkChildLifecycle, checkCrossWorldInspection } from './remote-children.ts';
+import { checkChildLifecycle, checkCrossWorldDelegation } from './remote-children.ts';
 import { prepareReplay } from './remote-replay.ts';
 import { newEnglishPage } from './support.ts';
 
@@ -24,12 +24,17 @@ afterAll(async () => { try { await browser?.close(); await scaffold?.close(); } 
 it('keeps portable workspaces isolated across the Web lifecycle and failures', async () => {
   replay = await prepareReplay(state);
   const key = credentialRef('DSH_REMOTE_SEARCH_TEST');
-  const launch = (providersOnly = false) => launchWebScaffold({ extraOverlayPath: `${process.env.DSH_TEST_EXTENSION}/cordis.patch.yml`,
+  const launch = async (providersOnly = false) => {
+    const host = await launchWebScaffold({ extraOverlayPath: `${process.env.DSH_TEST_EXTENSION}/cordis.patch.yml`,
     extraInstallAnchors: [`${process.env.DSH_TEST_EXTENSION}/package.json`],
     compareReplaySession: false, ...(providersOnly ? {} : {
       replayFixture: new URL('../../../snapshots/web/web-search-round/session.v2.jsonl', import.meta.url).pathname, replayOverride: replay.override, replayChildFixtures: replay.childFixtures }), deepSeekSearch: { baseURL: replay.baseURL, apiKeyEnv: key },
     directoryPicking: false, persistentStateRoot: state, harnessHome: `${state}/home`,
     agentPresets: { default: 'remote', roots: [{ path: `${process.env.DSH_TEST_EXTENSION}/presets`, trust: 'system' }] }, toolsMode: 'native' });
+    // This lane tests routing and lifecycle; approval decisions have their own acceptance lane.
+    host.ctx.on('approval/request', () => 'allowed-once' as const, { prepend: true, global: true });
+    return host;
+  };
   scaffold = await launch();
   await expect(scaffold.ctx.get('sessionController').openWorkspacePath({ path: '/workspace' }, new AbortController().signal)).rejects.toThrow('Native workspace opening is disabled');
   await expect(scaffold.ctx.get('sessionController').openWorkspacePath({ path: '/workspace', action: 'reveal' }, new AbortController().signal)).rejects.toThrow('Native workspace opening is disabled');
@@ -48,7 +53,10 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await choose(1);
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(2);
   expect(await page.locator('.session-card').count()).toBe(0);
-  for (const agent of scaffold.ctx.agents.list()) await recordConversation(scaffold.ctx, agent);
+  for (const agent of scaffold.ctx.agents.list()) {
+    await recordConversation(scaffold.ctx, agent);
+    scaffold.ctx.get('permissionPresets').set(agent.session, 'danger-full-access');
+  }
   await expect.poll(() => page.locator('.session-card').count()).toBe(2);
   const cardFor = (id: string) => page.getByRole('button', { name: `Open session ${id}`, exact: true });
   await expect.poll(() => cardFor(scaffold!.ctx.agents.list()[0]!.session.header.id).locator('svg').first().getAttribute('stroke')).toBe('#a855f7');
@@ -127,8 +135,9 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   expect(scaffold.ctx.get('worldPortableWorkspaces').forSession(childHeader.id)).toBeUndefined();
   const childCatalog = await scaffold.ctx.get('sessionSkillCatalog').list({ sessionId: childHeader.id }, new AbortController().signal);
   expect(childCatalog.skills.map(skill => skill.name)).toEqual(['remote-proof', 'world-a']);
-  expect(() => first.session.append('sandbox/mode', { mode: 'read-only' })).toThrow('remote sandbox modes are not available');
-  expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: first.session }).mode).toBe('danger-full-access');
+  first.session.append('sandbox/mode', { mode: 'read-only' });
+  expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: first.session }).mode).toBe('read-only');
+  first.session.append('sandbox/mode', { mode: 'danger-full-access' });
   expect(await other.fs.stat(await other.fs.resolve('browser-proof.txt'))).toBeUndefined();
   expect(await other.fs.stat(await other.fs.resolve('coding-0.txt'))).toBeUndefined();
   await other.fs.writeText(await other.fs.resolve('.agents/skills/world-skill/SKILL.md'), '---\nname: world-b\ndescription: Updated remote catalog.\n---\nUpdated');
@@ -241,7 +250,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.close();
   await scaffold.close();
   await checkChildLifecycle(async () => { scaffold = await launch(true); return scaffold; }, sessionId, second.session.header.id, { provider: first.options.provider!, model: first.options.model! });
-  await checkCrossWorldInspection(async () => { scaffold = await launch(true); return scaffold; }, browser, { provider: first.options.provider!, model: first.options.model! });
+  await checkCrossWorldDelegation(async () => { scaffold = await launch(true); return scaffold; }, { provider: first.options.provider!, model: first.options.model! });
   const bindingFile = `${state}/bindings.json`;
   const bindings = JSON.parse(await readFile(bindingFile, 'utf8'));
   bindings.sessions = bindings.sessions.filter((entry: { sessionId: string }) => entry.sessionId !== sessionId);
@@ -289,7 +298,7 @@ async function stopBackground(agent: Agent) {
   await expect.poll(async () => !!await owner.fs.stat(await owner.fs.resolve('background.started'))).toBe(true);
   const result = await scaffold!.ctx.tools.execute({ name: 'job_kill', arguments: { job_id: job.id }, agent,
     callId: ToolCallId(crypto.randomUUID()), signal: AbortSignal.timeout(15000) });
-  expect(result.isError).not.toBe(true);
+  expect(result.isError, JSON.stringify(result)).not.toBe(true);
   await expect.poll(() => jobs.get(job.id, agent).status).toBe('killed');
   expect(await owner.fs.stat(await owner.fs.resolve('background.finished'))).toBeUndefined();
 }

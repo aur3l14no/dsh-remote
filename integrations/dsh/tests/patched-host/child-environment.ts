@@ -1,6 +1,6 @@
 /** Native child lifecycle plus real World providers; Linux/SSH uses the same gate with target fixtures. */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { Context } from '@deepseek-ai/cordis';
 import Loader from '@deepseek-ai/cordis-plugin-loader';
@@ -18,7 +18,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import ToolRuntime from '@deepseek-ai/dsh-tools';
 import * as FileTools from '@deepseek-ai/dsh-tool-fs';
 import SandboxedFs from '@deepseek-ai/dsh-fs-sandbox';
-import SandboxPolicy, { setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy';
+import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy';
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local';
 import Storage from '@deepseek-ai/dsh-storage';
 import * as JsonStorage from '@deepseek-ai/dsh-storage-json';
@@ -26,10 +26,9 @@ import * as StorageDomain from '@deepseek-ai/dsh-storage-domain';
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry';
 import Subagents from '@deepseek-ai/dsh-subagent';
 import * as Controls from '@deepseek-ai/dsh-tool-subagent-control';
-import InspectionStore from '../../packages/inspection/machine-inspection/src/store.ts';
-import * as Inspection from '../../packages/inspection/machine-inspection/src/index.ts';
+import * as WorldTools from '../../packages/world/execution-world/src/tools.ts';
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process';
-import { MockAdapter, textResponse, toolCallResponse } from '@dsh-test/mock-adapter';
+import { MockAdapter, textResponse } from '@dsh-test/mock-adapter';
 import { runtime } from '../../../../runtime/tests/client/support.ts';
 import { BindingStore } from '../../packages/world/execution-world/src/bindings.ts';
 import { executionWorldsPlugin } from '../../packages/world/execution-world/src/worlds.ts';
@@ -49,7 +48,7 @@ try {
   ctx.baseUrl = pathToFileURL(`${base}/`).href;
   await ctx.plugin(Loader);
   ctx.loader.builtins = { include: Include, group: Group, fs: Routing.RoutedFileSystem,
-    subprocess: Routing.RoutedSubprocess, routing: Routing, files: FileTools, controls: Controls, inspection: Inspection };
+    subprocess: Routing.RoutedSubprocess, routing: Routing, files: FileTools, controls: Controls, worldTools: WorldTools };
   for (const plugin of [LlmRuntime, SessionStore, SystemPrompt, AgentRegistry, SessionProjectionRegistry, Storage, TypertRegistry]) await ctx.plugin(plugin);
   await ctx.plugin(JsonlPersistence, { root: `${base}/sessions`, compression: 'none' });
   await ctx.plugin(SessionQuery, { path: ':memory:', openAt: 'never' });
@@ -70,7 +69,7 @@ try {
       { name: 'cordis:group', isolate: { fs: true, subprocess: true, toolBashWorkdir: true }, config: [
         { name: 'cordis:fs' }, { name: 'cordis:subprocess' },
         { name: 'cordis:routing', config: { kind: preset === 'standard' ? 'local' : 'ssh', providerPaths: true } },
-        { name: 'cordis:files' }, { name: 'cordis:controls' }, { name: 'cordis:inspection' },
+        { name: 'cordis:files' }, { name: 'cordis:controls' }, { name: 'cordis:worldTools' },
       ] },
     ]));
   }
@@ -78,12 +77,10 @@ try {
   await ctx.plugin(NativeWorkspaces);
   await ctx.plugin(Registry, { worlds: [{ id: 'target', name: 'Target', target: { kind: 'ssh', host: 'fixture.invalid' } }] });
   await ctx.plugin(ChildEnvironment);
-  await ctx.plugin(InspectionStore);
   await ctx.plugin(Subagents);
   await ctx.plugin(Spawn, { providerName: 'spawn' });
   await ctx.plugin(AgentLoop, { agents: [] });
-  const mock = new MockAdapter(Array.from({ length: 50 }, () => options => JSON.stringify(options).includes('Perform a READ-ONLY inspection') && !JSON.stringify(options).includes('sampledAt')
-    ? toolCallResponse('machine-probe', 'inspect_machine', {}) : textResponse('readonly probe complete')));
+  const mock = new MockAdapter(Array.from({ length: 50 }, () => textResponse('child complete')));
   ctx.llm.registerAdapter(['mock'], mock);
   const registry = ctx.worldPortableWorkspaces;
   const local = await registry.createInWorld('local', `${base}/local`);
@@ -161,48 +158,30 @@ try {
   assert.equal(ctx.executionWorlds.bindings.get(started.childId)!.id, registry.definition(target.id).id);
   assert.deepEqual(target.sessionIds, []);
   await parent.agent.whenIdle();
-  assert.ok(JSON.stringify(parent.agent.session.snapshotEvents()).includes('readonly probe complete'), 'Native settlement must reach the leader');
+  assert.ok(JSON.stringify(parent.agent.session.snapshotEvents()).includes('child complete'), 'Native settlement must reach the leader');
   const execute = (name: string, args: object) => ctx.tools.execute({ agent: parent.agent, name, arguments: args,
-    callId: ToolCallId('inspection-' + name), signal: AbortSignal.timeout(30000) });
+    callId: ToolCallId('world-' + name), signal: AbortSignal.timeout(30000) });
   const listed = await execute('list_worlds', { pattern: 'tar*' });
   assert.equal(listed.isError, false, JSON.stringify(listed));
   assert.ok(JSON.stringify(listed).includes('target'));
-  done = finished();
-  const inspected = await execute('inspect_world', { world_id: 'target' });
-  assert.equal(inspected.isError, false, JSON.stringify(inspected));
-  assert.ok(JSON.stringify(inspected).includes('started'), JSON.stringify(inspected));
-  await done;
-  const map = await execute('inspection_map', {});
-  assert.equal(map.isError, false, JSON.stringify(map));
-  const mapText = map.content.find(block => block.type === 'text');
-  assert.ok(mapText?.type === 'text');
-  const report = JSON.parse(mapText.text);
-  assert.equal(report.targets, 1); assert.equal(report.observed, 1, JSON.stringify(report));
-  const html = await readFile(report.path, 'utf8');
-  assert.ok(html.includes('Machine Atlas'));
-  setSandboxMode(parent.agent.session, 'read-only');
-  const deniedMap = await execute('inspection_map', {});
-  assert.equal(deniedMap.isError, true);
-  assert.match(JSON.stringify(deniedMap), /read-only/);
-  setSandboxMode(parent.agent.session, 'workspace-write');
-  if (process.platform !== 'linux') assert.equal(report.states[0].state, 'partial');
-  const inspectionChild = ctx.machineInspections.forLeader(parentId)[0]!;
-  scratch.push(inspectionChild.attempt.path!);
-  const workerId = SessionId(inspectionChild.attempt.childId);
-  using worker = await ctx.sessionQuery.observeSession(workerId, { signal: AbortSignal.timeout(5000) });
-  assert.equal(worker.header.parentSession, parentId);
-  assert.ok(inspectionChild.observation);
-  assert.ok(JSON.stringify(worker.events).includes('inspect_machine'));
-  const workerWorkspace = await registry.contextForSession(workerId);
-  assert.deepEqual(workerWorkspace.sessionIds, []);
-  await parent.agent.whenIdle();
-  console.log('PASS configured target discovery → native read-only inspection child → recorded observations → interactive HTML map');
+  const prepared = await execute('prepare_workspace', { world_id: 'target' });
+  assert.equal(prepared.isError, false, JSON.stringify(prepared));
+  const block = prepared.content.find(block => block.type === 'text');
+  assert.ok(block?.type === 'text');
+  const result = JSON.parse(block.text);
+  scratch.push(result.path);
+  assert.equal(result.worldId, 'target');
+  assert.notEqual(result.executionEnvironment, result.worldId);
+  assert.equal(registry.definition(result.executionEnvironment).cwd, result.path);
+  const context = Routing.executionWorldContext(ctx, parent.agent);
+  assert.equal(context.world, 'local');
+  assert.equal(context.workspace, registry.definition(local.id).id);
   await parent.dispose();
   console.log('PASS local leader → native SSH child: explicit binding, scoped read tools, nested inheritance, native settlement and cold continuation; no top-level child membership');
 } finally {
   await ctx.fiber.dispose();
   for (const path of scratch) {
-    assert.match(path, /^\/(?:private\/)?tmp\/dsh-inspect\.[A-Za-z0-9]{10}$/);
+    assert.match(path, /^\/(?:private\/)?tmp\/dsh-workspace\.[A-Za-z0-9]{10}$/);
     await rm(path, { recursive: true, force: true });
   }
   await rm(base, { recursive: true, force: true });

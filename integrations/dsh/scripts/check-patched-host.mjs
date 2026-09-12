@@ -25,7 +25,7 @@ const childEntry = resolve('integrations/dsh/tests/patched-host/child-environmen
 paths['@dsh-test/mock-adapter'] = [join(root, 'packages/core/agent-loop/tests/mock-adapter.ts')];
 const preview = join(root, 'packages/api/workspace-files/src/index.ts');
 const deliverables = join(root, 'packages/client/ui-deliverables/src/index.ts');
-const program = ts.createProgram([entry, childEntry, preview, deliverables, join(root, 'packages/subagent/tool-subagent/src/index.ts'), resolve('integrations/dsh/packages/inspection/machine-inspection/src/index.ts')], {
+const program = ts.createProgram([entry, childEntry, preview, deliverables, join(root, 'packages/subagent/tool-subagent/src/index.ts'), resolve('integrations/dsh/packages/world/execution-world/src/tools.ts')], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext,
   strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,
   types: ['node'], typeRoots: [resolve('node_modules/@types')],

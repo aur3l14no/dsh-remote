@@ -227,14 +227,14 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     return [...this.catalog].map(([id, world]) => ({ id, name: world.name, kind: world.environment.kind }));
   }
 
-  /** Preparation may write a private temporary directory; subsequent inspection is read-only. */
+  /** Create and register a private workspace for explicitly delegated SSH work. */
   async createScratchInWorld(worldId: string, signal: AbortSignal): Promise<Workspace> {
     const world = this.environment(worldId);
-    if (world.environment.kind !== 'ssh') throw new RemoteError('INVALID_WORLD', 'Inspection scratch workspaces require an SSH target');
+    if (world.environment.kind !== 'ssh') throw new RemoteError('INVALID_WORLD', 'Scratch workspaces require an SSH target');
     signal.throwIfAborted();
     const owner = await this.ctx.executionWorlds.prepareWorld(workspaceFor(world.environment, `selection:${worldId}`, '/'));
-    const path = await worldCommand(owner, '/', ['mktemp', '-d', '/tmp/dsh-inspect.XXXXXXXXXX'], signal);
-    if (!/^\/tmp\/dsh-inspect\.[A-Za-z0-9]+$/.test(path)) throw new RemoteError('INVALID_WORLD', 'Target returned an invalid scratch path');
+    const path = await worldCommand(owner, '/', ['mktemp', '-d', '/tmp/dsh-workspace.XXXXXXXXXX'], signal);
+    if (!/^\/tmp\/dsh-workspace\.[A-Za-z0-9]+$/.test(path)) throw new RemoteError('INVALID_WORLD', 'Target returned an invalid scratch path');
     signal.throwIfAborted();
     return this.createInWorld(worldId, path);
   }

@@ -53,9 +53,9 @@ DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。
 
 恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/execution-world/src/worlds.ts)。
 
-### 本机 leader 委派远端巡检
+### 本机 leader 跨 World 委派
 
-0011 为原生 spawn child 提供可等待的执行环境准备入口；`child-environment` 插件在原生 Agent 初始化前校验、绑定和选择目标 preset。Team、child Session、工具过滤、消息和完成通知仍由 DSH 管理。`machine-inspection` 插件提供已配置目标发现、只读巡检与 HTML 地图，使用原生 `present` 预览。普通 child 默认继承，显式跨 World child 保持父子关系并按保存绑定续接。准备阶段的安装／临时目录与巡检阶段的只读工具权限分开，见[机器巡检](machine-inspection.md)。
+0011 为原生 spawn child 提供可等待的执行环境准备入口；`child-environment` 插件在原生 Agent 初始化前校验、绑定和选择目标 preset。Team、child Session、工具过滤、消息和完成通知仍由 DSH 管理。`world-tools` 提供已配置 World 发现与 Workspace 准备；模型通过原生 subagent 委派具体任务。普通 child 默认继承，显式跨 World child 保持父子关系并按保存绑定续接。World ID 与 Workspace ID 的用法见[跨 World 委派](cross-world-delegation.md)。
 
 ### 读写、搜索和运行命令
 

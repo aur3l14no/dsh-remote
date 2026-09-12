@@ -23,7 +23,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 - 本机原生文件、进程、Skills、权限与目录选择；与 SSH 工作区共用选择器。
 - 远端文件读写、搜索与预览，以及项目指令和 Skills。
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
-- 本机 leader 显式委派跨 World 原生 child；[只读机器巡检与悬停地图](docs/machine-inspection.md)。
+- 本机 leader 显式委派跨 World 原生 child；[跨 World 委派](docs/cross-world-delegation.md)。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 
 本机附件使用原生宿主存储；SSH 附件持久存储在 Session 绑定的远端，模型请求和预览按需读回，工具使用远端路径。网络连接器仍在本地运行。完整远端 sandbox 和自动 worktree 尚未提供；默认 DSH 工具并非全部兼容远端。功能与上游接点见[系统全景](docs/system-map.md)，附件限制和身份规则见[附件契约](docs/reference/workspace-io.md#上传附件)。

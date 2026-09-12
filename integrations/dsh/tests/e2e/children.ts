@@ -4,7 +4,6 @@ import type { Agent } from '@deepseek-ai/dsh-agent';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller';
 import { ToolCallId } from '@deepseek-ai/dsh-llm';
-import type { Browser } from 'playwright';
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm';
 import { MockAdapter, textResponse, toolCallResponse } from '../../../packages/core/agent-loop/tests/mock-adapter.ts';
 import type { WebScaffold } from './scaffold.ts';
@@ -142,38 +141,32 @@ async function checkCatalogAppendFailure(host: WebScaffold, parent: Agent) {
   }
 }
 
-/** Installed local coordinator, two real SSH children, durable resume and native HTML preview. */
-export async function checkCrossWorldInspection(launch: () => Promise<WebScaffold>, browser: Browser, originalModel: { provider: string; model: string }) {
-  const leaderId = SessionId('inspection-leader');
+/** Installed local coordinator, two real SSH children, durable resume and scoped file reads. */
+export async function checkCrossWorldDelegation(launch: () => Promise<WebScaffold>, originalModel: { provider: string; model: string }) {
+  const leaderId = SessionId('cross-world-leader');
   let children: string[] = [];
   for (let epoch = 0; epoch < 2; epoch++) {
     const host = await launch();
     try {
       const registry = host.ctx.get('worldPortableWorkspaces');
       const api = host.ctx.get('sessionController');
-      const path = `${process.env.DSH_REMOTE_STATE}/inspection-local`;
+      const path = `${process.env.DSH_REMOTE_STATE}/cross-world-local`;
       await mkdir(path, { recursive: true });
       const workspace = epoch === 0 ? await registry.createInWorld('local', path) : registry.forSession(leaderId)!;
-      let presentPath: string | undefined;
-      let presented = false;
+      const called = new Set<string>();
       const adapter = new MockAdapter(Array.from({ length: 80 }, () => (request: GenerateOptions) => {
-        if (request.sessionId === leaderId) {
-          if (presentPath && !presented) {
-            presented = true;
-            return toolCallResponse(`present-map-${epoch}`, 'present', { files: [{ path: presentPath }] });
-          }
-          return textResponse('Inspection completion received');
-        }
-        const count = request.messages.filter(message => JSON.stringify(message).includes('sampledAt')).length;
-        return count <= epoch ? toolCallResponse(`inspect-${epoch}`, 'inspect_machine', {}) : textResponse('INSPECTION_COMPLETE');
+        if (request.sessionId === leaderId) return textResponse('Child completion received');
+        if (called.has(request.sessionId!)) return textResponse('CHILD_COMPLETE');
+        called.add(request.sessionId!);
+        return toolCallResponse(`read-${epoch}`, 'read', { file_path: '/workspace/AGENTS.md' });
       }));
-      host.ctx.llm.registerAdapter(['inspection-fixture'], adapter);
+      host.ctx.llm.registerAdapter(['cross-world-fixture'], adapter);
       await api.create({ sessionId: leaderId, workspaceId: workspace.id });
-      await api.selectModel({ sessionId: leaderId, provider: 'inspection-fixture', model: 'fixture' });
+      await api.selectModel({ sessionId: leaderId, provider: 'cross-world-fixture', model: 'fixture' });
       const leader = host.ctx.agents.get(leaderId)!;
       const warmed = host.whenTurnSettled();
-      await api.prompt({ sessionId: leaderId, requestId: `inspection-warm-${epoch}` as SessionRequestId, mode: 'queue',
-        content: [{ type: 'text', text: 'Prepare to coordinate machine inspections.' }] }, AbortSignal.timeout(10000));
+      await api.prompt({ sessionId: leaderId, requestId: `child-warm-${epoch}` as SessionRequestId, mode: 'queue',
+        content: [{ type: 'text', text: 'Prepare to coordinate cross-World children.' }] }, AbortSignal.timeout(10000));
       await warmed;
       const execute = async (name: string, args: object) => {
         const result = await host.ctx.tools.execute({ agent: leader, name, arguments: args, callId: ToolCallId(`${name}-${epoch}`), signal: AbortSignal.timeout(60000) });
@@ -185,48 +178,44 @@ export async function checkCrossWorldInspection(launch: () => Promise<WebScaffol
       if (epoch === 0) {
         const targets = (await execute('list_worlds', {})).filter((world: { kind: string }) => world.kind === 'ssh');
         expect(targets).toHaveLength(2);
-        const started = await Promise.all(targets.map((world: { id: string }) => execute('inspect_world', { world_id: world.id })));
-        expect(started.map(row => row.status)).toEqual(['started', 'started']);
+        const started = await Promise.all(targets.map(async (world: { id: string }) => {
+          const workspace = await execute('prepare_workspace', { world_id: world.id, path: '/workspace' });
+          return host.ctx.get('subagents').startContinuable({ provider: 'spawn', label: `Read ${world.id}`,
+            request: { parent: leader, executionEnvironment: workspace.executionEnvironment,
+              toolFilter: { allow: ['read', 'send_message'] }, prompt: [{ type: 'text', text: 'Read /workspace/AGENTS.md and summarize it.' }] },
+            signal: AbortSignal.timeout(30000) });
+        }));
         children = started.map(row => row.childId);
       } else {
         for (const id of children) {
           expect(host.ctx.agents.get(SessionId(id))).toBeUndefined();
-          await host.ctx.get('subagents').sendMessage(leader, SessionId(id), [{ type: 'text', text: 'Refresh the read-only inspection.' }], { signal: AbortSignal.timeout(30000) });
+          await host.ctx.get('subagents').sendMessage(leader, SessionId(id), [{ type: 'text', text: 'Read the file again.' }], { signal: AbortSignal.timeout(30000) });
         }
       }
       for (const id of children) {
         await expect.poll(() => adapter.requests.some(request => request.sessionId === id), { timeout: 30000 }).toBe(true);
         await expect.poll(() => host.ctx.agents.get(SessionId(id)), { timeout: 30000 }).toBeUndefined();
         expect(registry.forSession(id)).toBeUndefined();
-        expect((await registry.contextForSession(id)).sessionIds).toEqual([]);
+        expect((await registry.contextForSession(id)).sessionIds).not.toContain(id);
         const requests = adapter.requests.filter(request => request.sessionId === id);
-        expect([...new Set(requests.flatMap(request => request.tools ?? []).map(tool => tool.name))].sort()).toEqual(['inspect_machine', 'send_message']);
-        expect(host.ctx.get('executionWorlds').bindings.explicitParent(id)).toBe(leaderId);
+        expect([...new Set(requests.flatMap(request => request.tools ?? []).map(tool => tool.name))].sort()).toEqual(['read', 'send_message']);
+        const worlds = host.ctx.get('executionWorlds');
+        expect(worlds.bindings.explicitParent(id)).toBe(leaderId);
+        const worldId = worlds.bindings.get(id)!.worldId;
+        using saved = await host.ctx.get('sessionQuery').observeSession(SessionId(id), { signal: AbortSignal.timeout(5000) });
+        const readResults = saved.events.flatMap(event => event.type === 'tool/result' ? event.data.message.content : [])
+          .filter(block => block.type === 'tool-result' && block.toolCallId === `read-${epoch}`);
+        expect(readResults).toHaveLength(1);
+        const result = readResults[0]!;
+        expect(result.type).toBe('tool-result');
+        if (result.type !== 'tool-result') throw new Error('Missing child read result');
+        expect(result.isError, JSON.stringify(result)).not.toBe(true);
+        expect(JSON.stringify(result.content)).toContain('WORLD_INSTRUCTIONS_' + worldId.toUpperCase());
+        expect(JSON.stringify(requests)).toContain('executionEnvironment');
       }
       await leader.whenIdle();
-      const report = await execute('inspection_map', {});
-      expect(report.observed).toBe(2);
-      expect(report.states.every((row: { state: string }) => ['complete', 'partial'].includes(row.state))).toBe(true);
-      expect(new Set(host.ctx.get('machineInspections').forLeader(leaderId).map(row => row.observation?.hostname)).size).toBe(2);
-      presentPath = report.path;
-      const delivered = host.whenTurnSettled();
-      await api.prompt({ sessionId: leaderId, requestId: `inspection-present-${epoch}` as SessionRequestId, mode: 'queue',
-        content: [{ type: 'text', text: 'Present the machine map.' }] }, AbortSignal.timeout(10000));
-      await delivered;
-      expect(leader.session.snapshotEvents().some(event => event.type === 'deliverables/presented'
-        && event.data.files.some(file => file.path === report.path))).toBe(true);
-      const page = await browser.newPage();
-      try {
-        await page.goto(host.authenticatedUrl);
-        await page.getByRole('button', { name: `Open session ${leaderId}`, exact: true }).click();
-        await page.getByRole('button', { name: `Open ${report.path} in sidebar`, exact: true }).last().click();
-        const map = page.frameLocator('[data-html-preview]:visible');
-        await expect.poll(() => map.locator('.node').count()).toBe(2);
-        await map.locator('.node').last().hover();
-        expect(await map.locator('#detail h2').innerText()).toBe(await map.locator('.node b').last().innerText());
-      } finally { await page.close(); }
       await api.selectModel({ sessionId: leaderId, ...originalModel });
     } finally { await host.close(); }
   }
-  console.log('PASS installed local leader → two native SSH inspection children → cold continuation → native HTML hover');
+  console.log('PASS installed local leader → two native SSH children → scoped reads and cold continuation');
 }

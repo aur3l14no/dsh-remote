@@ -11,7 +11,6 @@ The source modules build into one extension bundle. Their directory boundaries d
 | `workspace/portable-workspace` | Workspace registry and membership, presentation state, API/feed, admission, file references and previews; browser entry is `src/client/index.tsx`. |
 | `workspace/remote-attachments` | Session-scoped remote attachment authority and temporary host materialization; local bindings delegate to the native store, SSH rejects unqualified references. |
 | `skill/remote-skills` | Project instructions/skill discovery, deployment and synchronization. |
-| `inspection/machine-inspection` | Configured World discovery, native read-only inspection children, durable observation snapshots and interactive HTML reports. |
 | `bundle/remote` | Host composition and activation order in `src/index.ts`. |
 
 Cross-module cancellation lives in `../shared/lifetime.ts`; generic execution belongs in `runtime/`. Service ordering and identity rules are maintained in [system map](../../../docs/system-map.md); native services and tool scopes in the [overlay/preset](../packaging/extension/README.md).

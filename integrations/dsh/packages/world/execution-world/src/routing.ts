@@ -94,5 +94,5 @@ export function apply(ctx: Context, config: Config = {}): void {
   });
   ctx.on('tools/execute', (exec, next) => selected.run(worlds.forAgent(exec.agent), next));
   ctx.systemPrompt.context({ name: 'execution-world', order: -1000,
-    text: context => `Execution World (workspace operations execute here):\n${JSON.stringify(executionWorldContext(ctx, context.agent!))}` });
+    text: context => `Execution World (workspace operations execute here):\n${JSON.stringify(executionWorldContext(ctx, context.agent!))}\nThe world field is your World ID; workspace is your Workspace ID. File and shell tools automatically use this binding. To discover other configured Worlds, call list_worlds. From a local Session, pass a returned World id to prepare_workspace.world_id, then pass its executionEnvironment to subagent.execution_environment. Never substitute a World ID or display name for a Workspace ID.` });
 }
