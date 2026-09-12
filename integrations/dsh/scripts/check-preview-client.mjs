@@ -25,6 +25,8 @@ for (const name of ['ui-tool', 'ui-chat', 'ui-sidebar-right', 'ui-deliverables',
   entries.push(join(directory, 'client/index.ts'), join(directory, 'css-modules.d.ts'));
 }
 entries.push(join(source, 'packages/client/ui-sidebar-documentpreview/src/client/pdf/asset-imports.d.ts'));
+entries.push(join(source, 'packages/experimental/client-ui-agent-team/src/client/index.ts'));
+entries.push(join(source, 'packages/experimental/client-ui-agent-team/src/css-modules.d.ts'));
 const program = ts.createProgram(entries, {
   target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, jsx: ts.JsxEmit.ReactJSX,
   strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,
@@ -35,4 +37,4 @@ const errors = ts.getPreEmitDiagnostics(program);
 if (errors.length) {
   process.stderr.write(ts.formatDiagnosticsWithColorAndContext(errors, { getCurrentDirectory: () => process.cwd(), getCanonicalFileName: name => name, getNewLine: () => '\n' }));
   process.exitCode = 1;
-} else console.log('PASS patched Chat and Sidebar browser source against official client declarations');
+} else console.log('PASS patched Chat, Sidebar and Agent Teams browser source against official client declarations');

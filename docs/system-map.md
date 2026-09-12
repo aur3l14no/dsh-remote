@@ -57,6 +57,14 @@ DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。
 
 0011 为原生 spawn child 提供可等待的执行环境准备入口；`child-environment` 插件在原生 Agent 初始化前校验、绑定和选择目标 preset。Team、child Session、工具过滤、消息和完成通知仍由 DSH 管理。`world-tools` 提供已配置 World 发现与 Workspace 准备；模型通过原生 subagent 委派具体任务。普通 child 默认继承，显式跨 World child 保持父子关系并按保存绑定续接。World ID 与 Workspace ID 的用法见[跨 World 委派](cross-world-delegation.md)。
 
+### Experimental Agent Teams
+
+标准与 SSH preset 装配原生 experimental Team service、九个协调工具和 Web 面板。0013 向 teammate 创建请求增加可选 Workspace ID，并透传到 0011 的原生 child 执行环境入口；它也根据原生子会话身份排除 roster 外的内部 worker，避免 descriptor 写入前将其误认成 Team Lead。省略时继承 Lead，显式目标使用 fresh context；恢复读取成员保存的 binding。成员、任务板和持久 mailbox 都在宿主 Lead Session 中，执行 IO 才按 World 分派。
+
+0014 使用原生浮层定位 hook 与 Portal，使 Team 面板在视口内随窗口缩放和滚动重新定位。
+
+Teams 接管 list_agents/send_message/interrupt_agent 的团队语义；普通 subagent 保留 one-shot 委派。任务 writeScopes 是共享相对路径提示，不是执行路由或权限。没有旧 child 到 teammate 的数据迁移。用法与边界见 [Agent Teams](agent-teams.md)。
+
 ### 读写、搜索和运行命令
 
 ```mermaid

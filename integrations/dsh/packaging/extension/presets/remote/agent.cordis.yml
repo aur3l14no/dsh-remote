@@ -35,8 +35,7 @@
     - name: '../../compat/@deepseek-ai/dsh-tool-subagent/lib/index.js'
       config:
         provider: spawn
-        backgroundMode: continuable
-    - name: '@deepseek-ai/dsh-tool-subagent-control'
+        backgroundMode: one-shot
 
 - id: world-tools
   name: '../../plugins/web/lib/worldTools.js'

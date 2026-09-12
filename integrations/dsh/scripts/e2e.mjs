@@ -15,6 +15,7 @@ const lanes = suite ? [
   ['integrations/dsh/scripts/web-e2e.mjs', '--attachments'],
   ['integrations/dsh/scripts/web-e2e.mjs', '--ssh-approval'],
   ['integrations/dsh/scripts/web-e2e.mjs', '--call-environment'],
+  ['integrations/dsh/scripts/web-e2e.mjs', '--agent-team'],
   ['integrations/dsh/tests/e2e/extension-install.mjs'],
   ['integrations/dsh/tests/e2e/connect-install.mjs'],
   ['integrations/dsh/scripts/local-e2e.mjs'],

@@ -18,6 +18,8 @@ Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemen
 
 单次跨 World 工具执行已实现，见[调用环境验收](../../implemented/integration/2026-09-12-tool-execution-environment.md)。
 
+rc.2 与 experimental Agent Teams 已实现，宿主协调和跨 World 队友验收见 [Agent Teams](../../implemented/integration/2026-09-12-agent-teams.md)。
+
 ## 后续工作
 
 | 项目 | 后续工作与边界 |

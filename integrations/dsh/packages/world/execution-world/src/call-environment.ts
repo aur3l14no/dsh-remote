@@ -57,17 +57,19 @@ export default class CallEnvironments extends Service {
     const source = this.ctx.executionWorlds.forAgent(exec.agent);
     const bound = this.ctx.executionWorlds.bindings.get(exec.agent!.session.header.id)!;
     const args = exec.arguments as Record<string, unknown> | null;
-    const input = args && typeof args === 'object' ? args.execution_environment : undefined;
+    const tool = this.ctx.tools.get(exec.name, exec.agent);
+    const operation = operationOf(tool);
+    // Argument validation belongs to the tool's schema. Only consume our routing declaration.
+    const input = operation && args && typeof args === 'object' ? args.execution_environment : undefined;
     let owner = source;
     let definition = bound;
     let cwd = bound.cwd;
-    const operation = operationOf(this.ctx.tools.get(exec.name, exec.agent));
     const resourceId = operation?.resource && args?.[operation.resource.parameter];
     const remembered = typeof resourceId === 'string' ? this.resources.get(exec.agent!)?.get(operation!.resource!.kind + ':' + resourceId) : undefined;
     if (operation?.resource && !remembered) throw new Error('No execution environment is recorded for this resource');
     if (remembered) { owner = remembered.owner; definition = remembered.definition; cwd = remembered.cwd; }
     if (input !== undefined) {
-      if (!operation || operation.selection === false) throw new Error('This tool does not support an execution environment');
+      if (operation?.selection === false) throw new Error('This tool does not support an execution environment');
       const target = selection.parse(input);
       const prepared = await this.ctx.worldPortableWorkspaces.prepareOperation(target.world, target.cwd, exec.signal);
       owner = prepared.owner; definition = prepared.definition; cwd = prepared.cwd;

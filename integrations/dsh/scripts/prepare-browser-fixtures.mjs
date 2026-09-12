@@ -23,7 +23,7 @@ for (const [before, after] of [
 await writeFile(path, scaffold);
 const support = join(output, 'apps/web/tests/support.ts');
 await writeFile(support, replace(await readFile(support, 'utf8'), "fileURLToPath(new URL('../dist/index.html', import.meta.url))", "process.env.DSH_TEST_INSTALL + '/node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html'"));
-for (const [from, to] of [['call-environment.e2e.ts', 'call-environment.e2e.ts'], ['conversation-history.mjs', 'conversation-history.mjs'], ['local-workspace.e2e.ts', 'local-workspace.e2e.ts'], ['attachments.e2e.ts', 'attachments.e2e.ts'], ['file-preview.ts', 'remote-file-preview.ts'], ['portable-workspace.e2e.ts', 'portable-workspace.e2e.ts'], ['ssh-approval.e2e.ts', 'ssh-approval.e2e.ts'], ['live.e2e.ts', 'remote-live.e2e.ts'], ['children.ts', 'remote-children.ts'], ['replay.ts', 'remote-replay.ts']]) {
+for (const [from, to] of [['agent-team.e2e.ts', 'agent-team.e2e.ts'], ['call-environment.e2e.ts', 'call-environment.e2e.ts'], ['conversation-history.mjs', 'conversation-history.mjs'], ['local-workspace.e2e.ts', 'local-workspace.e2e.ts'], ['attachments.e2e.ts', 'attachments.e2e.ts'], ['file-preview.ts', 'remote-file-preview.ts'], ['portable-workspace.e2e.ts', 'portable-workspace.e2e.ts'], ['ssh-approval.e2e.ts', 'ssh-approval.e2e.ts'], ['live.e2e.ts', 'remote-live.e2e.ts'], ['children.ts', 'remote-children.ts'], ['replay.ts', 'remote-replay.ts']]) {
   await cp(`integrations/dsh/tests/e2e/${from}`, join(output, 'apps/web/tests', to));
 }
 console.log('Prepared upstream test fixtures only; runtime packages and frontend come from the official installation');

@@ -148,3 +148,12 @@
     - id: remote-ui-tool
       name: './compat/@deepseek-ai/dsh-client-ui-tool/lib/index.js'
       inject: [remoteSetup]
+
+# Team coordination remains on the DSH host; child IO uses its bound World.
+- insert:
+    - id: world-agent-team
+      name: './compat/@deepseek-ai/dsh-experimental-agent-team/lib/index.js'
+    - id: world-tool-agent-team
+      name: './compat/@deepseek-ai/dsh-experimental-tool-agent-team/lib/index.js'
+    - id: world-ui-agent-team
+      name: './compat/@deepseek-ai/dsh-experimental-client-ui-agent-team/lib/index.js'

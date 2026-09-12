@@ -36,6 +36,8 @@
 | 0010 local-workspace-admission | 准入可选择 Session preset；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
 | 0011 child-execution-environment | 原生 child 创建／续接提供可等待的执行环境准备与发布校验，显式选择目标 preset/cwd，保留普通 child 的 standing composition、原生 Session lineage 与工具过滤 |
 | 0012 tool-execution-environment | 工具声明操作与资源元数据，使用可选调用环境的 cwd／文件引用；工具与文件输出 metadata、延迟预览和 URI 显示保留来源身份，terminal backend 可注入执行策略。原生工具调度、事件格式、job/terminal 生命周期保持不变 |
+| 0013 team-execution-environment | Teams 创建请求向原生 child provider 透传可选 Workspace ID；根据原生子会话身份排除 roster 外 worker；Teams 的任务板、mailbox、成员生命周期仍由上游管理 |
+| 0014 team-panel-viewport | Teams Web 面板使用原生 useAnchoredPosition 与 Portal，跟随触发按钮并限制在视口内，避免窄屏裁切 |
 
 重建文档预览浏览器模块时，PDF.js 主模块、worker、字体／解码资源与许可证须一起保留，并与固定上游依赖版本一致；不能仅编译界面代码后沿用另一版本 worker。
 

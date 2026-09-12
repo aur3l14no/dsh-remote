@@ -25,13 +25,13 @@ const childEntry = resolve('integrations/dsh/tests/patched-host/child-environmen
 paths['@dsh-test/mock-adapter'] = [join(root, 'packages/core/agent-loop/tests/mock-adapter.ts')];
 const preview = join(root, 'packages/api/workspace-files/src/index.ts');
 const deliverables = join(root, 'packages/client/ui-deliverables/src/index.ts');
-const program = ts.createProgram([entry, childEntry, preview, deliverables, join(root, 'packages/subagent/tool-subagent/src/index.ts'), resolve('integrations/dsh/packages/world/execution-world/src/tools.ts')], {
+const program = ts.createProgram([entry, childEntry, preview, deliverables, join(root, 'packages/experimental/agent-team/src/index.ts'), join(root, 'packages/experimental/tool-agent-team/src/index.ts'), join(root, 'packages/subagent/tool-subagent/src/index.ts'), resolve('integrations/dsh/packages/world/execution-world/src/tools.ts')], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext,
   strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,
   types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });
 // Changed host package and our integration are this gate's type surface, not the whole upstream tree.
-const checked = [join(root, 'packages/subagent/subagent/src/'), join(root, 'packages/subagent/subagent-in-process-driver/src/'), join(root, 'packages/subagent/subagent-spawn-in-process/src/'), join(root, 'packages/subagent/tool-subagent/src/'), join(root, 'packages/workspace/workspace/src/'), join(root, 'packages/interaction/permission-presets/src/'), join(root, 'packages/api/session-controller/src/'), join(root, 'packages/api/workspace-files/src/'), join(root, 'packages/client/ui-deliverables/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
+const checked = [join(root, 'packages/experimental/agent-team/src/'), join(root, 'packages/experimental/tool-agent-team/src/'), join(root, 'packages/subagent/subagent/src/'), join(root, 'packages/subagent/subagent-in-process-driver/src/'), join(root, 'packages/subagent/subagent-spawn-in-process/src/'), join(root, 'packages/subagent/tool-subagent/src/'), join(root, 'packages/workspace/workspace/src/'), join(root, 'packages/interaction/permission-presets/src/'), join(root, 'packages/api/session-controller/src/'), join(root, 'packages/api/workspace-files/src/'), join(root, 'packages/client/ui-deliverables/src/'), resolve('integrations/dsh') + '/', resolve('runtime') + '/'];
 const errors = ts.getPreEmitDiagnostics(program).filter(d => !d.file || checked.some(path => d.file.fileName.startsWith(path)));
 if (errors.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(errors, {
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: x => x, getNewLine: () => '\n',

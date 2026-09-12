@@ -4,7 +4,7 @@
 
 1. `list_worlds(pattern?)` 返回已配置 World 的 `id`、名称、类型和已登记 Workspace。pattern 按 ID 或名称匹配。
 2. `prepare_workspace(world_id, path?)` 接收 World ID，校验并登记已有绝对目录。SSH 省略 path 时创建私有 `/tmp/dsh-workspace.*` 目录；准备可能安装 helper/rg。返回 `executionEnvironment`，其值是 Workspace ID。
-3. 将 `executionEnvironment` 传给原生 `subagent.execution_environment`，并描述任务。Team、消息、完成通知及续接由 DSH 管理。
+3. 将 `executionEnvironment` 传给 `spawn_teammate.execution_environment` 创建可继续协作的队友，或传给原生 `subagent.execution_environment` 做一次性委派，并描述任务。Teams 的消息、任务板及队友续接由 DSH 宿主管理，参见 [Agent Teams](agent-teams.md)。
 
 模型上下文的 Execution World 提供当前 `world`、`workspace`、`kind` 和 `cwd`。文件和命令工具自动使用会话绑定，不需要传 World ID。其他目标通过 `list_worlds` 查询；显示名称、World ID 和 Workspace ID 不可混用。
 

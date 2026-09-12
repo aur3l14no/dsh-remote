@@ -22,7 +22,7 @@ Session 的 Workspace 是默认执行环境。支持此能力的工具可显式�
 | `job_output`、`job_kill` | 按 job_id 继承资源创建时的环境，不接受重新选目标 |
 | `terminal_read`、`terminal_send`、`terminal_signal`、`terminal_close` | 按 sessionId 继承终端环境，不接受重新选目标 |
 
-列表、Session 管理、子 Agent、连接器和其他未声明此能力的工具不接受 execution_environment。已有跨 World 子 Agent 委派继续使用其独立 Workspace 绑定接口。
+列表、Session 管理、连接器和其他未声明此能力的工具不会通过 execution_environment 获得执行路由。额外参数是否允许由工具 schema 决定：DSH 的 defineTool 默认使用开放对象 schema，未声明字段可被接受，但不会触发路由；路由层不替其他工具校验或解释参数。原生 `subagent` 和 `spawn_teammate` 的同名参数使用独立的 Workspace 绑定接口：接收 `prepare_workspace` 返回的 Workspace ID 字符串，为新成员选择持续使用的环境，不接受本页的 `{world,cwd}` 对象。工具声明自己的参数契约，通用执行路由不会重新解释成员创建参数。
 
 ## 一次解析，共用上下文
 

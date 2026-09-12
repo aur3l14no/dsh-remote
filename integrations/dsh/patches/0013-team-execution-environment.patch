@@ -1,0 +1,61 @@
+diff --git a/packages/experimental/agent-team/src/roster.ts b/packages/experimental/agent-team/src/roster.ts
+--- a/packages/experimental/agent-team/src/roster.ts
++++ b/packages/experimental/agent-team/src/roster.ts
+@@ -103,7 +103,7 @@
+           // A direct child outside the durable roster is not a teammate. Ordinary
+           // host forks are independent roots; subagent descriptors distinguish
+           // provider-owned workers that must not receive a nested Team identity.
+-          if (this.subagentDescriptor(agent)) return undefined
++          if (agent.session.header.origin === 'subagent' || this.subagentDescriptor(agent)) return undefined
+           return { root: agent, id: TeamId(agent.id), role: 'lead', name: 'lead' }
+         }
+       }
+@@ -111,7 +111,7 @@
+       // Do not reinterpret that durable child as a new implicit root Team. A host-
+       // resumed ordinary fork has no descriptor in its own suffix and remains a
+       // valid new root whose inherited Team records stay outside its projected Team state.
+-      if (this.subagentDescriptor(agent)) return undefined
++      if (agent.session.header.origin === 'subagent' || this.subagentDescriptor(agent)) return undefined
+       return { root: agent, id: TeamId(agent.id), role: 'lead', name: 'lead' }
+     } catch {
+       // This method is used by lifecycle observers and teardown discovery. A
+@@ -286,6 +286,7 @@
+         request: {
+           prompt: request.prompt,
+           parent: root,
++          ...(request.executionEnvironment === undefined ? {} : { executionEnvironment: request.executionEnvironment }),
+         },
+         signal,
+       })
+diff --git a/packages/experimental/agent-team/src/types.ts b/packages/experimental/agent-team/src/types.ts
+--- a/packages/experimental/agent-team/src/types.ts
++++ b/packages/experimental/agent-team/src/types.ts
+@@ -142,6 +142,9 @@
+ 
+ /** Input for creating one durable teammate. */
+ export interface SpawnTeammateRequest {
++  /** Optional workspace selection forwarded to the native child provider. */
++  readonly executionEnvironment?: string
++
+   readonly name: string
+   readonly description: string
+   readonly prompt: ContentBlock[]
+diff --git a/packages/experimental/tool-agent-team/src/index.ts b/packages/experimental/tool-agent-team/src/index.ts
+--- a/packages/experimental/tool-agent-team/src/index.ts
++++ b/packages/experimental/tool-agent-team/src/index.ts
+@@ -174,6 +174,7 @@
+       name: 'spawn_teammate',
+       description: 'Create one named, durable teammate. Only the Team Lead may call this tool.',
+       parameters: {
++        execution_environment: { type: 'string', description: 'Optional prepared Workspace ID for a fresh teammate; omit to inherit the Lead workspace.' },
+         name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
+         description: { type: 'string', required: true, description: 'Short description of the delegated responsibility.' },
+         prompt: { type: 'string', required: true, description: 'Complete initial task for the teammate.' },
+@@ -192,6 +193,7 @@
+           description: args.description,
+           prompt: [{ type: 'text', text: args.prompt }],
+           context,
++          ...(args.execution_environment === undefined ? {} : { executionEnvironment: args.execution_environment }),
+           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+           signal: exec.signal,
+         })

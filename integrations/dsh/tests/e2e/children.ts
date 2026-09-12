@@ -182,7 +182,7 @@ export async function checkCrossWorldDelegation(launch: () => Promise<WebScaffol
           const workspace = await execute('prepare_workspace', { world_id: world.id, path: '/workspace' });
           return host.ctx.get('subagents').startContinuable({ provider: 'spawn', label: `Read ${world.id}`,
             request: { parent: leader, executionEnvironment: workspace.executionEnvironment,
-              toolFilter: { allow: ['read', 'send_message'] }, prompt: [{ type: 'text', text: 'Read /workspace/AGENTS.md and summarize it.' }] },
+              toolFilter: { allow: ['read'] }, prompt: [{ type: 'text', text: 'Read /workspace/AGENTS.md and summarize it.' }] },
             signal: AbortSignal.timeout(30000) });
         }));
         children = started.map(row => row.childId);
@@ -198,7 +198,7 @@ export async function checkCrossWorldDelegation(launch: () => Promise<WebScaffol
         expect(registry.forSession(id)).toBeUndefined();
         expect((await registry.contextForSession(id)).sessionIds).not.toContain(id);
         const requests = adapter.requests.filter(request => request.sessionId === id);
-        expect([...new Set(requests.flatMap(request => request.tools ?? []).map(tool => tool.name))].sort()).toEqual(['read', 'send_message']);
+        expect([...new Set(requests.flatMap(request => request.tools ?? []).map(tool => tool.name))].sort()).toEqual(['read']);
         const worlds = host.ctx.get('executionWorlds');
         expect(worlds.bindings.explicitParent(id)).toBe(leaderId);
         const worldId = worlds.bindings.get(id)!.worldId;

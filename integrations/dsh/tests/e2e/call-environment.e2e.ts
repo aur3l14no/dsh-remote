@@ -154,7 +154,10 @@ it('routes explicit tool environments without rebinding the caller', async () =>
   await invoke('terminal_close', { sessionId: terminal.sessionId });
   await invoke('bash', { execution_environment: { world: 'missing', cwd: '/workspace' }, command: 'true' }, true);
   await invoke('bash', { execution_environment: { world: 'b', cwd: '/missing-directory' }, command: 'true' }, true);
-  await invoke('job_list', { ...args }, true);
+  // Native open parameter schemas allow extra fields; they do not opt a tool into routing.
+  await invoke('job_list', { execution_environment: { world: 'missing', cwd: '/missing-directory' } });
+  await invoke('job_list', { execution_environment: 'opaque-tool-owned-value' });
+  await invoke('read', { file_path: 42 }, true);
   const local = join(process.env.DSH_REMOTE_STATE!, 'local-target');
   await mkdir(local, { recursive: true });
   await invoke('write', { execution_environment: { world: 'local', cwd: local }, file_path: filename, content: 'LOCAL_TARGET' });

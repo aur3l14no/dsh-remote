@@ -7,7 +7,7 @@ import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 import { preparePatchedSource } from './prepare-patched-source.mjs';
 
-const extensionVersion = '0.3.2';
+const extensionVersion = '0.4.0';
 const [sourceArg, installationArg] = process.argv.slice(2);
 if (!sourceArg || !installationArg) throw new Error('Usage: build-extension.mjs PINNED_DSH_SOURCE OFFICIAL_INSTALL');
 const source = resolve(sourceArg), installation = resolve(installationArg);
@@ -43,7 +43,7 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
   const packageSource = join(sources, metadata.repository.directory, 'src') + '/';
   if (Object.keys(compiled.metafile.inputs).some(path => !resolve(path).startsWith(packageSource))) throw new Error(`Compatibility package bundled a foreign source: ${name}`);
 }
-for (const name of ['@deepseek-ai/dsh-client-ui-tool', '@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right', '@deepseek-ai/dsh-client-ui-deliverables', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview']) {
+for (const name of ['@deepseek-ai/dsh-experimental-client-ui-agent-team', '@deepseek-ai/dsh-client-ui-tool', '@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right', '@deepseek-ai/dsh-client-ui-deliverables', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview']) {
   await buildClientCompatibility(sources, installation,
     JSON.parse(await readFile(join(installation, 'node_modules', name, 'package.json'), 'utf8')),
     join(output, 'compat', name));
@@ -65,7 +65,7 @@ for (const file of program.getSourceFiles()) {
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
 const entries = { shell: 'world/execution-world/src/routed-shell.ts', approval: 'world/ssh-world/src/approval-gate.ts', worldTools: 'world/execution-world/src/tools.ts', presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
-const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
+const dependencies = { '@deepseek-ai/dsh-experimental-agent-team': version, '@deepseek-ai/dsh-experimental-tool-agent-team': version, '@deepseek-ai/dsh-experimental-client-ui-agent-team': version, '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
   const directory = `plugins/${name}`;
@@ -98,6 +98,9 @@ await cp('integrations/dsh/packaging/extension', output, { recursive: true, filt
 // The environment router supplies the native skill provider once for the shared host catalog.
 let localPreset = await readFile(join(sources, 'packages/preset/agent-presets/presets/standard/agent.cordis.yml'), 'utf8');
 localPreset = localPreset.replace(/- id: skill-filesystem\n  name: '@deepseek-ai\/dsh-skill-filesystem'\n/, '');
+// Teams owns coordination; ordinary delegation remains one-shot in both presets.
+localPreset = localPreset.replace(/^(\s*)name: '(@deepseek-ai\/dsh-tool-subagent-(?:control|list-agents))'$/gm,
+  "$1disabled: true\n$1name: '$2'").replaceAll('backgroundMode: continuable', 'backgroundMode: one-shot');
 for (const name of compatibilityNames) localPreset = localPreset.replaceAll(`'${name}'`, `'../../compat/${name}/lib/index.js'`);
 localPreset += `
 - id: world-tools

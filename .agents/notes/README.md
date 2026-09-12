@@ -12,6 +12,7 @@ archived/                   被替代的历史记录与原始验收证据
 
 文件名为 `yyyy-mm-dd-topic.md`，声明 Status、决定或问题、适用基线与证据范围。只维护一份当前计划；proposed 表示工作未完成，不表示方向未经同意。
 
+- [Agent Teams 与 rc.2](implemented/integration/2026-09-12-agent-teams.md) 记录宿主团队协调、跨 World 队友、冷恢复及窄屏面板验收。
 - [单次跨 World 工具执行](implemented/integration/2026-09-12-tool-execution-environment.md) 记录调用环境、资源来源、审批上下文和完整安装态验收。
 - [当前阶段计划](proposed/integration/2026-09-07-world-portable_workspace-web.md) 仅维护后续事项和未决验收要求。
 - [Research 维护收敛](implemented/architecture/2026-09-11-research-maintenance.md) 记录当前唯一状态格式、执行身份拆分、展示订阅、补丁缩减和统一验证入口；替代早期记录中的自动迁移策略。

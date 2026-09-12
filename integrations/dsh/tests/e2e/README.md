@@ -61,3 +61,7 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 ```
 
 Uses the installed extension, deterministic model calls, native approval events and two Linux/SSH Worlds. Covers all 9 target-selecting tools, relative workdir, concurrent calls, background jobs, terminal ownership and follow-up approval context, local/SSH directions, unchanged raw argument events and Session/Workspace identity, invalid targets, durable file preview and actual browser interactions at desktop/narrow widths in light/dark themes. Results use `artifacts/dsh/call-environment-result.json`.
+
+## Agent Teams
+
+`node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --agent-team` validates installed Team tools, cross-World teammate creation, peer messages, host task records and stale revisions, cold continuation and browser navigation. Full E2E includes this independent lane.
