@@ -41,7 +41,7 @@
 
 重建文档预览浏览器模块时，PDF.js 主模块、worker、字体／解码资源与许可证须一起保留，并与固定上游依赖版本一致；不能仅编译界面代码后沿用另一版本 worker。
 
-新增补丁应直接服务执行身份、生命周期或 provider 接口；展示便利优先使用现有插件槽位。New Session 使用原生控件，Reload worlds 位于工作区插件，不再维护侧栏 primary actions 补丁。
+新增补丁应直接服务执行身份、生命周期或 provider 接口；展示便利优先使用现有插件槽位。New Session 使用原生控件，Reload worlds 位于工作区插件。
 
 补丁间有顺序依赖，尤其 0005/0006 也修改 Session controller；不要把“上游出现类似接口”直接当成可以删补丁。
 
@@ -52,4 +52,4 @@
 3. 构建扩展，用官方 CLI 安装同一 tarball；跑本机与双 Linux/SSH World 混合浏览器、冷恢复、child/terminal、当前格式历史恢复。浏览器代码另做类型检查。Standard preset 从固定上游派生；构建须排除误打包的外部 Cordis/scope 源码，原生 AgentPresets 的 standing mount 状态不能复制。
 4. 通过后形成发行候选，成对更新 DSH 和扩展。
 
-具体命令见 [开发指南](../development.md)；新消费者先对照 [消费者接入契约](../system-map.md#新增消费者与升级)。
+具体命令见 [开发指南](README.md)；新消费者先对照 [消费者接入契约](../system-map.md#新增消费者与升级)。

@@ -2,17 +2,6 @@
 
 Wire revision 2, helper 0.1.5. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
 
-## Design basis
-
-| Reference | Applied idea |
-| --- | --- |
-| [DSH E2B and provider seams](https://github.com/deepseek-ai/deepseek-harness/tree/d347e703908d0406b7a7ef80e3a0e594d86b2215/packages/e2b) | A shared runtime supports filesystem and subprocess providers. DSH model calls, Session state, tool policy, editing rules, and presentation stay local. |
-| [Distant API](https://github.com/chipsenkbeil/distant/blob/master/distant-core/src/api.rs) | Small OS operations, process references, binary input/output, PTYs, and lifecycle control. Allocation responses precede associated events. |
-| [VS Code ExecServer](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.resolvers.d.ts) | Explicit argv, environment, cwd, streams and exit observations; future resolvers start the same helper in the final environment. |
-| [Zed remote development](https://zed.dev/docs/remote-development) | System SSH and independently deployed target-native binaries. |
-
-These are design references, not wire compatibility claims. DSH was inspected at the pinned commit; reference inspection was on 2026-09-05. Agent Host is only a future Remote Harness reference.
-
 ## Runtime and transport
 
 `dsh-remote-helper start --runtime-dir ABSENT_ABSOLUTE_DIR` starts `serve` in a separate session with detached stdio. `serve` creates a fresh mode-0700 directory and a mode-0600 Unix socket named `socket`. `connect --socket PATH` bridges stdin/stdout to that socket and can be launched through system OpenSSH. It exits when either side closes; it never executes a local substitute. A native macOS instance is an explicit acceptance target.
@@ -55,7 +44,7 @@ Response loss is not proof of cancellation. Re-send the *same* request ID only w
 
 ## Operation inventory
 
-The approved logical operations are encoded as 27 wire methods: guarded byte publication is split into a bounded upload transaction; stream reading/acknowledgement/release are explicit transport controls. They are not additional Agent-facing tools.
+The following tables define the wire methods for runtime control, files, processes, PTYs and streams.
 
 ### Runtime
 
@@ -76,7 +65,7 @@ Paths are native UTF-8, NUL-free absolute paths except `fs.resolve.path`, which 
 | `fs.stat` | `path`, optional `follow` (default true). | Metadata or null for absence. Metadata has `kind`, `size`, permission `mode`, opaque `version`; no-follow identifies symlinks. |
 | `fs.list` | `path`, optional `maxEntries` (default/max 1000). | Complete direct `entries` sorted by name, each with `name`, canonical `path`, metadata. Excess entries cause `RESOURCE_LIMIT`; there is no successful truncated listing. |
 | `fs.read` | `path`, required inclusive whole-file `maxBytes`. | An opened-file byte `stream` and initial metadata/version. Only regular files; size and growth are checked. |
-| `fs.readRange` | `path`, byte `offset` (default 0), `length` (default 0, at most 64 MiB). Requires `fs.read-range` capability (helper 0.1.3+). | Regular-file stream and initial metadata; reads only the requested window, may return fewer bytes at EOF. No whole-file size limit or local fallback. |
+| `fs.readRange` | `path`, byte `offset` (default 0), `length` (default 0, at most 64 MiB). Requires `fs.read-range` capability. | Regular-file stream and initial metadata; reads only the requested window, may return fewer bytes at EOF. No whole-file size limit or local fallback. |
 | `fs.beginWrite` | `path`, optional `expected`, `maxBytes` (default 16 MiB, max 64 MiB). | Runtime-scoped `upload`. Creates missing parents and private staging on the destination filesystem. |
 | `fs.writeChunk` | `upload`, `offset`, Base64 `data` (max 32 KiB decoded). | Accepted `next` offset. Requires exactly the accepted byte count; partial I/O failure invalidates staging. |
 | `fs.commitWrite` | `upload`. | `committed:true`, `kind:create/update`, published inode metadata (null if post-commit metadata observation fails). |

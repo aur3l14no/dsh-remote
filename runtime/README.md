@@ -14,4 +14,4 @@ The SSH library uses the protocol client to establish a runtime connection. The 
 
 Package names remain `@dsh-remote/client` and `@dsh-remote/ssh`; `helper/` is a Cargo crate, not an npm package. Run Cargo inside `runtime/helper/`, which owns its manifest, lockfile and default `target/`. General client/bootstrap tests live in `runtime/tests/`, while DSH integration tests live under `integrations/dsh/tests/`.
 
-See [system map](../docs/system-map.md) and [development](../docs/development.md).
+See [system map](../docs/system-map.md) and [development](../docs/development/README.md).

@@ -10,7 +10,7 @@ if (!['check', 'test-integration', 'test-e2e', 'package'].includes(task) || extr
 const source = resolve(process.env.DSH_SOURCE ?? '.build/dsh/upstream');
 const installation = resolve('.build/dsh/official-install');
 if (!existsSync(join(source, 'tsconfig.base.json'))) {
-  throw new Error(`Missing pinned DSH source at ${source}. Set DSH_SOURCE to a clean checkout of the revision in integrations/dsh/patches/series.json; see docs/development.md.`);
+  throw new Error(`Missing pinned DSH source at ${source}. Set DSH_SOURCE to a clean checkout of the revision in integrations/dsh/patches/series.json; see docs/development/README.md.`);
 }
 assertUnchangedSource(source);
 if (!existsSync(join(installation, 'node_modules/@deepseek-ai/dsh/package.json'))) {

@@ -1,10 +1,10 @@
 # Downstream DSH patches
 
-[`series.json`](series.json) is the sole inventory of the pinned upstream revision, ordered patches, SHA-256 digests and affected packages. Patch purpose and removal conditions live in [upstream upgrades](../../../docs/reference/upstream-upgrades.md#哪些补丁可以怎样收敛); avoid duplicating counts and package lists here.
+[`series.json`](series.json) is the sole inventory of the pinned upstream revision, ordered patches, SHA-256 digests and affected packages. Patch purpose and removal conditions live in [upstream upgrades](../../../docs/development/upstream-upgrades.md#哪些补丁可以怎样收敛); avoid duplicating counts and package lists here.
 
 Keep patches focused on execution identity, lifecycle and provider seams. UI contributions use existing plugin slots; the native New Session action remains upstream-owned and Reload worlds lives in our workspace contribution.
 
-`0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the patched-host and browser gates in [development](../../../docs/development.md).
+`0005` retains native parsing, invocation controls and instruction projection. Local defaults remain when no environment provider is mounted; remote profiles disable completed-catalog caching because they have no remote watcher. Its four catalog test assertion updates reflect the added identity/signal arguments. Run the patched-host and browser gates in [development](../../../docs/development/README.md).
 
 ## 0001: Session admission
 
@@ -14,7 +14,7 @@ Every create caller is admitted before sharing in-flight work; resume and live/r
 
 The extension adapter in ../packages/workspace/portable-workspace/src/admission.ts implements remote policy. The patched-host gate covers direct creation/adoption, concurrent conflicting selections, cold/observed/lookup activation, fork, revoked admission, missing or unavailable Worlds, and local create/resume regression. It is not full browser, upload transport, Linux/SSH or model acceptance.
 
-Build/run commands are maintained in [development](../../../docs/development.md#上游兼容检查升级或补丁变更).
+Build/run commands are maintained in [development](../../../docs/development/README.md#上游兼容检查升级或补丁变更).
 
 The gate exports a clean pinned checkout into .build/dsh/patched-host/source, applies the series and checks affected host/integration types before bundling. Original unchanged-source gates retain their revision and cleanliness checks and still reproduce the unpatched gaps. Never edit the user's upstream checkout or vendor its full tree into this directory.
 
@@ -24,7 +24,7 @@ New candidates can be passed by patch filename as the build command's last argum
 
 The host seam adds optional Session selection and execution paths while preserving the native local backend, image normalization/request encoding and Session log format. The external remote-attachments plugin owns remote layout, integrity, lifetime and rejection of unqualified SSH references. Model adapters pass the request Session into attachment resolution; generic file projection and image envelopes use the selected environment's path. DeepSeek's upload index accepts opaque IDs. The image tool's nested injection explicitly includes its filesystem dependency.
 
-The extension disables the original rows and inserts `remote-*` replacements; include patch `name` is a matching assertion, not a replacement mechanism. Provider settings retain their native section keys. Source/native and Linux/SSH attachment acceptance is separate from installed Chromium upload/fork/restart acceptance; see [development](../../../docs/development.md).
+The extension disables the original rows and inserts `remote-*` replacements; include patch `name` is a matching assertion, not a replacement mechanism. Provider settings retain their native section keys. Source/native and Linux/SSH attachment acceptance is separate from installed Chromium upload/fork/restart acceptance; see [development](../../../docs/development/README.md).
 
 
 ## 0006: File previews

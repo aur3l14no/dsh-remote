@@ -8,7 +8,7 @@ Bash requests a 4 MiB spill cap per stream within the helper's 64 MiB runtime bu
 
 ## Host configuration
 
-`$DSH_HOME/remote/worlds.json` contains the editable `worlds` catalog: `{id, name, target, color?, workspaces?, skills?, enabledSkills?}`. Each workspace declares `{path, name?}`. Initialization may seed the catalog from `config.json`; later startup reads the separate catalog. This initializes configuration only, never historical Session bindings. Running Web clients offer **Reload worlds** with a read-only preview and explicit apply. See [World configuration](../../../../docs/worlds.md).
+`$DSH_HOME/remote/worlds.json` contains the editable `worlds` catalog: `{id, name, target, color?, workspaces?, skills?, enabledSkills?}`. Each workspace declares `{path, name?}`. Initialization may seed the catalog from `config.json`; later startup reads the separate catalog. This initializes configuration only, never historical Session bindings. Running Web clients offer **Reload worlds** with a read-only preview and explicit apply. See [World configuration](../../../../docs/reference/worlds.md).
 
 `$DSH_HOME/remote/config.json` retains runtime control configuration:
 
@@ -20,4 +20,4 @@ Bash requests a 4 MiB spill cap per stream within the helper's 64 MiB runtime bu
 
 World registration accepts an existing absolute directory. Navigation preserves `?session=…`; cold activation uses the saved binding. Blank Sessions can only be reused in their registered workspace. Fork retains the binding and conversation boundary.
 
-Runtime permissions, unsupported consumers and preview semantics are maintained in [system map](../../../../docs/system-map.md); synchronization in [Skills](../../../../docs/skills.md); installation checks in [E2E](../../tests/e2e/README.md).
+Runtime permissions, unsupported consumers and preview semantics are maintained in [system map](../../../../docs/system-map.md); synchronization in [Skills](../../../../docs/reference/skills.md); installation checks in [E2E](../../tests/e2e/README.md).

@@ -2,6 +2,13 @@
 
 需要 Rust 1.85+、Node.js 24+。命令从仓库根执行，Cargo 命令在 `runtime/helper/` 执行；项目依赖使用 npm 与 `package-lock.json`。
 
+## 本目录
+
+- 本页：开发环境、检查与测试入口、产物清理和离线维护。
+- [上游升级](upstream-upgrades.md)：接口风险、补丁移除条件和升级顺序。
+- [检查文件与进程操作的 World 路由](check-world-io-routing.md)：CodeQL 扫描、结果解读和局限。
+- [发行](release.md)：候选产物、验收来源和发布流程。
+
 ## 统一开发入口
 
 ```sh
@@ -10,7 +17,7 @@ npm run check:runtime
 npm test
 ```
 
-DSH 检查还需准备 [series.json](../integrations/dsh/patches/series.json) 固定 revision 的干净源码，放在 `.build/dsh/upstream` 或用 `DSH_SOURCE` 指定，然后安装官方依赖：
+DSH 检查还需准备 [series.json](../../integrations/dsh/patches/series.json) 固定 revision 的干净源码，放在 `.build/dsh/upstream` 或用 `DSH_SOURCE` 指定，然后安装官方依赖：
 
 ```sh
 node integrations/dsh/scripts/prepare-official.mjs
@@ -29,9 +36,9 @@ node integrations/dsh/scripts/prepare-official.mjs
 
 ## 上游兼容检查（升级或补丁变更）
 
-保留两类独立 gate：unchanged-source 验证原版 DSH 接口，patched-host 验证下游补丁；安装态行为由 E2E 验证。统一入口管理准备和运行顺序，聚焦调试可直接使用 [scripts/](../integrations/dsh/scripts/) 中对应脚本。
+保留两类独立 gate：unchanged-source 验证原版 DSH 接口，patched-host 验证下游补丁；安装态行为由 E2E 验证。统一入口管理准备和运行顺序，聚焦调试可直接使用 [scripts/](../../integrations/dsh/scripts) 中对应脚本。
 
-新补丁先用 `check-patched-host.mjs` 验证，再纳入 `series.json`。升级步骤见[上游升级参考](reference/upstream-upgrades.md)。World IO 静态扫描见 [CodeQL 指南](reference/node-io-inventory.md)。
+新补丁先用 `check-patched-host.mjs` 验证，再纳入 `series.json`。升级步骤见[上游升级参考](upstream-upgrades.md)。World IO 静态扫描见 [检查文件与进程操作的 World 路由](check-world-io-routing.md)。
 
 ## 可复用双 World 环境
 
@@ -44,13 +51,13 @@ npm run test-e2e
 
 Linux 可能需用 `--with-deps` 安装浏览器系统依赖。统一入口准备扩展、测试 profile、补丁宿主、附件及浏览器 fixture；单独运行 E2E 脚本前也需要这些准备。
 
-各测试共享构建产物，使用独立容器状态；结束后清理测试资源。覆盖范围、环境变量和失败清理见 [E2E 说明](../integrations/dsh/tests/e2e/README.md)。原生测试不代替 Linux/SSH 验收。
+各测试共享构建产物，使用独立容器状态；结束后清理测试资源。覆盖范围、环境变量和失败清理见 [E2E 说明](../../integrations/dsh/tests/e2e/README.md)。原生测试不代替 Linux/SSH 验收。
 
 CI 保留 unchanged-source、patched-host、SSH 与浏览器回归，并以官方 CLI 验收安装包；具体步骤与结果以 workflow 为准。候选产物及发布见[发行](release.md)。
 
 ## 真实模型验收
 
-可选的真实模型测试使用私有凭据配置，见 [E2E 说明](../integrations/dsh/tests/e2e/README.md#optional-live-and-recording-lanes)。
+可选的真实模型测试使用私有凭据配置，见 [E2E 说明](../../integrations/dsh/tests/e2e/README.md#optional-live-and-recording-lanes)。
 
 ```sh
 node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --live "$PRIVATE_DEEPSEEK_HOME"
@@ -70,11 +77,11 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 
 测试结束后，`just clean` 清理 `.build/`；`clean-reports`、`clean-dist`、`clean-rust` 分别清理报告、发行文件和 Cargo 产物。凭据与私有测试状态不上传。
 
-当前契约在 `docs/`，计划和历史证据在 [.agents/notes/](../.agents/notes/README.md)。历史验收记录不随代码重写。
+当前契约在 `docs/`，计划和历史证据在 [.agents/notes/](../../.agents/notes/README.md)。历史验收记录不随代码重写。
 
 ## 离线产物与已有配置
 
-安装和 World 配置见 [README](../README.md) 与 [World 配置](worlds.md)。运行组件按扩展版本下载并校验，缓存可离线复用。
+安装和 World 配置见 [README](../../README.md) 与 [World 配置](../reference/worlds.md)。运行组件按扩展版本下载并校验，缓存可离线复用。
 
 离线维护可指定 `bootstrap: {manifest, cacheDir}`，或使用 `dsh-remote-config init-release RELEASE_DIRECTORY WORLDS.json` 初始化匹配的完整发行包；已有状态不覆盖。移除显式 bootstrap 后恢复自动下载。
 

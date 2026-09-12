@@ -10,4 +10,4 @@ Build with `cd runtime/helper && cargo build --locked`. This is a standalone cra
 - `tests/acceptance.py`: target-native behavior suite.
 - `scripts/build-linux.sh`: builds with an already installed target toolchain on Linux.
 
-See the [protocol](../../docs/reference/helper-api.md), [bootstrap](../../docs/reference/bootstrap.md) and [development commands](../../docs/development.md). No automatic task persistence or replay across runtime replacement is promised.
+See the [protocol](../../docs/reference/helper-api.md), [bootstrap](../../docs/reference/bootstrap.md) and [development commands](../../docs/development/README.md). No automatic task persistence or replay across runtime replacement is promised.

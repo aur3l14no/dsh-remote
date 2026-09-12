@@ -29,4 +29,4 @@ node integrations/dsh/scripts/pack-release.mjs \
 
 各个 tag 的附件保持独立；固定的是附件文件名，不是版本 tag。不要重写旧版本附件，已有版本需要修正时发布新版本。
 
-本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令见 [README](../README.md)，维护与配置初始化见 [development.md](development.md)，上游升级门槛见 [上游升级参考](reference/upstream-upgrades.md)。
+本地测试不会触发发布；新增工作流也不会自行运行。候选文件保留 14 天。安装命令见 [README](../../README.md)，维护与配置初始化见 [开发与验证](README.md)，上游升级门槛见 [上游升级参考](upstream-upgrades.md)。

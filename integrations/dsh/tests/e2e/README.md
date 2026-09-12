@@ -1,6 +1,6 @@
 # Two-World E2E environment
 
-Run the setup and gate commands in [development](../../../../docs/development.md#可复用双-world-环境). This page owns the environment contract and test coverage.
+Run the setup and gate commands in [development](../../../../docs/development/README.md#可复用双-world-环境). This page owns the environment contract and test coverage.
 
 The host runs DSH and Vitest/Playwright Chromium. A local Docker daemon runs two Linux SSH servers with independent Git repositories at `/workspace`; use OrbStack on macOS or Docker Engine with Compose on Ubuntu. Published SSH ports bind to the test host's loopback. Node, npm dependencies, OpenSSH and ssh-keygen are host prerequisites; Linux also needs Chromium system dependencies.
 
@@ -41,9 +41,9 @@ Private inputs stay under `.build/dsh/e2e/run-*`; the runner does not load perso
 
 ## Optional live and recording lanes
 
-`web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` and `extension-install.mjs [PRIVATE_DEEPSEEK_HOME]` read only `.credentials.yaml` → `refs.DEEPSEEK_API_KEY` into the host. They send synthetic tasks from fresh Worlds; the CLI lane verifies real-model remote execution and isolation of the other World. Commands are in [development](../../../../docs/development.md#真实模型验收). `DSH_TEST_INSTALL` selects a separate official installation.
+`web-e2e.mjs --live PRIVATE_DEEPSEEK_HOME` and `extension-install.mjs [PRIVATE_DEEPSEEK_HOME]` read only `.credentials.yaml` → `refs.DEEPSEEK_API_KEY` into the host. They send synthetic tasks from fresh Worlds; the CLI lane verifies real-model remote execution and isolation of the other World. Commands are in [development](../../../../docs/development/README.md#真实模型验收). `DSH_TEST_INSTALL` selects a separate official installation.
 
-Set `DSH_TEST_RELEASE_OUTPUT` to an absent directory to retain the complete candidate accepted by extension-install; otherwise its temporary candidate is removed. CI uses this for [release promotion](../../../../docs/release.md). Set `DSH_E2E_VIDEO_DIR` for a 1440×900 WebM of the CLI browser flow; default runs are unrecorded, and SSH assertions remain in the runner.
+Set `DSH_TEST_RELEASE_OUTPUT` to an absent directory to retain the complete candidate accepted by extension-install; otherwise its temporary candidate is removed. CI uses this for [release promotion](../../../../docs/development/release.md). Set `DSH_E2E_VIDEO_DIR` for a 1440×900 WebM of the CLI browser flow; default runs are unrecorded, and SSH assertions remain in the runner.
 
 Browser state lives under `.build/dsh/e2e/browser-*` and is removed after the test. Sanitized screenshots/results live under `artifacts/dsh/`, including `live-result.json`, `extension-install.json` and `extension-install-live.json`. Private CLI logs may contain a process-token URL and must not be uploaded. Local acceptance does not establish a GitHub runner result; outstanding scenarios are maintained only in the [current plan](../../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).
 
