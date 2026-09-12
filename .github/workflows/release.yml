@@ -35,7 +35,7 @@ jobs:
           gh run download "$CI_RUN" --name "dsh-remote-release-$source_revision" --dir artifact
           mkdir release
           tar -xzf artifact/dsh-remote-runtime.tar.gz -C release
-          (cd release && sha256sum --check SHA256SUMS)
+          (cd release && shasum -a 256 --check SHA256SUMS)
           jq -e --arg revision "$source_revision" '.sourceRevision == $revision and .sourceDirty == false and ([.manifest.bundles[].target | [.os, .arch, .abi.kind] | join("/")] | sort) == ["linux/aarch64/musl-static", "linux/x86_64/musl-static", "macos/aarch64/darwin"]' release/release.json
       - name: Create a draft from tested bytes without rebuilding
         env:
@@ -48,7 +48,7 @@ jobs:
           extension=$(jq -r .extension.filename release/release.json)
           [[ "$extension" == "dsh-remote-extension-$version.tgz" ]] || exit 1
           extension_sha256=$(jq -r .extension.sha256 release/release.json)
-          printf '%s  %s\n' "$extension_sha256" "release/$extension" | sha256sum --check -
+          printf '%s  %s\n' "$extension_sha256" "release/$extension" | shasum -a 256 --check -
           cp "release/$extension" artifact/dsh-remote-extension.tgz
           cat > notes.md <<'EOF'
           Official DSH with the remote extension and runtimes for Linux x86_64/aarch64 (static musl) and macOS aarch64. CI validates native runtime behavior on each platform and DSH browser/SSH integration on Linux x86_64. Model credentials remain on the local DSH host.
