@@ -31,60 +31,34 @@ jobs:
         if: steps.cli-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/codeql-cli"
-          gh release download "$CODEQL_VERSION" --repo github/codeql-cli-binaries \
-            --pattern codeql-linux64.zip --pattern codeql-linux64.zip.checksum.txt --dir "$RUNNER_TEMP/codeql-cli"
-          cd "$RUNNER_TEMP/codeql-cli"
-          sha256sum -c codeql-linux64.zip.checksum.txt
-          unzip -q codeql-linux64.zip
-          rm codeql-linux64.zip
+        run: bash .agents/skills/audit-remote-io-boundaries/scripts/install-cli.sh "$CODEQL_VERSION" "$RUNNER_TEMP/codeql-cli"
       - name: Add CodeQL to PATH
         run: echo "$RUNNER_TEMP/codeql-cli/codeql" >> "$GITHUB_PATH"
       - uses: actions/cache@v4
         with:
           path: .build/dsh/codeql-cache
-          key: codeql-packs-${{ env.CODEQL_VERSION }}-${{ hashFiles('integrations/dsh/checks/codeql/**') }}
+          key: codeql-packs-${{ env.CODEQL_VERSION }}-${{ hashFiles('.agents/skills/audit-remote-io-boundaries/codeql/**') }}
       - name: Install locked query libraries
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: codeql pack ci integrations/dsh/checks/codeql --common-caches=.build/dsh/codeql-cache
+        run: codeql pack ci .agents/skills/audit-remote-io-boundaries/codeql --common-caches=.build/dsh/codeql-cache
       - name: Check key regression cases
         run: |
-          bash integrations/dsh/checks/codeql/scan.sh integrations/dsh/tests/codeql/fixtures .build/dsh/codeql-fixtures artifacts/dsh/codeql/fixtures
-          node integrations/dsh/tests/codeql/check.mjs artifacts/dsh/codeql/fixtures/results.sarif
+          bash .agents/skills/audit-remote-io-boundaries/scripts/scan.sh .agents/skills/audit-remote-io-boundaries/tests/fixtures "$RUNNER_TEMP/world-io/fixtures" "$RUNNER_TEMP/world-io/reports/fixtures"
+          node .agents/skills/audit-remote-io-boundaries/tests/check.mjs "$RUNNER_TEMP/world-io/reports/fixtures/results.sarif"
       - name: Analyze this repository
-        run: bash integrations/dsh/checks/codeql/scan.sh . .build/dsh/codeql-repository artifacts/dsh/codeql/repository
-      - name: Checkout pinned upstream
         run: |
-          revision=$(node -p "JSON.parse(require('fs').readFileSync('integrations/dsh/patches/series.json')).revision")
-          repository=$(node -p "JSON.parse(require('fs').readFileSync('integrations/dsh/patches/series.json')).repository")
-          git init "$RUNNER_TEMP/dsh-world-io"
-          git -C "$RUNNER_TEMP/dsh-world-io" fetch --depth=1 "$repository" "$revision"
-          git -C "$RUNNER_TEMP/dsh-world-io" checkout --detach FETCH_HEAD
-      - name: Apply verified series in the isolated analysis checkout
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          import { createHash } from 'node:crypto';
-          import { execFileSync } from 'node:child_process';
-          import { resolve } from 'node:path';
-          const series = JSON.parse(readFileSync('integrations/dsh/patches/series.json', 'utf8'));
-          for (const patch of series.patches) {
-            if (!/^[\w.-]+\.patch$/.test(patch.file)) throw new Error('Invalid patch name');
-            const file = resolve('integrations/dsh/patches', patch.file);
-            if (createHash('sha256').update(readFileSync(file)).digest('hex') !== patch.sha256) throw new Error(`Patch checksum mismatch: ${patch.file}`);
-            execFileSync('git', ['-C', `${process.env.RUNNER_TEMP}/dsh-world-io`, 'apply', file], { stdio: 'inherit' });
-          }
-          writeFileSync('artifacts/dsh/codeql/series.json', JSON.stringify(series, null, 2));
-          NODE
+          bash .agents/skills/audit-remote-io-boundaries/scripts/scan.sh . "$RUNNER_TEMP/world-io/repository" "$RUNNER_TEMP/world-io/reports/repository"
+          node .agents/skills/audit-remote-io-boundaries/tests/check.mjs "$RUNNER_TEMP/world-io/reports/repository/results.sarif" .agents/skills/audit-remote-io-boundaries/tests/fixtures/cases.ts
+      - name: Prepare verified patched upstream
+        run: node .agents/skills/audit-remote-io-boundaries/scripts/prepare-upstream.mjs "$RUNNER_TEMP/dsh-world-io" "$RUNNER_TEMP/world-io/reports"
       - name: Analyze patched upstream (no target build or dependency installation)
-        run: bash integrations/dsh/checks/codeql/scan.sh "$RUNNER_TEMP/dsh-world-io" .build/dsh/codeql-upstream artifacts/dsh/codeql/upstream
+        run: bash .agents/skills/audit-remote-io-boundaries/scripts/scan.sh "$RUNNER_TEMP/dsh-world-io" "$RUNNER_TEMP/world-io/upstream-db" "$RUNNER_TEMP/world-io/reports/upstream"
       - name: Upload candidate paths
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: world-io-dataflow-${{ github.sha }}
-          path: artifacts/dsh/codeql/
+          path: ${{ runner.temp }}/world-io/reports/
           if-no-files-found: error
           retention-days: 14

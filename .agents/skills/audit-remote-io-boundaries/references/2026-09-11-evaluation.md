@@ -1,6 +1,8 @@
 # CodeQL World IO：首次效用评估
 
-Status: implemented (experimental analysis; not a compatibility gate)
+Status: historical experiment (not current instructions or a compatibility gate)
+
+迁移说明：原记录位于 `.agents/notes/implemented/integration/2026-09-11-codeql-world-io.md`。以下基线、实验结果与旧产物路径保留为历史证据，不作为当前扫描状态或操作入口。
 
 ## 结论与基线
 
@@ -8,7 +10,7 @@ CodeQL 可以用简短查询追踪原生 IO 实例、成员及输入的跨文件
 
 本次固定 CLI 2.27.0、`codeql/javascript-all` 2.10.1，上游 `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，应用当时 `integrations/dsh/patches/series.json` 的 11 个补丁。本仓库基于 `1589411c6cd7bd1e6e533fea2c09bda8dc8b5446` 加未提交的检查器改动。运行于 macOS arm64；没有运行 Linux/SSH 或浏览器验收，没有提交或推送 GitHub CI。
 
-核心仅为两个 path query 和一个共用数据流配置：原生模块 → callee，以及工具输入／`header.cwd` → 原生路径／命令参数。别名、跨函数值流、路径拼接、文件／进程参数模型交给 CodeQL。未加入插件 allowlist、现有发现基线 suppression、分支 sanitizer 或手写调用图。当前用法以 [World IO 数据流审查](../../../../docs/reference/node-io-inventory.md) 为准。
+核心仅为两个 path query 和一个共用数据流配置：原生模块 → callee，以及工具输入／`header.cwd` → 原生路径／命令参数。别名、跨函数值流、路径拼接、文件／进程参数模型交给 CodeQL。未加入插件 allowlist、现有发现基线 suppression、分支 sanitizer 或手写调用图。当前用法以 [World IO 数据流审查](../SKILL.md) 为准。
 
 ## 有标注调用点
 
@@ -45,7 +47,7 @@ CodeQL 可以用简短查询追踪原生 IO 实例、成员及输入的跨文件
 
 ## 真实工具变异
 
-在另一个完整的补丁后上游副本应用 [变异补丁](../../../../integrations/dsh/tests/codeql/tool-io-mutants.patch)，未修改干净上游或实际插件实现，也未执行变异工具：
+在另一个完整的补丁后上游副本应用 [变异补丁](../tests/tool-io-mutants.patch)，未修改干净上游或实际插件实现，也未执行变异工具：
 
 1. `read.ts:148` 将 `ctx.fs.readText` 改为原生 `readFile(input.filePath)`。能力查询和 boundary 查询均命中，后者给出 `args.file_path → parseReadArgs → input.filePath → unsafeReadFile` 的路径。它能发现实际工具里新增的直接绕过，不只是玩具 fixture。
 2. `write.ts:2` 新增 `inspectNative(read, path) { return read(path) }`，从 execute 传入原生函数和 `input.filePath`。能力查询命中并包含实参到形参的传播；boundary 查询没有命中。与 fixture 的 FN 一致，不掩盖为通过。

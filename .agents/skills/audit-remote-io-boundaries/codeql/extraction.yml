@@ -1,7 +1,7 @@
 # Generated/private state is outside the source audit. No consumer exemptions.
 disable-default-queries: true
 queries:
-  - uses: ./integrations/dsh/checks/codeql/queries
+  - uses: ./.agents/skills/audit-remote-io-boundaries/codeql/queries
 paths-ignore:
   - .build/**
   - .local/**

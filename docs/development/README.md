@@ -6,7 +6,6 @@
 
 - 本页：开发环境、检查与测试入口、产物清理和离线维护。
 - [上游升级](upstream-upgrades.md)：接口风险、补丁移除条件和升级顺序。
-- [检查文件与进程操作的 World 路由](check-world-io-routing.md)：CodeQL 扫描、结果解读和局限。
 - [发行](release.md)：候选产物、验收来源和发布流程。
 
 ## 统一开发入口
@@ -38,7 +37,7 @@ node integrations/dsh/scripts/prepare-official.mjs
 
 保留两类独立 gate：unchanged-source 验证原版 DSH 接口，patched-host 验证下游补丁；安装态行为由 E2E 验证。统一入口管理准备和运行顺序，聚焦调试可直接使用 [scripts/](../../integrations/dsh/scripts) 中对应脚本。
 
-新补丁先用 `check-patched-host.mjs` 验证，再纳入 `series.json`。升级步骤见[上游升级参考](upstream-upgrades.md)。World IO 静态扫描见 [检查文件与进程操作的 World 路由](check-world-io-routing.md)。
+新补丁先用 `check-patched-host.mjs` 验证，再纳入 `series.json`。升级步骤见[上游升级参考](upstream-upgrades.md)。
 
 ## 可复用双 World 环境
 

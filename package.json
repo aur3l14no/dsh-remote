@@ -13,8 +13,6 @@
     "check": "node integrations/dsh/scripts/develop.mjs check",
     "test": "(cd runtime/helper && cargo test --locked && cargo build --locked --bins) && node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts integrations/dsh/tests/bindings/*.test.ts integrations/dsh/tests/skills/*.test.ts integrations/dsh/tests/release/*.test.mjs",
     "test:bootstrap": "node --test runtime/tests/bootstrap/*.test.ts",
-    "scan:world-io": "bash integrations/dsh/checks/codeql/scan.sh",
-    "test:world-io": "node integrations/dsh/tests/codeql/check.mjs",
     "check:runtime": "npm run check:rust && tsc --noEmit",
     "check:rust": "(cd runtime/helper && cargo fmt --all --check && cargo clippy --locked --all-targets -- -D warnings)",
     "test-integration": "node integrations/dsh/scripts/develop.mjs test-integration",

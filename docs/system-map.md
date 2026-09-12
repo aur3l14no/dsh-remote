@@ -229,8 +229,6 @@ flowchart TD
 
 **🟡 当前是逐个消费者适配；🔴 没有任意插件自动兼容检测或稳定公开 World SDK。** Loader 能加载只证明模块可加载。直接 `node:fs`、`spawn`、`execFile` 或本地 SDK 都会绕过 World 服务；即使使用安全 argv，也仍在宿主执行。
 
-[检查文件与进程操作的 World 路由](development/check-world-io-routing.md) 用 CodeQL 追踪原生 IO 能力经过别名、参数、返回值和属性后的调用，并筛出工具输入／Session 目录进入原生路径和命令参数的链路。它不能推导完整 Cordis 装配与 World 分支；候选路径用于辅助适配审查，不代表任意插件自动兼容检测。
-
 | 消费者要做什么 | 应接的身份／设施 | 我们的边界 |
 | --- | --- | --- |
 | 工具中的项目读写／搜索／进程 | 本次调用环境，默认 Session；同 preset 的 `ctx.fs` / `ctx.subprocess` / `ctx.shell` | 不用宿主 cwd、路径前缀或工具名猜环境 |

@@ -50,7 +50,7 @@ Web 侧边栏使用原生 New Session 控件；工作区区域提供 Reload worl
 | 理解架构、功能边界与源码位置 | [系统全景](docs/system-map.md) |
 | 查询配置与工具契约 | [World 配置](docs/reference/worlds.md)、[Skills](docs/reference/skills.md)、[工具执行环境](docs/reference/tool-execution.md)、[跨 World 委派](docs/reference/cross-world-delegation.md)、[Agent Teams](docs/reference/agent-teams.md) |
 | 查询执行与存储契约 | [Session bindings](docs/reference/session-bindings.md)、[bootstrap](docs/reference/bootstrap.md)、[helper 协议](docs/reference/helper-api.md)、[文件预览与附件](docs/reference/workspace-io.md) |
-| 开发、测试、IO 路由检查、升级与发布 | [开发与验证](docs/development/README.md) |
+| 开发、测试、升级与发布 | [开发与验证](docs/development/README.md) |
 | 查看未完成工作和历史证据 | [当前计划](.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md)、[Notes](.agents/notes/README.md) |
 
 [MIT License](LICENSE)

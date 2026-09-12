@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const [input] = process.argv.slice(2);
-if (!input) throw new Error('Usage: check.mjs RESULTS.sarif');
+const [input, fixtureUri = 'cases.ts', ...extra] = process.argv.slice(2);
+if (!input || extra.length) throw new Error('Usage: check.mjs RESULTS.sarif [FIXTURE_URI]');
 const { runs } = JSON.parse(readFileSync(input, 'utf8'));
 assert(runs?.length, 'Missing analysis');
 assert(!runs.some(r => r.invocations?.some(i => i.executionSuccessful === false)), 'Analysis failed');
@@ -18,7 +18,7 @@ for (const [i, line] of lines.entries()) {
   for (const [name, rule] of Object.entries(rules)) {
     const found = results.some(r => {
       const p = r.locations[0].physicalLocation;
-      return r.ruleId === rule && p.artifactLocation.uri === 'cases.ts' && p.region.startLine === i + 1;
+      return r.ruleId === rule && p.artifactLocation.uri === fixtureUri && p.region.startLine === i + 1;
     });
     assert.equal(found, expected.includes(name), `cases.ts:${i + 1}: ${name}`);
   }
