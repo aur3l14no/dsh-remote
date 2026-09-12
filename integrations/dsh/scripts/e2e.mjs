@@ -83,22 +83,29 @@ try {
       if (marker !== id) throw new Error('SSH World identity mismatch');
     }
     if (index === 0) {
-      await docker(['cp', 'world-a:/opt/dsh-e2e/bin/dsh-remote-helper', resolve(state, 'helper')]);
-      await docker(['cp', 'world-a:/usr/bin/rg', resolve(state, 'rg')]);
-      env.DSH_TEST_RIPGREP_LICENSE = resolve(state, 'ripgrep-copyright');
-      await docker(['cp', 'world-a:/usr/share/doc/ripgrep/copyright', env.DSH_TEST_RIPGREP_LICENSE]);
-      const arch = await docker(['exec', '-T', 'world-a', 'uname', '-m'], { capture: true });
-      const rgVersion = (await docker(['exec', '-T', 'world-a', 'rg', '--version'], { capture: true })).split('\n')[0].split(' ')[1];
-      const cargo = await readFile(resolve(root, 'runtime/helper/Cargo.toml'), 'utf8');
-      const helperVersion = /^version\s*=\s*"([^"]+)"/m.exec(cargo)?.[1];
-      if (!helperVersion) throw new Error('Missing helper version');
-      env.DSH_TEST_BOOTSTRAP_MANIFEST = resolve(state, 'manifest.json');
-      env.DSH_TEST_ARTIFACT_CACHE = resolve(state, 'cache');
       env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG = resolve(state, 'worlds.json');
-      await run(process.execPath, ['runtime/scripts/prepare-artifacts.ts', '--os', 'linux', '--arch', arch,
-        '--abi', 'glibc', '--minimum-glibc', '2.36', '--helper', resolve(state, 'helper'), '--helper-version', helperVersion,
-        '--ripgrep', resolve(state, 'rg'), '--ripgrep-version', rgVersion,
-        '--cache', env.DSH_TEST_ARTIFACT_CACHE, '--out', env.DSH_TEST_BOOTSTRAP_MANIFEST]);
+      if (env.DSH_E2E_RUNTIME_DIRECTORY) {
+        const supplied = resolve(env.DSH_E2E_RUNTIME_DIRECTORY);
+        env.DSH_TEST_BOOTSTRAP_MANIFEST = resolve(supplied, 'manifest.json');
+        env.DSH_TEST_ARTIFACT_CACHE = resolve(supplied, 'artifacts');
+        env.DSH_TEST_RIPGREP_LICENSE = resolve(supplied, 'LICENSE-RIPGREP');
+      } else {
+        await docker(['cp', 'world-a:/opt/dsh-e2e/bin/dsh-remote-helper', resolve(state, 'helper')]);
+        await docker(['cp', 'world-a:/usr/bin/rg', resolve(state, 'rg')]);
+        env.DSH_TEST_RIPGREP_LICENSE = resolve(state, 'ripgrep-copyright');
+        await docker(['cp', 'world-a:/usr/share/doc/ripgrep/copyright', env.DSH_TEST_RIPGREP_LICENSE]);
+        const arch = await docker(['exec', '-T', 'world-a', 'uname', '-m'], { capture: true });
+        const rgVersion = (await docker(['exec', '-T', 'world-a', 'rg', '--version'], { capture: true })).split('\n')[0].split(' ')[1];
+        const cargo = await readFile(resolve(root, 'runtime/helper/Cargo.toml'), 'utf8');
+        const helperVersion = /^version\s*=\s*"([^"]+)"/m.exec(cargo)?.[1];
+        if (!helperVersion) throw new Error('Missing helper version');
+        env.DSH_TEST_BOOTSTRAP_MANIFEST = resolve(state, 'manifest.json');
+        env.DSH_TEST_ARTIFACT_CACHE = resolve(state, 'cache');
+        await run(process.execPath, ['runtime/scripts/prepare-artifacts.ts', '--os', 'linux', '--arch', arch,
+          '--abi', 'glibc', '--minimum-glibc', '2.36', '--helper', resolve(state, 'helper'), '--helper-version', helperVersion,
+          '--ripgrep', resolve(state, 'rg'), '--ripgrep-version', rgVersion,
+          '--cache', env.DSH_TEST_ARTIFACT_CACHE, '--out', env.DSH_TEST_BOOTSTRAP_MANIFEST]);
+      }
     }
     await writeFile(env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG, JSON.stringify({ worlds, path: '/workspace' }), { mode: 0o600 });
     env.DSH_TEST_WORLD_CONTAINERS = JSON.stringify({ a: await docker(['ps', '-q', 'world-a'], { capture: true }), b: await docker(['ps', '-q', 'world-b'], { capture: true }) });

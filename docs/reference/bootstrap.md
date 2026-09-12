@@ -34,3 +34,5 @@ Manifest format 1 为目标 OS/arch/ABI 提供唯一 bundle，记录 helper/rg �
 Workspace owner 关闭时取消自己的文件请求、释放文件流、进程与 PTY，再归还 runtime lease；其他 Workspace 的资源保持可用。最后一个 lease 归还才执行 shutdown；关闭期间新的 acquire 等待关闭结果，清理失败不能启动替代实例。尚未发布的连接失败允许下次重试，已经发布的失效 runtime 不自动换 epoch。Workspace provider 缓存在宿主服务生命周期内，关闭单个 Session 不等于释放 Workspace。
 
 不提供跨 DSH 进程共享 daemon，也不额外管理 SSH ControlMaster 池。安装／探测仍使用短控制连接，日常协议请求在唯一数据连接内多路复用；重连替换传输但保持同一活跃 runtime。
+
+发行包覆盖 Linux x86_64/aarch64（静态 musl）和 macOS aarch64。平台按远端 `uname` 探测，manifest 必须唯一匹配；本机 DSH 的 OS/CPU 不参与目标选择。发行产物与验收范围见[发行](../development/release.md)。

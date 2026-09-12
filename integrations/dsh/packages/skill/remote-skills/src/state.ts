@@ -2,19 +2,31 @@ import { Readable } from 'node:stream';
 import { sshControl } from '../../../../../../runtime/ssh/src/control.ts';
 import type { SshTarget } from '../../../../../../runtime/ssh/src/transport.ts';
 
+/** Utilities shared by deployment and read-only previews on GNU and BSD. */
+export const skillUtilities = `
+skill_sha() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
+}
+skill_mode() {
+  case $(uname -s) in Darwin) stat -f %Lp "$1";; *) stat -c %a "$1";; esac
+}
+`;
+
 /** Read-only content/mode fingerprint; identical to prepareSkills' portable manifest. */
 export const skillStateProgram = `
+${skillUtilities}
 skill_manifest() {
   test -d "$1" && test ! -L "$1" || return 1
   manifest=$(cd "$1" && find . -exec sh -c '
+    ${skillUtilities}
     for file do
       relative=\${file#./}; if [ "$file" = . ]; then relative=""; fi
-      name=$(printf %s "$relative" | base64 -w0) || exit 1
+      name=$(printf %s "$relative" | base64 | tr -d \"\\n\") || exit 1
       if [ -L "$file" ]; then exit 1
       elif [ -d "$file" ]; then printf "d %s\\n" "$name"
       elif [ -f "$file" ]; then
-        mode=$(stat -c %a "$file") || exit 1
-        sum=$(sha256sum "$file") || exit 1
+        mode=$(skill_mode "$file") || exit 1
+        sum=$(skill_sha "$file") || exit 1
         sum=\${sum#\\\\}
         printf "f %s %s %s\\n" "$mode" "\${sum%% *}" "$name"
       else exit 1; fi
@@ -24,7 +36,7 @@ skill_manifest() {
 }
 skill_tree() {
   sorted=$(skill_manifest "$1") || return 1
-  checksum=$(printf '%s\\n' "$sorted" | sha256sum)
+  checksum=$(printf '%s\\n' "$sorted" | skill_sha)
   printf %s "\${checksum%% *}"
 }
 skill_state() {
@@ -87,7 +99,7 @@ current=''
 if [ "$2" != absent ]; then
   revision=\${2%%:*}
   current=$(skill_manifest "$HOME/.local/share/dsh-remote/skills/$1/$revision")
-  fingerprint=$(printf '%s\\n' "$current" | sha256sum)
+  fingerprint=$(printf '%s\\n' "$current" | skill_sha)
   test "\${fingerprint%% *}" = "\${2#*:}" || exit 1
 fi
 printf '%s\\n--current--\\n%s\\n' "$desired" "$current" | awk '

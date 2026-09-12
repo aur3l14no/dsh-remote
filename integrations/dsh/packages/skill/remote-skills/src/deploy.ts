@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { execFileSync } from 'node:child_process';
-import { skillStateProgram } from './state.ts';
+import { skillStateProgram, skillUtilities } from './state.ts';
 import { sshControl } from '../../../../../../runtime/ssh/src/control.ts';
 import type { SshTarget } from '../../../../../../runtime/ssh/src/transport.ts';
 
@@ -45,10 +45,11 @@ if [ -e "$destination" ] || [ -L "$destination" ]; then
   test ! -L "$destination" && test -d "$destination"
   diff -qr "$stage" "$destination" >/dev/null
   find "$stage" -type f -exec sh -c '
+    ${skillUtilities}
     stage=$1; destination=$2; shift 2
     for file do
       other="$destination/\${file#"$stage/"}"
-      test ! -L "$other" && test "$(stat -c %a "$file")" = "$(stat -c %a "$other")" || exit 1
+      test ! -L "$other" && test "$(skill_mode "$file")" = "$(skill_mode "$other")" || exit 1
     done
   ' sh "$stage" "$destination" {} +
 else
@@ -56,7 +57,10 @@ else
   stage=$(mktemp -d "$root/.stage.XXXXXXXX")
 fi
 ln -s "$destination" "$stage/link"
-mv -Tf "$stage/link" "$link"
+case $(uname -s) in
+  Darwin) mv -fh "$stage/link" "$link";;
+  *) mv -Tf "$stage/link" "$link";;
+esac
 printf '%s\\n' "$destination"
 `;
 

@@ -22,7 +22,7 @@ test('release workflow promotes exact bytes and rejects corrupt or prerelease as
     const manifest = join(state, 'release/release.json');
     await writeFile(manifest, JSON.stringify(metadata));
     await writeFile(join(state, 'release', filename), bytes);
-    await writeFile(join(state, 'artifact/dsh-remote-linux-x86_64.tar.gz'), 'complete archive fixture');
+    await writeFile(join(state, 'artifact/dsh-remote-runtime.tar.gz'), 'complete archive fixture');
     const run = () => execFileSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
       cwd: state, env: { ...process.env, PATH: `${join(state, 'bin')}:${process.env.PATH}` }, stdio: 'pipe',
     });

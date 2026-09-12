@@ -10,9 +10,16 @@ concurrency:
   cancel-in-progress: true
 jobs:
   runtime:
-    name: Runtime checks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    name: Runtime ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64, runner: ubuntu-24.04, target: x86_64-unknown-linux-musl }
+          - { name: linux-aarch64, runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
+          - { name: macos-aarch64, runner: macos-14, target: aarch64-apple-darwin }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     env:
       RUSTUP_TOOLCHAIN: 1.85.1
     steps:
@@ -22,12 +29,41 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Rust toolchain
-        run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
+        run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy --target ${{ matrix.target }}
       - run: npm ci
       - run: npm run check:runtime
       - run: npm test
+      - name: Build platform release pair
+        run: node runtime/scripts/build-platform.ts "${{ matrix.target }}" .build/runtime/platform
+      - name: Verify static Linux executables
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          for binary in dsh-remote-helper rg; do
+            if readelf -l ".build/runtime/platform/$binary" | grep -q INTERP; then
+              echo "Unexpected dynamic interpreter: $binary" >&2
+              exit 1
+            fi
+          done
+      - name: Native release protocol and bootstrap acceptance
+        env:
+          DSH_TEST_HELPER: .build/runtime/platform/dsh-remote-helper
+          DSH_TEST_FIXTURE: .build/runtime/platform/dsh-remote-fixture
+          DSH_TEST_NATIVE_BOOTSTRAP: '1'
+          DSH_BOOTSTRAP_HELPER: .build/runtime/platform/dsh-remote-helper
+          DSH_BOOTSTRAP_RG: .build/runtime/platform/rg
+        run: node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.name }}-${{ github.sha }}
+          path: .build/runtime/platform/
+          if-no-files-found: error
+          retention-days: 14
   ssh:
     name: DSH compatibility and Web / SSH E2E
+    needs: runtime
+    env:
+      DSH_E2E_RUNTIME_DIRECTORY: .build/runtime/platform
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -55,6 +91,10 @@ jobs:
           node integrations/dsh/scripts/check-composition.mjs "$RUNNER_TEMP/dsh-source"
           node integrations/dsh/scripts/pack-plugin.mjs "$RUNNER_TEMP/dsh-source"
           node integrations/dsh/scripts/check-plugin.mjs "$RUNNER_TEMP/dsh-source"
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-linux-x86_64-${{ github.sha }}
+          path: .build/runtime/platform
       - name: Two Linux Worlds over real SSH
         run: node integrations/dsh/scripts/e2e.mjs -- node .build/dsh/patched-host/admission.mjs
       - name: Install locked official DSH packages
@@ -99,15 +139,6 @@ jobs:
             dist/dsh/extension-build.json
           if-no-files-found: error
           retention-days: 14
-      - name: Package the accepted Linux runtime and extension together
-        run: tar -czf dist/dsh/dsh-remote-linux-x86_64.tar.gz -C .build/dsh/release-candidate .
-      - name: Complete release candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: dsh-remote-release-${{ github.sha }}
-          path: dist/dsh/dsh-remote-linux-x86_64.tar.gz
-          if-no-files-found: error
-          retention-days: 14
       - name: Browser acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -122,3 +153,31 @@ jobs:
             artifacts/dsh/connect-install.json
           if-no-files-found: ignore
           retention-days: 7
+
+  release-candidate:
+    name: Assemble accepted platform runtimes
+    needs: [runtime, ssh]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-*-${{ github.sha }}
+          path: .build/runtime/platforms
+      - uses: actions/download-artifact@v4
+        with:
+          name: dsh-remote-extension-${{ github.sha }}
+          path: dist/dsh
+      - name: Assemble one multi-platform release
+        run: |
+          node integrations/dsh/scripts/assemble-runtime-release.mjs dist/dsh/extension-build.json .build/runtime/platforms .build/dsh/release-candidate
+          tar -czf dist/dsh/dsh-remote-runtime.tar.gz -C .build/dsh/release-candidate .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-remote-release-${{ github.sha }}
+          path: dist/dsh/dsh-remote-runtime.tar.gz
+          if-no-files-found: error
+          retention-days: 14

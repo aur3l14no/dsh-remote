@@ -7,7 +7,7 @@ import { buildClientCompatibility } from './build-client-compat.mjs';
 import { build } from 'esbuild';
 import { preparePatchedSource } from './prepare-patched-source.mjs';
 
-const extensionVersion = '0.4.0';
+const extensionVersion = '0.4.1';
 const [sourceArg, installationArg] = process.argv.slice(2);
 if (!sourceArg || !installationArg) throw new Error('Usage: build-extension.mjs PINNED_DSH_SOURCE OFFICIAL_INSTALL');
 const source = resolve(sourceArg), installation = resolve(installationArg);

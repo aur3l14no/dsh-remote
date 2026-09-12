@@ -78,6 +78,22 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/tests/e2e/extensi
 
 当前契约在 `docs/`，计划和历史证据在 [.agents/notes/](../../.agents/notes/README.md)。历史验收记录不随代码重写。
 
+## 平台产物与验收
+
+`runtime/scripts/build-platform.ts` 接受 `x86_64-unknown-linux-musl`、`aarch64-unknown-linux-musl` 或 `aarch64-apple-darwin`，构建 helper 与进程 fixture，并下载、校验固定摘要的 ripgrep。先用 rustup 安装对应 target；Darwin 产物在 macOS 上构建。输出放在 `.build/runtime/platforms/<平台>/`，每个目录包含 manifest、源码身份、内容寻址 artifacts 与许可证。
+
+```sh
+node runtime/scripts/build-platform.ts aarch64-apple-darwin .build/runtime/platforms/macos-aarch64
+DSH_TEST_NATIVE_BOOTSTRAP=1 \
+DSH_TEST_HELPER=.build/runtime/platforms/macos-aarch64/dsh-remote-helper \
+DSH_TEST_FIXTURE=.build/runtime/platforms/macos-aarch64/dsh-remote-fixture \
+DSH_BOOTSTRAP_HELPER=.build/runtime/platforms/macos-aarch64/dsh-remote-helper \
+DSH_BOOTSTRAP_RG=.build/runtime/platforms/macos-aarch64/rg \
+node --test runtime/tests/client/*.test.ts runtime/tests/bootstrap/*.test.ts
+```
+
+CI 在原生平台上验证对应发行二进制。Linux x86_64 的 DSH E2E 设置 `DSH_E2E_RUNTIME_DIRECTORY`，使用该目录的 manifest、artifacts 和 `LICENSE-RIPGREP`；省略时使用一次性容器中的开发产物。三平台的汇总和发布门槛见[发行](release.md)。
+
 ## 离线产物与已有配置
 
 安装和 World 配置见 [README](../../README.md) 与 [World 配置](../reference/worlds.md)。运行组件按扩展版本下载并校验，缓存可离线复用。

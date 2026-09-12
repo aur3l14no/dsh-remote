@@ -33,7 +33,7 @@
 node integrations/dsh/scripts/deploy-skills.mjs .local/skills.json
 ```
 
-目标使用现有 SSH 配置，须为 Linux，具备 POSIX shell、tar、diff、find 和 GNU coreutils（含 stat、sha256sum、base64、sort）。`requires` 只检查远端 PATH 中的命令是否存在，不证明版本兼容。缺少依赖会在部署前失败，不自动安装 runtime、服务或凭据。
+目标使用现有 SSH 配置，须具备 POSIX shell、tar、diff、find、stat、base64、sort、awk，以及 sha256sum 或 shasum。部署支持 Linux 与 macOS 的原生工具；依赖缺失时需先在目标上安装。`requires` 只检查远端 PATH 中的命令是否存在，不证明版本兼容。缺少依赖会在部署前失败，不自动安装 runtime、服务或凭据。
 
 每份内容安装到 `$HOME/.local/share/dsh-remote/skills/<name>/<digest>/`，链接到 `$HOME/.agents/skills/<name>`。摘要包含文件路径、权限和内容。相同内容可重复部署；更新逐 skill 原子切换链接，旧版本保留。整个列表不是事务，后续条目失败时已完成条目不回滚；可修复后重跑。独立部署命令省略旧条目不会自动卸载；Web 重载会明确预览并确认受管理链接的移除，详见 [World 配置](worlds.md#预览与重载)。
 

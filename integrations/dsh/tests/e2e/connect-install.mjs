@@ -45,7 +45,7 @@ try {
     process.env.DSH_TEST_ARTIFACT_CACHE, process.env.DSH_TEST_RIPGREP_LICENSE, join(state, 'release')], { stdio: 'pipe' });
   execFileSync('tar', ['-czf', join(state, 'runtime.tar.gz'), '-C', join(state, 'release'), '.']);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const url = `https://github.com/aur3l14no/dsh-remote/releases/download/v${build.extensionVersion}/dsh-remote-linux-x86_64.tar.gz`;
+  const url = `https://github.com/aur3l14no/dsh-remote/releases/download/v${build.extensionVersion}/dsh-remote-runtime.tar.gz`;
   const preload = join(state, 'download-fixture.mjs');
   await writeFile(preload, `const original=globalThis.fetch; globalThis.fetch=(input, options)=>original(input===${JSON.stringify(url)}?${JSON.stringify(`http://127.0.0.1:${server.address().port}/runtime`)}:input,options);\n`);
   const env = { ...process.env, DSH_HOME: home, DSH_CONNECT_FIXTURE_CONFIG: selection.worlds[0].target.configFile,

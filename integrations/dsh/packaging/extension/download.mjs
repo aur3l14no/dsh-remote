@@ -26,7 +26,7 @@ export function releaseBootstrap(directory, expected, parseManifest, fetchReleas
     await mkdir(join(directory, 'releases'), { recursive: true, mode: 0o700 });
     const staging = await mkdtemp(join(directory, 'releases/.download-'));
     try {
-      const response = await fetchRelease(`https://github.com/aur3l14no/dsh-remote/releases/download/v${expected.version}/dsh-remote-linux-x86_64.tar.gz`, { signal: AbortSignal.timeout(120000) });
+      const response = await fetchRelease(`https://github.com/aur3l14no/dsh-remote/releases/download/v${expected.version}/dsh-remote-runtime.tar.gz`, { signal: AbortSignal.timeout(120000) });
       if (!response.ok) throw new Error(`Runtime download failed (${response.status}); retry Connect when the release is available`);
       const chunks = []; let bytes = 0;
       for await (const chunk of response.body) {

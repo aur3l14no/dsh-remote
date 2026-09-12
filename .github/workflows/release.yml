@@ -34,9 +34,9 @@ jobs:
           source_revision=$(jq -r .head_sha run.json)
           gh run download "$CI_RUN" --name "dsh-remote-release-$source_revision" --dir artifact
           mkdir release
-          tar -xzf artifact/dsh-remote-linux-x86_64.tar.gz -C release
+          tar -xzf artifact/dsh-remote-runtime.tar.gz -C release
           (cd release && sha256sum --check SHA256SUMS)
-          jq -e --arg revision "$source_revision" '.sourceRevision == $revision and .sourceDirty == false and (.manifest.bundles | length) == 1 and .manifest.bundles[0].target.os == "linux" and .manifest.bundles[0].target.arch == "x86_64"' release/release.json
+          jq -e --arg revision "$source_revision" '.sourceRevision == $revision and .sourceDirty == false and ([.manifest.bundles[].target | [.os, .arch, .abi.kind] | join("/")] | sort) == ["linux/aarch64/musl-static", "linux/x86_64/musl-static", "macos/aarch64/darwin"]' release/release.json
       - name: Create a draft from tested bytes without rebuilding
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,7 +51,7 @@ jobs:
           printf '%s  %s\n' "$extension_sha256" "release/$extension" | sha256sum --check -
           cp "release/$extension" artifact/dsh-remote-extension.tgz
           cat > notes.md <<'EOF'
-          Official DSH plus the remote extension and the Linux x86_64 bootstrap artifacts accepted together by CI. Target requires glibc 2.36 or newer. Model credentials remain on the local DSH host.
+          Official DSH with the remote extension and runtimes for Linux x86_64/aarch64 (static musl) and macOS aarch64. CI validates native runtime behavior on each platform and DSH browser/SSH integration on Linux x86_64. Model credentials remain on the local DSH host.
 
           Install the extension directly from the latest published release:
 
@@ -59,11 +59,10 @@ jobs:
           dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/latest/download/dsh-remote-extension.tgz
           ```
 
-          The extension asset is the exact CI-tested tarball with a stable download filename. Start DSH, click Connect to Host, and open a remote folder. The extension automatically downloads and deploys its matching runtime. OpenSSH public-key login and known_hosts must already work. The complete Linux archive is used by automatic deployment.
+          The extension asset is the exact CI-tested tarball with a stable download filename. Configure worlds.json, start DSH, and choose a remote workspace. The extension automatically downloads and deploys its matching runtime. OpenSSH public-key login and known_hosts must already work. The combined runtime archive is used by automatic deployment; the remote platform selects its matching helper and ripgrep.
 
-          Other target platforms and npm publication are not included.
           EOF
-          gh release create "v$version" artifact/dsh-remote-extension.tgz artifact/dsh-remote-linux-x86_64.tar.gz --target "$source_revision" --draft --title "dsh-remote $version" --notes-file notes.md
+          gh release create "v$version" artifact/dsh-remote-extension.tgz artifact/dsh-remote-runtime.tar.gz --target "$source_revision" --draft --title "dsh-remote $version" --notes-file notes.md
       - name: Publish the verified release as latest
         if: ${{ inputs.publish }}
         env:

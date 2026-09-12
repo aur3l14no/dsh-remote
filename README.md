@@ -1,12 +1,15 @@
 # dsh-remote (experimental)
 
 [![Tested with DSH 0.1.5-rc.2](https://img.shields.io/badge/Tested_with_DSH-0.1.5--rc.2-blue?style=flat)](docs/development/upstream-upgrades.md)
+[![SSH Linux x86_64](https://img.shields.io/badge/Linux-x86__64-2563eb?style=flat&logo=linux&logoColor=white)](docs/reference/bootstrap.md)
+[![SSH Linux aarch64](https://img.shields.io/badge/Linux-aarch64-2563eb?style=flat&logo=linux&logoColor=white)](docs/reference/bootstrap.md)
+[![SSH macOS 11+ aarch64](https://img.shields.io/badge/macOS_11%2B-aarch64-555555?style=flat&logo=apple&logoColor=white)](docs/reference/bootstrap.md)
 
 为 DeepSeek Harness（DSH）提供本机与 SSH 工作区。同一实例中选择执行环境，模型调用、对话历史和 Web 界面留在 DSH 宿主；项目文件、搜索和命令默认按会话绑定执行，也可为单次工具调用显式指定另一个 World 与目录。
 
 ## 快速开始
 
-远端要求：**Linux x86_64（glibc 2.36+）**，并已配置 OpenSSH 公钥认证。请先确保终端中的 `ssh <host>` 可正常连接；扩展复用已有 SSH 配置和 `known_hosts`。
+SSH 远端支持顶部所列平台。Linux helper 与 ripgrep 使用静态 musl 构建，不要求特定 glibc 版本。须配置 SSH 公钥认证；Bash 和终端工具需要目标上有 `/bin/bash`。请先确保终端中的 `ssh <host>` 可正常连接；扩展复用已有 SSH 配置和 `known_hosts`。
 
 已有 DSH，运行一条命令安装扩展：
 
