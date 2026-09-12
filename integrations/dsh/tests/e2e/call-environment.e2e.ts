@@ -63,6 +63,8 @@ it('routes explicit tool environments without rebinding the caller', async () =>
   const args = { execution_environment: target };
   await invoke('write', { ...args, file_path: filename, content: 'TARGET_B' });
   expect(await invoke('read', { ...args, file_path: filename })).toContain('TARGET_B');
+  // Backend idle can precede delivery of the second turn to the browser.
+  await expect.poll(() => page.getByText('1 tool call', { exact: true }).count()).toBe(2);
   await page.getByText('1 tool call', { exact: true }).last().click();
   await page.locator('[data-tool="read"]').last().getByRole('button', { name: filename, exact: true }).click();
   await expect.poll(() => page.locator('[data-textpreview-plain]').textContent()).toContain('TARGET_B');

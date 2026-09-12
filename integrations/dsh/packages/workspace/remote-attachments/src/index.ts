@@ -1,3 +1,4 @@
+import type { RemoteWorkspace } from '../../../world/ssh-world/src/workspace.ts';
 import { Context } from '@deepseek-ai/cordis';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment';
@@ -9,7 +10,7 @@ import { createReadStream } from 'node:fs';
 import { mkdir, mkdtemp, open, rm } from 'node:fs/promises';
 import { join, posix } from 'node:path';
 import { readFile, rawStream, writeFileStream, RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import type { Client, Metadata } from '../../../../../../runtime/client/src/index.ts';
+import type { Metadata } from '../../../../../../runtime/client/src/index.ts';
 import { workspaceFingerprint, type WorkspaceDefinition } from '../../../world/execution-world/src/identity.ts';
 import type {} from '../../../world/execution-world/src/worlds.ts';
 import type {} from '../../portable-workspace/src/registry.ts';
@@ -115,7 +116,7 @@ class SessionAttachments extends LocalAttachmentStore {
   }
 
   private objectRoot(owner = this.parent.host.executionWorlds.forSession(this.sessionId)): string {
-    const base = owner.remoteWorld.dataRoot;
+    const base = owner.remoteWorkspace.dataRoot;
     if (!base || !posix.isAbsolute(base) || posix.normalize(base) !== base) throw new RemoteError('WORLD_REQUIRED', 'Remote account data directory is unavailable');
     return posix.join(base, 'attachments', 'v1', this.key);
   }
@@ -145,13 +146,13 @@ class SessionAttachments extends LocalAttachmentStore {
     const target = await owner.fs.resolve(root, { signal });
     if (owner.fs.processPath(target) !== root) throw new AttachmentError('Attachment directory resolves through a symlink.', 'ATTACHMENT_READ_FAILED');
     if (writing) {
-      if (!owner.remoteWorld.client.info.capabilities.includes('fs.sync')) throw new RemoteError('UNSUPPORTED', 'Remote attachment writes require a helper with fs.sync; update the helper');
+      if (!owner.remoteWorkspace.client.info.capabilities.includes('fs.sync')) throw new RemoteError('UNSUPPORTED', 'Remote attachment writes require a helper with fs.sync; update the helper');
       // An explicitly selected World executes this fixed setup command. No host shell or user command rewriting.
       const command = owner.subprocess.spawn({ argv: ['sh', '-c', 'umask 077; mkdir -p -- "$1"', 'dsh-attachments', root], cwd: this.definition.cwd,
         stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 4096 } },
         graceMs: 500, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
       if ((await command.done).exitCode !== 0) throw new AttachmentError('Unable to create remote attachment directory.', 'ATTACHMENT_WRITE_FAILED');
-      const info = await owner.remoteWorld.client.requestWhenReady<Metadata>('fs.stat', { path: root, follow: false }, signal);
+      const info = await owner.remoteWorkspace.resources.run(signal, signal => owner.remoteWorkspace.client.requestWhenReady<Metadata>('fs.stat', { path: root, follow: false }, signal));
       if (info?.kind !== 'directory' || (info.mode & 0o077) !== 0) throw new AttachmentError('Remote attachment directory must be private.', 'ATTACHMENT_WRITE_FAILED');
     }
     this.assertBinding();
@@ -168,7 +169,7 @@ class SessionAttachments extends LocalAttachmentStore {
     const refs: ImageAttachmentRef[] = [];
     for (const image of prepared) {
       const ref = { ...image.ref, attachmentId: AttachmentId(`${image.ref.attachmentId}@world-${this.key}`) };
-      await this.publish(owner.remoteWorld.client, this.imageExecutionPath(ref)!, ref, () => (async function* () { yield image.data; })(), signal);
+      await this.publish(owner.remoteWorkspace, this.imageExecutionPath(ref)!, ref, () => (async function* () { yield image.data; })(), signal);
       refs.push(ref);
     }
     this.assertBinding();
@@ -182,7 +183,7 @@ class SessionAttachments extends LocalAttachmentStore {
     this.hash(ref);
     const owner = await this.prepare(signal);
     try {
-      const read = await readFile(owner.remoteWorld.client, this.imageExecutionPath(ref)!, ref.bytes, signal);
+      const read = await owner.remoteWorkspace.resources.run(signal, signal => readFile(owner.remoteWorkspace.client, this.imageExecutionPath(ref)!, ref.bytes, signal));
       await verifyImageData({ ...ref, attachmentId: AttachmentId(`sha256:${this.hash(ref)}`) }, read.data, signal);
       const result = { ref, data: read.data };
       this.assertBinding();
@@ -201,7 +202,7 @@ class SessionAttachments extends LocalAttachmentStore {
   override async saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
     const signal = this.signal(input.signal);
     const owner = await this.prepare(signal, true);
-    const limit = owner.remoteWorld.client.info.limits.uploadBytes!;
+    const limit = owner.remoteWorkspace.client.info.limits.uploadBytes!;
     // Content addressing needs a digest before the final remote name is known.
     // Spool bounded chunks temporarily, then upload with backpressure and remove the spool on every outcome.
     const staging = join(this.parent.root, '..', '..', 'remote', 'attachment-staging');
@@ -223,24 +224,27 @@ class SessionAttachments extends LocalAttachmentStore {
       } finally { await file.close(); }
       signal.throwIfAborted();
       const ref: FileAttachmentRef = { attachmentId: AttachmentId(`sha256:${hash.digest('hex')}@world-${this.key}`), bytes, name: fileLeafName(input.name) };
-      await this.publish(owner.remoteWorld.client, this.fileExecutionPath(ref)!, ref, () => createReadStream(path, { highWaterMark: 65536, signal }), signal);
+      await this.publish(owner.remoteWorkspace, this.fileExecutionPath(ref)!, ref, () => createReadStream(path, { highWaterMark: 65536, signal }), signal);
       this.assertBinding();
       return ref;
     } finally { await rm(directory, { recursive: true, force: true }); }
   }
 
-  private async publish(client: Client, path: string, ref: ImageAttachmentRef | FileAttachmentRef, source: () => AsyncIterable<Uint8Array>, signal: AbortSignal): Promise<void> {
-    try {
-      await writeFileStream(client, path, source(), ref.bytes, { kind: 'absent' }, signal);
-    } catch (error) {
-      if (!(error instanceof RemoteError) || error.code !== 'CREATE_CONFLICT') throw error;
-      // Existing content is accepted only after a byte-count and SHA-256 check, never merely by its name.
-      for await (const _chunk of this.readVerified(client, path, ref, signal)) { /* verify the complete existing object */ }
-    }
-    // Durable acknowledgement precedes the Session reference. This also covers deduplicated objects.
-    await client.requestWhenReady('fs.sync', { path }, signal);
-    this.assertBinding();
-    signal.throwIfAborted();
+  private async publish(workspace: RemoteWorkspace, path: string, ref: ImageAttachmentRef | FileAttachmentRef, source: () => AsyncIterable<Uint8Array>, signal: AbortSignal): Promise<void> {
+    return workspace.resources.run(signal, async signal => {
+      const client = workspace.client;
+      try {
+        await writeFileStream(client, path, source(), ref.bytes, { kind: 'absent' }, signal);
+      } catch (error) {
+        if (!(error instanceof RemoteError) || error.code !== 'CREATE_CONFLICT') throw error;
+        // Existing content is accepted only after a byte-count and SHA-256 check, never merely by its name.
+        for await (const _chunk of this.readVerified(workspace, path, ref, signal)) { /* verify the complete existing object */ }
+      }
+      // Durable acknowledgement precedes the Session reference. This also covers deduplicated objects.
+      await client.requestWhenReady('fs.sync', { path }, signal);
+      this.assertBinding();
+      signal.throwIfAborted();
+    });
   }
 
   override async *readFileStream(ref: FileAttachmentRef, cancellation?: AbortSignal): AsyncIterable<Uint8Array> {
@@ -248,13 +252,22 @@ class SessionAttachments extends LocalAttachmentStore {
     const signal = this.signal(cancellation);
     this.hash(ref);
     const owner = await this.prepare(signal);
-    try { yield* this.readVerified(owner.remoteWorld.client, this.fileExecutionPath(ref)!, ref, signal); }
+    try { yield* this.readVerified(owner.remoteWorkspace, this.fileExecutionPath(ref)!, ref, signal); }
     catch (error) { this.readFailure(error, signal); }
     this.assertBinding();
   }
 
-  private async *readVerified(client: Client, path: string, ref: ImageAttachmentRef | FileAttachmentRef, signal: AbortSignal): AsyncIterable<Uint8Array> {
-    const opened = await client.requestWhenReady<{ stream: string; metadata: Metadata }>('fs.read', { path, maxBytes: ref.bytes }, signal);
+  private async *readVerified(workspace: RemoteWorkspace, path: string, ref: ImageAttachmentRef | FileAttachmentRef, signal: AbortSignal): AsyncIterable<Uint8Array> {
+    const client = workspace.client;
+    signal = workspace.resources.signal(signal);
+    const { opened, close } = await workspace.resources.run(signal, async signal => {
+      const opened = await client.requestWhenReady<{ stream: string; metadata: Metadata }>('fs.read', { path, maxBytes: ref.bytes }, signal);
+      const cleanup = async () => {
+        if (client.state === 'ready' || client.state === 'reconnecting') await client.requestWhenReady('stream.close', { stream: opened.stream });
+      };
+      try { return { opened, close: workspace.registerOwner(cleanup) }; }
+      catch (error) { await cleanup(); throw error; }
+    });
     try {
       if (opened.metadata.size !== ref.bytes) throw new AttachmentError('Attachment size has changed.', 'ATTACHMENT_CORRUPT');
       const hash = createHash('sha256');
@@ -266,9 +279,7 @@ class SessionAttachments extends LocalAttachmentStore {
         yield chunk;
       }
       if (bytes !== ref.bytes || hash.digest('hex') !== this.hash(ref)) throw new AttachmentError('Attachment failed integrity verification.', 'ATTACHMENT_CORRUPT');
-    } finally {
-      if (client.state === 'ready' || client.state === 'reconnecting') await client.requestWhenReady('stream.close', { stream: opened.stream });
-    }
+    } finally { await close(); }
   }
 
   private readFailure(error: unknown, signal: AbortSignal): never {

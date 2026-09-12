@@ -14,12 +14,11 @@ export class RemoteError extends Error {
 }
 
 export interface Hello {
-  api: 1;
+  api: 2;
   build: string;
   runtime: string;
   token: string;
   world: string;
-  cwd: string;
   platform: string;
   arch: string;
   capabilities: string[];

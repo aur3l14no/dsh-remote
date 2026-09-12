@@ -54,7 +54,7 @@ export function executionWorldContext(ctx: Context, subject: Agent | ToolExecuti
   const definition = target?.definition ?? ctx.executionWorlds.bindings.get(agent!.session.header.id)!;
   const cwd = target?.cwd ?? definition.cwd;
   if (definition.kind === 'local') return Object.freeze({ world: definition.worldId, ...(target?.explicit ? {} : { workspace: definition.id }), kind: definition.kind, cwd, platform: process.platform, arch: process.arch });
-  const client = owner.remoteWorld.client;
+  const client = owner.remoteWorkspace.client;
   const info = client.info;
   return Object.freeze({ world: definition.worldId, ...(target?.explicit ? {} : { workspace: definition.id }), kind: definition.kind, runtime: info.runtime, cwd, helperBuild: info.build,
     enforcement: 'no remote OS sandbox; reads are allowed; workspace-write permits rooted file writes inside the workspace when fs.rooted-publish is available; other restricted operations require approval; approved operations use SSH account permissions',

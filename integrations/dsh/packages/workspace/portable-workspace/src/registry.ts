@@ -162,7 +162,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     }
     const local = next.get(LOCAL_WORLD_ID)!;
     if (local.workspaces?.length) {
-      const owner = await this.ctx.executionWorlds.prepareWorld(workspaceFor(local.environment, 'selection:local', '/'));
+      const owner = await this.ctx.executionWorlds.prepareWorkspace(workspaceFor(local.environment, 'selection:local', '/'));
       const seen = new Set<string>();
       for (const workspace of local.workspaces) {
         const target = await owner.fs.resolve(workspace.path);
@@ -232,7 +232,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     const world = this.environment(worldId);
     if (world.environment.kind !== 'ssh') throw new RemoteError('INVALID_WORLD', 'Scratch workspaces require an SSH target');
     signal.throwIfAborted();
-    const owner = await this.ctx.executionWorlds.prepareWorld(workspaceFor(world.environment, `selection:${worldId}`, '/'));
+    const owner = await this.ctx.executionWorlds.prepareWorkspace(workspaceFor(world.environment, `selection:${worldId}`, '/'));
     const path = await worldCommand(owner, '/', ['mktemp', '-d', '/tmp/dsh-workspace.XXXXXXXXXX'], signal);
     if (!/^\/tmp\/dsh-workspace\.[A-Za-z0-9]+$/.test(path)) throw new RemoteError('INVALID_WORLD', 'Target returned an invalid scratch path');
     signal.throwIfAborted();
@@ -243,7 +243,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   async prepareOperation(worldId: string, path: string, signal: AbortSignal) {
     const world = this.environment(worldId);
     const definition = workspaceFor(world.environment, `operation:${worldFingerprint(world.environment)}`, '/');
-    const owner = await this.ctx.executionWorlds.prepareWorld(definition);
+    const owner = await this.ctx.executionWorlds.prepareWorkspace(definition);
     const target = await owner.fs.resolve(path, { signal });
     if ((await owner.fs.stat(target, signal))?.type !== 'directory') throw new RemoteError('NOT_DIRECTORY', 'Execution directory must exist on the selected World');
     this.environment(worldId, world.environment);
@@ -260,7 +260,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
       this.changed();
       return this.get(workspace.id)!;
     }
-    const owner = await this.ctx.executionWorlds.prepareWorld(workspaceFor(world.environment, `selection:${worldId}`, '/'));
+    const owner = await this.ctx.executionWorlds.prepareWorkspace(workspaceFor(world.environment, `selection:${worldId}`, '/'));
     const target = await owner.fs.resolve(path);
     if ((await owner.fs.stat(target))?.type !== 'directory') throw new RemoteError('NOT_DIRECTORY', 'Workspace must be an existing remote directory');
     const canonical = owner.fs.processPath(target);
@@ -288,7 +288,7 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
   }
   async validate(id: WorkspaceId): Promise<void> {
     const definition = this.definition(id);
-    const owner = await this.ctx.executionWorlds.prepareWorld(definition);
+    const owner = await this.ctx.executionWorlds.prepareWorkspace(definition);
     const target = await owner.fs.resolve(definition.cwd);
     if (owner.fs.processPath(target) !== definition.cwd || (await owner.fs.stat(target))?.type !== 'directory') {
       throw new RemoteError('WORLD_MISMATCH', 'Saved workspace is missing or changed canonical identity');

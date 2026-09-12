@@ -22,7 +22,7 @@ test('system OpenSSH: remote files, large collection, raw resume, search and sco
   assert.match(root, /^\/tmp\/dsh-client-ssh\.[A-Za-z0-9]+$/);
   let client: Awaited<ReturnType<typeof connectSuppliedRuntime>> | undefined;
   try {
-    await command([helper, 'start', '--runtime-dir', `${root}/runtime`, '--cwd', root, '--grace-ms', '10000', '--lease-ms', '5000']);
+    await command([helper, 'start', '--runtime-dir', `${root}/runtime`, '--grace-ms', '10000', '--lease-ms', '5000']);
     client = await connectSuppliedRuntime({ ...target, world: 'ssh-test', helper, socket: `${root}/runtime/socket` });
     const path = `${root}/remote-only.txt`;
     const created = await writeFile(client, path, Buffer.from('remote needle\n'), { kind: 'absent' });

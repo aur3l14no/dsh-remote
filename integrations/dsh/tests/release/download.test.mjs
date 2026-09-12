@@ -20,7 +20,7 @@ test('automatic runtime acquisition pins the extension, shares downloads, reuses
     const release = { format: 1, sourceRevision: 'b'.repeat(40), sourceDirty: false, upstreamRevision: expected.revision,
       dshVersion: expected.dshVersion, extensionVersion: expected.version, extension: { filename, ...artifact },
       manifest: { format: 1, bundles: [{ target: { os: 'linux', arch: 'x86_64', abi: { kind: 'glibc', minimum: '2.36' } },
-        helper: { version: '0.1.3', api: 1, artifact }, ripgrep: { version: '13.0.0', artifact } }] } };
+        helper: { version: '0.1.3', api: 2, artifact }, ripgrep: { version: '13.0.0', artifact } }] } };
     await writeFile(join(source, 'release.json'), JSON.stringify(release));
     for (const file of [filename, `artifacts/${artifact.sha256}`, 'LICENSE', 'LICENSE-RIPGREP']) await writeFile(join(source, file), bytes);
     const pack = () => execFileSync('tar', ['-czf', join(state, 'runtime.tar.gz'), '-C', source, '.']);

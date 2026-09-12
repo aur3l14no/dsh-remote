@@ -6,11 +6,11 @@ import { execute } from '../../ssh/src/control.ts';
 
 test('trusted manifest rejects invalid metadata and ambiguous or incompatible ABI selection', () => {
   const artifact = { bytes: 100, sha256: 'a'.repeat(64) };
-  const bundle = { target: { os: 'linux', arch: 'x86_64', abi: { kind: 'glibc', minimum: '2.39' } }, helper: { version: '0.1.1', api: 1, artifact }, ripgrep: { version: '15.2.0', artifact } };
+  const bundle = { target: { os: 'linux', arch: 'x86_64', abi: { kind: 'glibc', minimum: '2.39' } }, helper: { version: '0.1.1', api: 2, artifact }, ripgrep: { version: '15.2.0', artifact } };
   const manifest = parseManifest({ format: 1, bundles: [bundle] });
   assert.equal(selectBundle(manifest, { os: 'linux', arch: 'x86_64', glibc: '2.40' }).helper.version, '0.1.1');
   for (const glibc of [undefined, '2.38']) assert.throws(() => selectBundle(manifest, { os: 'linux', arch: 'x86_64', glibc }), { code: 'UNSUPPORTED_PLATFORM' });
-  assert.throws(() => parseManifest({ format: 1, bundles: [{ ...bundle, helper: { ...bundle.helper, api: 2 } }] }), { code: 'INVALID_MANIFEST' });
+  assert.throws(() => parseManifest({ format: 1, bundles: [{ ...bundle, helper: { ...bundle.helper, api: 1 } }] }), { code: 'INVALID_MANIFEST' });
   assert.throws(() => parseManifest({ format: 1, bundles: [{ ...bundle, ripgrep: { ...bundle.ripgrep, artifact: { bytes: Infinity, sha256: 'x' } } }] }), { code: 'INVALID_MANIFEST' });
   const ambiguous = parseManifest({ format: 1, bundles: [bundle, { ...bundle, target: { ...bundle.target, abi: { kind: 'musl-static' } } }] });
   assert.throws(() => selectBundle(ambiguous, { os: 'linux', arch: 'x86_64', glibc: '2.39' }), { code: 'UNSUPPORTED_PLATFORM' });

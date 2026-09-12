@@ -11,15 +11,15 @@ export interface TerminalConfig { /** Resolved in the World, never on the local 
 
 /** Acceptance-only application composition of actual DSH consumers; not part of the World plugin. */
 export async function applyTerminalConsumers(ctx: Context, config: TerminalConfig): Promise<void> {
-  if (!ctx.remoteWorld.client.info.capabilities.includes('process.pty')) throw new RemoteError('UNSUPPORTED', 'Terminal profile requires remote PTY');
+  if (!ctx.remoteWorkspace.client.info.capabilities.includes('process.pty')) throw new RemoteError('UNSUPPORTED', 'Terminal profile requires remote PTY');
   const shell = await ctx.subprocess.resolveExecutable(config.shell);
   const probe = ctx.subprocess.spawn({ argv: [shell, '--noprofile', '--norc', '-c', 'test -n "$BASH_VERSION"'],
-    cwd: ctx.remoteWorld.client.info.cwd, graceMs: 500, signal: AbortSignal.timeout(5000),
+    cwd: ctx.remoteWorkspace.cwd, graceMs: 500, signal: AbortSignal.timeout(5000),
     stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } } });
   const result = await probe.done;
   await probe.waitForExit();
   if (result.exitCode !== 0) throw new RemoteError('UNSUPPORTED', 'Terminal profile requires a working target Bash');
-  await ctx.plugin(SandboxPolicy, { mode: 'danger-full-access', workspaceRoot: ctx.remoteWorld.client.info.cwd });
+  await ctx.plugin(SandboxPolicy, { mode: 'danger-full-access', workspaceRoot: ctx.remoteWorkspace.cwd });
   await ctx.plugin(TerminalSessionService);
   await ctx.plugin(LocalJobRegistry, { maxConcurrentJobsPerOwner: 10 });
   await ctx.plugin(TerminalBash, { shellPath: shell, shellDialect: 'bash', pollIntervalMs: 50, exactProbeAfterMs: 150,

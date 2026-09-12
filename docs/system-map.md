@@ -30,6 +30,17 @@ flowchart LR
 
 [identity.ts](../integrations/dsh/packages/world/execution-world/src/identity.ts) 集中定义身份：`WorldDefinition` 是不含 cwd 的 local/SSH 执行环境；`WorkspaceDefinition` 保存独立的 workspace ID、worldId、canonical cwd 与目标配置快照；binding 把 Session 固定到 Workspace。helper runtime 则是当前连接与资源的运行实例。同名 cwd 不能标识同一 World。普通 child 沿 parent lineage 逐级核对完整绑定；显式委派在持久保存的 parent 授权边界使用目标 portable_workspace。两者均不成为顶层列表成员。
 
+同一 DSH 宿主进程内，同一 World 配置的 Workspace views 共用一个 Client、SSH 数据连接和 helper。`WorldRuntimePool` 按 World ID 与目标配置指纹合并并发连接；`RemoteWorkspace` 只保存自身 cwd、资源 scope 和 runtime lease。helper API 2 的 `world` 是真正的 World ID，hello 不再包含 cwd；文件解析和进程执行每次显式传目录。目录在 view 准入时校验，不由共享 helper 保存默认值。
+
+```mermaid
+flowchart LR
+  A["Workspace A：cwd A／资源 owner A"] --> R["World runtime pool：同一配置一个 Client"]
+  B["Workspace B：cwd B／资源 owner B"] --> R
+  R --> T["一个 SSH 数据连接"] --> H["一个 helper：World ID＋runtime epoch"]
+```
+
+关闭 view 先取消和清理它自己的请求、文件流、进程与 PTY，再归还 lease；最后一个 lease 才关闭 runtime。文件发布授权绑定具体 Workspace owner，共享 Client 不扩大授权。Workspace views 由宿主服务缓存，Session 结束不自动驱逐 Workspace。重连只恢复同一 epoch；失效 runtime 不重放到新实例。没有跨宿主进程共享 daemon 或额外 SSH 连接池。完整失败语义见 [bootstrap 契约](reference/bootstrap.md)。
+
 registry 的 `portable_workspaces` 保存工作区与 membership；`workspace_presentation` 单独保存置顶和归档，颜色与 skill 选择由配置提供。展示字段不参与身份比较，也不通过修改 workspace 时间戳触发刷新。工作区 membership 使用原生 feed；World 名称、颜色、选择项与置顶通过独立 `followWorlds` stream 发布完整视图，断线重连后重新取得快照。绑定存储与提交规则见 [Session bindings](reference/session-bindings.md)。
 
 ## 功能怎样落到上游设施
@@ -193,7 +204,7 @@ flowchart TD
 
 ### Cordis、preset 与模块身份为什么重要
 
-服务注册并不是“名字相同就接上了”。FS、subprocess、shell、workdir resolver 在同一个 standing preset 隔离域中，Agents 加入该域，共享原生工具实例。`bundle/remote` 按依赖装配同步、World owner、feed、registry 和消费者；**feed 与 Remote namespace 必须先于依赖它们的 controller/UI 激活**，否则可能启动等待或缺服务。
+服务注册并不是“名字相同就接上了”。FS、subprocess、shell、workdir resolver 在同一个 standing preset 隔离域中，Agents 加入该域，共享原生工具实例。`bundle/remote` 按依赖装配同步、World runtime pool 与 Workspace views、feed、registry 和消费者；**feed 与 Remote namespace 必须先于依赖它们的 controller/UI 激活**，否则可能启动等待或缺服务。
 
 源码目录不表示独立 npm 发行，也不表示单一 Cordis 实例。兼容包相互引用必须在构建期指向同一份包内实现，保留 package、client factory、Typert 的身份。不能靠 Node resolve hook 修补实例冲突。装配入口见 [bundle](../integrations/dsh/packages/bundle/remote/src/index.ts)。
 
@@ -255,7 +266,7 @@ flowchart TD
 | `runtime/tests/`、`runtime/scripts/` | 通用 runtime 测试与产物准备 |
 | `integrations/dsh/packages/world/execution-world/` | identity.ts 的身份比较、bindings.ts 的持久绑定、call-environment.ts 的调用环境与资源来源、分派与 preset 选择 |
 | `integrations/dsh/packages/world/local-world/` | 组合原生本机 FS/subprocess，无 helper |
-| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、工具审批与文件发布授权、绑定 owner 的 terminal backend |
+| `integrations/dsh/packages/world/ssh-world/` | World runtime pool、Workspace view/resource scope、SSH providers、工具审批与文件发布授权、绑定 owner 的 terminal backend |
 | `integrations/dsh/packages/workspace/local-workspace/` | 独立原生 registry 域及 facade 桥接 |
 | `integrations/dsh/packages/workspace/` | portable-workspace 的 registry/membership、独立 presentation、准入/UI；remote-attachments 的 Session 附件策略 |
 | `integrations/dsh/packages/skill/`、`bundle/` | Skills 发现／同步；整体装配和激活顺序 |

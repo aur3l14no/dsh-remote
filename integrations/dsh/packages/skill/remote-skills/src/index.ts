@@ -28,7 +28,7 @@ export function apply(ctx: Context): void {
     const saved = ctx.executionWorlds.bindings.get(id);
     if (!saved || !sameWorkspace(expected, saved) || options.cwd !== expected.cwd) throw new Error('Remote context binding mismatch');
     const definition = await observe(ctx.executionWorlds.prepare(id), signal);
-    const owner = await observe(ctx.executionWorlds.prepareWorld(definition), signal);
+    const owner = await observe(ctx.executionWorlds.prepareWorkspace(definition), signal);
     if (definition.kind === 'local') return { owner, home: homedir(), cwd: definition.cwd, id: definition.id, signal, kind: 'local' as const };
     let home = homes.get(definition.id);
     if (!home) {

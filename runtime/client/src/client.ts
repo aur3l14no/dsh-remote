@@ -107,12 +107,12 @@ export class Client extends EventEmitter {
       void this.#read(transport, greeting);
       const prior = this.#hello;
       transport.write(encode({ id: 0, method: 'runtime.hello', params: {
-        api: 1, world: this.#options.world,
+        api: 2, world: this.#options.world,
         required: [...new Set(['runtime.resume', 'request.dedup', ...(this.#options.required ?? [])])],
         ...(prior ? { runtime: prior.runtime, token: prior.token } : {}),
       } }));
       const info = this.#validateHello(await greeting.promise);
-      if (prior && (info.runtime !== prior.runtime || info.token !== prior.token || info.cwd !== prior.cwd)) {
+      if (prior && (info.runtime !== prior.runtime || info.token !== prior.token)) {
         throw protocolError('Resumed runtime identity changed');
       }
       if (!prior && info.requestHighWater !== 0) throw protocolError('Fresh runtime already admitted requests');
@@ -133,10 +133,10 @@ export class Client extends EventEmitter {
 
   #validateHello(value: unknown): Hello {
     const h = object(value);
-    for (const key of ['runtime', 'token', 'world', 'cwd', 'build', 'platform', 'arch']) {
+    for (const key of ['runtime', 'token', 'world', 'build', 'platform', 'arch']) {
       if (typeof h[key] !== 'string' || !h[key]) throw protocolError(`Invalid hello ${key}`);
     }
-    if (h.api !== 1 || h.world !== this.#options.world || !(h.cwd as string).startsWith('/')) throw protocolError('Incompatible runtime greeting');
+    if (h.api !== 2 || h.world !== this.#options.world) throw protocolError('Incompatible runtime greeting');
     if (!Array.isArray(h.capabilities) || h.capabilities.some(cap => typeof cap !== 'string')) throw protocolError('Invalid capabilities');
     for (const required of ['runtime.resume', 'request.dedup', ...(this.#options.required ?? [])]) {
       if (!h.capabilities.includes(required)) throw new RemoteError('UNSUPPORTED', `Missing runtime capability: ${required}`);

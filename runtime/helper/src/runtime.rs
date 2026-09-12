@@ -56,7 +56,6 @@ struct Session {
     active: bool,
     detached: Instant,
     world: Option<String>,
-    cwd: PathBuf,
     high_water: u64,
     requests: BTreeMap<u64, Record>,
     cache_bytes: usize,
@@ -91,12 +90,8 @@ impl Runtime {
             self.sequence.fetch_add(1, Ordering::Relaxed)
         )
     }
-    pub async fn serve(dir: PathBuf, cwd: PathBuf, grace: Duration, lease: Duration) -> Result<()> {
+    pub async fn serve(dir: PathBuf, grace: Duration, lease: Duration) -> Result<()> {
         fs::absolute(fs::utf8(&dir)?)?;
-        let cwd = std::fs::canonicalize(cwd)?;
-        if !cwd.is_dir() {
-            return Err(invalid("runtime cwd must be a directory"));
-        }
         // A fresh, private directory prevents stale sockets and symlink replacement.
         std::os::unix::fs::DirBuilderExt::mode(&mut std::fs::DirBuilder::new(), 0o700)
             .create(&dir)?;
@@ -124,7 +119,6 @@ impl Runtime {
                 active: false,
                 detached: Instant::now(),
                 world: None,
-                cwd,
                 high_water: 0,
                 requests: BTreeMap::new(),
                 cache_bytes: 0,
@@ -185,10 +179,10 @@ impl Runtime {
         Ok(())
     }
     async fn hello(&self, p: &Value) -> Result<Value> {
-        if p["api"] != 1 {
+        if p["api"] != 2 {
             return Err(Error::new(
                 "INCOMPATIBLE_VERSION",
-                "requires API revision 1",
+                "requires API revision 2",
             ));
         }
         if let Some(required) = p.get("required") {
@@ -248,7 +242,7 @@ impl Runtime {
         }
         s.active = true;
         Ok(
-            json!({"api":1,"build":env!("CARGO_PKG_VERSION"),"runtime":self.id,"token":self.token,"world":s.world,"cwd":fs::utf8(&s.cwd)?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"capabilities":self.capabilities,"inputWaiting":"unknown","cleanupScope":"observed-session-members","graceMs":self.grace.as_millis(),"leaseMs":self.lease.as_millis(),"limits":{"frameBytes":wire::MAX_FRAME,"chunkBytes":CHUNK,"processes":MAX_PROCESSES,"streams":MAX_STREAMS,"uploads":MAX_UPLOADS,"requests":MAX_REQUESTS,"outputBytesPerStream":output::MAX_COLLECT_BYTES,"rawOutputBytesPerStream":output::MAX_RAW_BYTES,"outputBytesPerRuntime":output::MAX_RUNTIME_BYTES,"maxGraceMs":30000,"spillBytesPerStream":16*1024*1024,"spillBytesPerRuntime":64*1024*1024,"uploadBytes":64*1024*1024,"dedupResponses":256,"dedupBytes":8*1024*1024},"requestHighWater":s.high_water}),
+            json!({"api":2,"build":env!("CARGO_PKG_VERSION"),"runtime":self.id,"token":self.token,"world":s.world,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"capabilities":self.capabilities,"inputWaiting":"unknown","cleanupScope":"observed-session-members","graceMs":self.grace.as_millis(),"leaseMs":self.lease.as_millis(),"limits":{"frameBytes":wire::MAX_FRAME,"chunkBytes":CHUNK,"processes":MAX_PROCESSES,"streams":MAX_STREAMS,"uploads":MAX_UPLOADS,"requests":MAX_REQUESTS,"outputBytesPerStream":output::MAX_COLLECT_BYTES,"rawOutputBytesPerStream":output::MAX_RAW_BYTES,"outputBytesPerRuntime":output::MAX_RUNTIME_BYTES,"maxGraceMs":30000,"spillBytesPerStream":16*1024*1024,"spillBytesPerRuntime":64*1024*1024,"uploadBytes":64*1024*1024,"dedupResponses":256,"dedupBytes":8*1024*1024},"requestHighWater":s.high_water}),
         )
     }
     async fn connection(self: Arc<Self>, mut stream: UnixStream) -> Result<()> {
@@ -539,11 +533,7 @@ impl Runtime {
                 if path.contains('\0') {
                     return Err(invalid("NUL path"));
                 }
-                let cwd = if let Some(cwd) = p.get("cwd") {
-                    fs::absolute(cwd.as_str().ok_or_else(|| invalid("cwd must be string"))?)?
-                } else {
-                    self.session.lock().await.cwd.clone()
-                };
+                let cwd = fs::absolute(string(p, "cwd")?)?;
                 let resolved = tokio::task::block_in_place(|| fs::resolve(&cwd.join(path)))?;
                 Ok(json!({"path":fs::utf8(&resolved)?}))
             }

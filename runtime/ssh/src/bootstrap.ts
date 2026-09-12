@@ -9,7 +9,6 @@ import type { Installation, Probe } from './provision.ts';
 
 export interface BootstrapOptions extends SshTarget {
   world: string;
-  cwd: string;
   /** Trusted release metadata. The target never supplies executable provenance. */
   manifest: unknown;
   /** Local files named by SHA-256; populated explicitly or by the caller's trusted downloader. */
@@ -54,7 +53,7 @@ export async function provisionWorld(control: Control, connect: Connection, opti
   const required = [...(options.required ?? [])];
   const runtimeBase = remotePath(options.runtimeBase ?? '/tmp');
   options.signal?.throwIfAborted();
-  const platform = await probe(control, options.cwd, options.installRoot, options.signal);
+  const platform = await probe(control, options.installRoot, options.signal);
   const bundle = selectBundle(manifest, platform);
   const installation = await install(control, platform, bundle, options.cacheDir, { signal: options.signal, lockWaitMs: options.lockWaitMs });
   const parent = remotePath((await script(control, 'cd "$1"\nmktemp -d "$(pwd -P)/dsh-world.XXXXXXXX"\n', [runtimeBase], { signal: options.signal })).replace(/\n$/, ''));
@@ -68,13 +67,13 @@ export async function provisionWorld(control: Control, connect: Connection, opti
   let startAttempted = false;
   try {
     startAttempted = true;
-    const started = await control([installation.helper, 'start', '--runtime-dir', `${parent}/runtime`, '--cwd', platform.cwd,
+    const started = await control([installation.helper, 'start', '--runtime-dir', `${parent}/runtime`,
       '--grace-ms', String(graceMs), '--lease-ms', String(leaseMs)], { signal: options.signal, timeoutMs: connectTimeoutMs });
     if (started !== '{"started":true}\n') throw new RemoteError('CONTROL_PROTOCOL', 'Unexpected runtime startup response');
     client = await connect({ world: options.world, helper: installation.helper, socket, connectTimeoutMs, required });
     options.signal?.throwIfAborted();
-    if (client.info.build !== bundle.helper.version || client.info.platform !== platform.os || client.info.arch !== platform.arch || client.info.cwd !== platform.cwd) throw new RemoteError('RUNTIME_MISMATCH', 'Negotiated runtime differs from selected installation');
-    const check = await RemoteProcess.spawn(client, { argv: [installation.ripgrep, '--version'], cwd: platform.cwd, stdin: 'ignore', graceMs: 500, drainMs: 500,
+    if (client.info.build !== bundle.helper.version || client.info.platform !== platform.os || client.info.arch !== platform.arch) throw new RemoteError('RUNTIME_MISMATCH', 'Negotiated runtime differs from selected installation');
+    const check = await RemoteProcess.spawn(client, { argv: [installation.ripgrep, '--version'], cwd: platform.home, stdin: 'ignore', graceMs: 500, drainMs: 500,
       stdout: { mode: 'collect', maxBytes: 32768 }, stderr: { mode: 'collect', maxBytes: 32768 } });
     const interrupted = Promise.withResolvers<never>();
     const abort = () => interrupted.reject(new RemoteError('CANCELLED', 'Bootstrap validation cancelled'));

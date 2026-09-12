@@ -12,14 +12,14 @@ export interface Config extends SshAdapterConfig {
   local?: Context;
   bindingFile: string;
 }
-interface OpenWorld { definition: WorkspaceDefinition; ctx: Context }
+interface OpenWorkspace { definition: WorkspaceDefinition; ctx: Context }
 declare module '@deepseek-ai/cordis' { interface Context { executionWorlds: ExecutionWorlds } }
 
-/** Owns World connections and durable bindings, never Agent creation or Session history. */
+/** Owns workspace provider views and durable bindings; the SSH adapter owns shared World runtimes. */
 export default class ExecutionWorlds extends Service {
   readonly bindings: BindingStore;
-  private opening = new Map<string, Promise<OpenWorld>>();
-  private ready = new Map<string, OpenWorld>();
+  private opening = new Map<string, Promise<OpenWorkspace>>();
+  private ready = new Map<string, OpenWorkspace>();
   private live = new WeakMap<Agent, WorkspaceDefinition>();
   private closed = false;
   private readonly ssh: SshWorldAdapter;
@@ -33,7 +33,7 @@ export default class ExecutionWorlds extends Service {
     ctx.effect(() => async () => {
       this.closed = true;
       const results = await Promise.allSettled([...this.opening.values()].map(async pending => {
-        let world: OpenWorld;
+        let world: OpenWorkspace;
         try { world = await pending; } catch { return; } // Failed setup owns its own cleanup.
         await world.ctx.fiber.dispose();
       }));
@@ -48,7 +48,7 @@ export default class ExecutionWorlds extends Service {
   private same(left: WorkspaceDefinition, right: WorkspaceDefinition): void {
     if (!sameWorkspace(left, right)) throw new RemoteError('WORLD_MISMATCH', 'World definition changed');
   }
-  private async open(input: WorkspaceDefinition): Promise<OpenWorld> {
+  private async open(input: WorkspaceDefinition): Promise<OpenWorkspace> {
     this.assertOpen();
     const definition = workspaceDefinition(input);
     let pending = this.opening.get(definition.id);
@@ -59,14 +59,11 @@ export default class ExecutionWorlds extends Service {
           this.ready.set(definition.id, world);
           return world;
         }
-        try { await this.ssh.prepare(definition); }
-        catch (error) {
-          // No runtime allocation was attempted; a corrected source may retry.
+        this.assertOpen();
+        const owner = await this.ssh.open(definition).catch(error => {
           this.opening.delete(definition.id);
           throw error;
-        }
-        this.assertOpen();
-        const owner = await this.ssh.open(definition);
+        });
         try {
           this.assertOpen();
           const world = { definition, ctx: owner };
@@ -77,7 +74,7 @@ export default class ExecutionWorlds extends Service {
           throw error;
         }
       })();
-      // A failed/runtime-lost World is never silently replaced in this owner lifetime.
+      // Setup failures may retry; a published view never silently replaces its runtime epoch.
       this.opening.set(definition.id, pending);
     }
     const world = await pending;
@@ -96,7 +93,7 @@ export default class ExecutionWorlds extends Service {
   }
 
   /** Concrete providers for application-owned workspace selection, before a Session exists. */
-  async prepareWorld(input: WorkspaceDefinition): Promise<Context> {
+  async prepareWorkspace(input: WorkspaceDefinition): Promise<Context> {
     return (await this.open(input)).ctx;
   }
 

@@ -24,9 +24,9 @@ try {
   const worlds = owner.executionWorlds;
   const local = { id: 'local-project', worldId: 'local', kind: 'local' as const, cwd: directory };
   await worlds.bind('local-session', local);
-  const prepared = await worlds.prepareWorld(local);
+  const prepared = await worlds.prepareWorkspace(local);
   assert.equal(prepared.fs, fs); assert.equal(prepared.subprocess, subprocess);
-  assert.equal(prepared.get('remoteWorld'), undefined);
+  assert.equal(prepared.get('remoteWorkspace'), undefined);
   assert.deepEqual([remotePreparation, remoteConnect, remoteSkills], [0, 0, 0]);
   // Also exercise the production adapter with no injected SSH connector.
   const production = new Context();

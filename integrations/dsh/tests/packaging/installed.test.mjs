@@ -32,7 +32,7 @@ test('native add, repeat add, version rejection and remove preserve official ins
     const binary = await cacheArtifact(join(fixture, 'binary'), join(fixture, 'cache'));
     await writeFile(join(fixture, 'license'), 'fixture license');
     await writeFile(join(fixture, 'manifest.json'), JSON.stringify({ format: 1, bundles: [{ target: { os: 'linux', arch: 'x86_64', abi: { kind: 'glibc', minimum: '2.36' } },
-      helper: { version: '0.1.3', api: 1, artifact: binary }, ripgrep: { version: '13.0.0', artifact: binary } }] }));
+      helper: { version: '0.1.3', api: 2, artifact: binary }, ripgrep: { version: '13.0.0', artifact: binary } }] }));
     const release = join(fixture, 'release');
     execFileSync(process.execPath, ['integrations/dsh/scripts/pack-release.mjs', 'dist/dsh/extension-build.json', join(fixture, 'manifest.json'),
       join(fixture, 'cache'), join(fixture, 'license'), release], { stdio: 'pipe' });

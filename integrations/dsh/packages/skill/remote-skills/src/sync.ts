@@ -1,6 +1,6 @@
 import { isAbsolute } from 'node:path';
 import { deploySkills, type SkillInstall } from './deploy.ts';
-import { targetFingerprint, type WorkspaceDefinition, type WorldTarget } from '../../../world/execution-world/src/identity.ts';
+import { targetFingerprint, type WorldDefinition, type WorldTarget } from '../../../world/execution-world/src/identity.ts';
 
 interface SkillWorld { id: string; target: WorldTarget; skills?: SkillInstall[]; enabledSkills?: string[] }
 export const destinationKey = (target: SkillWorld['target']) => targetFingerprint(target);
@@ -30,7 +30,7 @@ export class SkillSynchronizer {
     }
   }
 
-  async beforeConnect(definition: WorkspaceDefinition): Promise<void> {
+  async beforeConnect(definition: WorldDefinition): Promise<void> {
     if (definition.kind === 'local') return;
     if (this.reloading || this.blocked) throw new Error('World reload is applying or needs repair; finish Reload worlds before connecting');
     const world = this.destinations.get(destinationKey(definition));

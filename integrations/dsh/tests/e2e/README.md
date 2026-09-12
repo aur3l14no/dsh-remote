@@ -24,6 +24,7 @@ Private inputs stay under `.build/dsh/e2e/run-*`; the runner does not load perso
 
 | Gate | Coverage |
 | --- | --- |
+| shared-runtime | Same-World concurrent workspace views share one Client/helper over real SSH; independent cwd and file authorization, owner disposal, reconnect and new-epoch rejection |
 | patched-host admission | Controller creation/adoption, fork and cold activation over real SSH; separate from browser and model acceptance |
 | `local-workspace.e2e.ts` | Official vanilla native baseline, unbound historical resume rejection without changing old logs, and fresh explicit local admission; two-client presentation subscriptions, local permissions, skills/instructions, jobs, terminals, child/fork, browser directory selection, file/image uploads, model reads, child attachment reads, ZIP export and cold restore. With the two-World runner: concurrent native macOS/two Linux SSH operation at an identical path, local catalog reload and SSH shutdown without local fallback |
 | patched-host attachments | Remote storage, World isolation, native pi-ai request serialization to a synthetic endpoint, image tools, restart/fork, unqualified SSH reference and missing/corrupt source rejection over native or Linux/SSH providers |

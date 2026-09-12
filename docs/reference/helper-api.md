@@ -1,6 +1,6 @@
-# Helper API revision 1
+# Helper API revision 2
 
-Wire revision 1, helper 0.1.4. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
+Wire revision 2, helper 0.1.5. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
 
 ## Design basis
 
@@ -15,7 +15,7 @@ These are design references, not wire compatibility claims. DSH was inspected at
 
 ## Runtime and transport
 
-`dsh-remote-helper start --runtime-dir ABSENT_ABSOLUTE_DIR --cwd ABSOLUTE_DIR` starts `serve` in a separate session with detached stdio. `serve` creates a fresh mode-0700 directory and a mode-0600 Unix socket named `socket`. `connect --socket PATH` bridges stdin/stdout to that socket and can be launched through system OpenSSH. It exits when either side closes; it never executes a local substitute. A native macOS instance is an explicit acceptance target.
+`dsh-remote-helper start --runtime-dir ABSENT_ABSOLUTE_DIR` starts `serve` in a separate session with detached stdio. `serve` creates a fresh mode-0700 directory and a mode-0600 Unix socket named `socket`. `connect --socket PATH` bridges stdin/stdout to that socket and can be launched through system OpenSSH. It exits when either side closes; it never executes a local substitute. A native macOS instance is an explicit acceptance target.
 
 The runtime owns its processes, open read streams, uploads, collection buffers, and spill files. It has one logical session and at most one active controller. Connecting to an occupied session returns `SESSION_BUSY`. Different Worlds use separate runtimes; sharing OpenSSH transport does not merge ownership. Local providers own their process references; DSH consumers may additionally track Agent owners. A provider's disposal terminates/releases its own set; global shutdown closes the runtime.
 
@@ -25,6 +25,8 @@ Grace expiry or helper TERM/INT triggers managed cleanup. Explicit `runtime.shut
 
 The socket/token is scoped to the same account, not a security boundary against that account. The helper has the invoking account's filesystem/process permissions. Cwd is not a sandbox. The helper supplies operation facts, not approval policy; see the [execution boundary](../system-map.md).
 
+The protocol World identifies the execution environment, never a Workspace. API 2 removes runtime-wide cwd; each path-resolution or process request supplies its own absolute cwd. API 1 clients/helpers are incompatible and must be upgraded together. Multiple workspace owners share one controller and the runtime resource budgets; owner cancellation and release are managed by the client adapters.
+
 ## Framing and requests
 
 Each frame is a four-byte **big-endian** unsigned payload length followed by UTF-8 JSON. Payload length must be 1..2097152 bytes. No compression or implicit shell interpretation is used. Binary `data` fields are standard padded Base64. IDs and offsets are byte coordinates, never UTF-16 string positions. Request IDs are integers in 1..2^53-1; clients must preserve large byte offsets exactly when decoding JSON.
@@ -32,10 +34,10 @@ Each frame is a four-byte **big-endian** unsigned payload length followed by UTF
 First frame:
 
 ```json
-{"id":0,"method":"runtime.hello","params":{"api":1,"world":"example","required":["process.pty","runtime.resume"]}}
+{"id":0,"method":"runtime.hello","params":{"api":2,"world":"example","required":["process.pty","runtime.resume"]}}
 ```
 
-For resume, add `runtime` and `token` from the original hello result. Do not put these credentials into logs or committed configuration. Hello returns API/build version, runtime/token, World, canonical cwd, OS/architecture, effective capabilities/limits, grace/lease, cleanup scope, and `requestHighWater`. Missing required capabilities or incompatible revisions fail before admitting work. PTY availability is probed, not inferred from the OS name. Actual allocation or filesystem calls can still fail after hello.
+For resume, add `runtime` and `token` from the original hello result. Do not put these credentials into logs or committed configuration. Hello returns API/build version, runtime/token, World, OS/architecture, effective capabilities/limits, grace/lease, cleanup scope, and `requestHighWater`. Missing required capabilities or incompatible revisions fail before admitting work. PTY availability is probed, not inferred from the OS name. Actual allocation or filesystem calls can still fail after hello.
 
 Subsequent frames:
 
@@ -59,18 +61,18 @@ The approved logical operations are encoded as 27 wire methods: guarded byte pub
 
 | Method | Parameters | Result |
 | --- | --- | --- |
-| `runtime.hello` | `api:1`, initial `world`, optional `required`; resume adds `runtime`, `token`. ID must be 0 and this must be the first frame. | Negotiated identity, platform, capabilities, limits and high-water mark. |
+| `runtime.hello` | `api:2`, initial `world`, optional `required`; resume adds `runtime`, `token`. ID must be 0 and this must be the first frame. | Negotiated identity, platform, capabilities, limits and high-water mark. |
 | `runtime.ping` | Optional `value`. | Echo and runtime identity. |
 | `runtime.cancel` | `request`: admitted request ID. | `status: accepted / settled / unknown`. Accepted is a cancellation request, not a rollback or cleanup guarantee. |
 | `runtime.shutdown` | Optional `deadlineMs` (default 5000, max 35000). | `cleanupComplete:true` with scope, or `CLEANUP_INCOMPLETE`. Stops new admission. |
 
 ### Filesystem
 
-Paths are native UTF-8, NUL-free absolute paths except `fs.resolve.path`, which may be relative to the supplied/default cwd. No `~`, environment-variable or shell expansion occurs. Non-UTF-8 directory names fail explicitly.
+Paths are native UTF-8, NUL-free absolute paths except `fs.resolve.path`, which may be relative to the explicitly supplied cwd. No `~`, environment-variable or shell expansion occurs. Non-UTF-8 directory names fail explicitly.
 
 | Method | Parameters | Result |
 | --- | --- | --- |
-| `fs.resolve` | `path`, optional absolute `cwd`. | Canonical `path`; follows existing and dangling symlink targets, preserving the missing suffix. |
+| `fs.resolve` | `path`, required absolute `cwd`. | Canonical `path`; follows existing and dangling symlink targets, preserving the missing suffix. |
 | `fs.stat` | `path`, optional `follow` (default true). | Metadata or null for absence. Metadata has `kind`, `size`, permission `mode`, opaque `version`; no-follow identifies symlinks. |
 | `fs.list` | `path`, optional `maxEntries` (default/max 1000). | Complete direct `entries` sorted by name, each with `name`, canonical `path`, metadata. Excess entries cause `RESOURCE_LIMIT`; there is no successful truncated listing. |
 | `fs.read` | `path`, required inclusive whole-file `maxBytes`. | An opened-file byte `stream` and initial metadata/version. Only regular files; size and growth are checked. |

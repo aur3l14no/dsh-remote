@@ -41,7 +41,7 @@ export function apply(ctx: Context): void {
     if (!workspace) throw new RemoteError('PORTABLE_WORKSPACE_NOT_FOUND', 'Select an existing workspace from the environment catalog');
     const definition = selection === undefined ? inherited : registry.definition(workspace.id);
     await registry.validate(workspace.id);
-    await worlds.prepareWorld(definition);
+    await worlds.prepareWorkspace(definition);
     signal.throwIfAborted();
     worlds.forAgent(parent);
     // Commit before the native factory discovers instructions, tools or permissions.

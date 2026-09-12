@@ -2,57 +2,56 @@ import BashExecutor from '@deepseek-ai/dsh-bash-local';
 import { Context } from '@deepseek-ai/cordis';
 import { type Client, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { bootstrapSshWorld, type BootstrapOptions } from '../../../../../../runtime/ssh/src/index.ts';
-import type { SshWorkspaceDefinition } from '../../execution-world/src/identity.ts';
-import { worldPlugin } from './world.ts';
+import { worldOfWorkspace, type SshWorldDefinition, type SshWorkspaceDefinition } from '../../execution-world/src/identity.ts';
+import { WorldRuntimePool } from './runtime-pool.ts';
+import { workspacePlugin } from './workspace.ts';
 import SshFileSystem from './fs.ts';
 import SshSubprocess from './subprocess.ts';
 
 export interface WorldConnection { client: Client; ripgrep: string; dataRoot?: string; close(): Promise<void> }
-export type WorldConnector = (world: SshWorkspaceDefinition) => Promise<WorldConnection>;
+export type WorldConnector = (world: SshWorldDefinition) => Promise<WorldConnection>;
 export type BootstrapConfig = Pick<BootstrapOptions, 'manifest' | 'cacheDir' | 'required' | 'graceMs' | 'leaseMs' | 'connectTimeoutMs' | 'lockWaitMs'>;
 export interface SshAdapterConfig {
-  beforeConnect?: (world: SshWorkspaceDefinition) => Promise<void>;
+  beforeConnect?: (world: SshWorldDefinition) => Promise<void>;
   packagedRipgrep: string;
   bootstrap: BootstrapConfig | (() => Promise<BootstrapConfig>);
 }
 
 /** SSH-only provisioning and provider lifetime. Local Worlds never enter this adapter. */
 export class SshWorldAdapter {
-  private readonly connect: WorldConnector;
-  private prepared?: BootstrapConfig;
-  constructor(private readonly config: SshAdapterConfig, private readonly connector?: WorldConnector) {
+  private readonly runtimes: WorldRuntimePool;
+  constructor(private readonly config: SshAdapterConfig, connector?: WorldConnector) {
     if (!config.packagedRipgrep.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Packaged ripgrep requires an absolute executable identity');
-    this.prepared = typeof config.bootstrap === 'function' ? undefined : config.bootstrap;
-    this.connect = connector ?? (async definition => {
-      // The protocol world token identifies this concrete workspace runtime owner.
-      const world = await bootstrapSshWorld({ ...this.prepared!, ...definition, world: definition.id });
+    const connect: WorldConnector = async definition => {
+      await config.beforeConnect?.(definition);
+      if (connector) return connector(definition);
+      const prepared = typeof config.bootstrap === 'function' ? await config.bootstrap() : config.bootstrap;
+      const world = await bootstrapSshWorld({ ...prepared, ...definition, world: definition.id });
       return { ...world, dataRoot: `${world.platform.home}/.local/share/dsh-remote` };
-    });
-  }
-  /** Retryable preparation runs before a runtime is allocated. */
-  async prepare(definition: SshWorkspaceDefinition): Promise<void> {
-    await this.config.beforeConnect?.(definition);
-    if (!this.connector && typeof this.config.bootstrap === 'function') this.prepared = await this.config.bootstrap();
+    };
+    this.runtimes = new WorldRuntimePool(connect);
   }
   async open(definition: SshWorkspaceDefinition): Promise<Context> {
-    const connection = await this.connect(definition);
+    const lease = await this.runtimes.acquire(worldOfWorkspace(definition) as SshWorldDefinition);
+    const { connection } = lease;
     const owner = new Context();
     let mounted = false;
     try {
-      const info = connection.client.info;
-      if (info.world !== definition.id || info.cwd !== definition.cwd) throw new RemoteError('WORLD_MISMATCH', 'Negotiated World or canonical cwd differs from the binding');
-      await owner.plugin(worldPlugin(connection.client, () => connection.close(), connection.dataRoot)); mounted = true;
+      await owner.plugin(workspacePlugin(connection.client, definition.cwd, () => lease.release(), connection.dataRoot)); mounted = true;
       await owner.plugin(SshFileSystem, { textMaxBytes: 33554432, diffBasisMaxBytes: 1048576 });
+      const directory = await owner.fs.resolve('.', { cwd: definition.cwd });
+      if ((await owner.fs.stat(directory))?.type !== 'directory') throw new RemoteError('NOT_DIRECTORY', 'Workspace cwd must name an existing directory');
+      if (owner.fs.processPath(directory) !== definition.cwd) throw new RemoteError('WORLD_MISMATCH', 'Workspace cwd differs from its saved canonical directory');
       await owner.plugin(SshSubprocess, { executables: { [this.config.packagedRipgrep]: connection.ripgrep } });
       await owner.plugin(BashExecutor, { maxSpillBytes: 4194304 });
       return owner;
     } catch (error) {
-      try { await owner.fiber.dispose(); if (!mounted) await connection.close(); }
+      try { await owner.fiber.dispose(); if (!mounted) await lease.release(); }
       catch (cleanup) { throw new AggregateError([error, cleanup], 'World setup failed with unconfirmed cleanup'); }
       throw error;
     }
   }
   assertReady(owner: Context): void {
-    if (owner.remoteWorld.client.state !== 'ready') throw new RemoteError('WORLD_NOT_READY', 'Bound World is unavailable');
+    if (!owner.remoteWorkspace || owner.remoteWorkspace.client.state !== 'ready') throw new RemoteError('WORLD_NOT_READY', 'Bound World is unavailable');
   }
 }

@@ -4,7 +4,7 @@ import type { FsDirEntry, FsEditOutcome, FsEditRequest, FsInfo, FsPathInfo, FsTa
 import { posix } from 'node:path';
 import { readFile, readFileRange, writeFile, rawStream, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import type { Metadata, Expected } from '../../../../../../runtime/client/src/index.ts';
-import './world.ts';
+import type { RemoteWorkspace } from './workspace.ts';
 import { fileAuthorization } from './file-authorization.ts';
 
 export interface Config { textMaxBytes: number; diffBasisMaxBytes: number }
@@ -27,14 +27,15 @@ function translate(error: unknown): never {
 }
 
 export default class SshFileSystem extends FileSystem {
-  static inject = ['remoteWorld'];
+  static inject = ['remoteWorkspace'];
   private config: Config;
+  private readonly workspace: RemoteWorkspace;
   private locks = new Map<string, Promise<unknown>>();
   constructor(ctx: Context, config: Config) {
-    super(ctx); this.config = config;
+    super(ctx); this.config = config; this.workspace = ctx.remoteWorkspace;
     for (const n of [config.textMaxBytes, config.diffBasisMaxBytes]) if (!Number.isSafeInteger(n) || n < 1 || n > 64 * 1024 * 1024) throw new Error('Unsupported filesystem text budget');
   }
-  get client() { return this.ctx.remoteWorld.client; }
+  get client() { return this.workspace.client; }
   private target(path: string): FsTarget {
     return { targetKey: FsTargetKey(JSON.stringify([this.client.info.world, this.client.info.runtime, path])), displayPath: path };
   }
@@ -53,62 +54,84 @@ export default class SshFileSystem extends FileSystem {
     return relative === '' || (relative !== '..' && !relative.startsWith('../') && !posix.isAbsolute(relative));
   }
   async resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<FsTarget> {
-    try {
-      if (!path.trim()) throw new FsError('Path must not be empty', 'FS_NOT_FOUND');
-      const result = await this.client.requestWhenReady<{ path: string }>('fs.resolve', { path, cwd: opts?.cwd ?? this.client.info.cwd }, opts?.signal);
-      return this.target(result.path);
-    } catch (error) { translate(error); }
+    return this.workspace.resources.run(opts?.signal, async signal => {
+      opts = { ...opts, signal };
+      try {
+        if (!path.trim()) throw new FsError('Path must not be empty', 'FS_NOT_FOUND');
+        const result = await this.client.requestWhenReady<{ path: string }>('fs.resolve', { path, cwd: opts?.cwd ?? this.workspace.cwd }, opts?.signal);
+        return this.target(result.path);
+      } catch (error) { translate(error); }
+    });
   }
   async stat(target: FsTarget, signal?: AbortSignal): Promise<FsInfo | undefined> {
-    try {
-      const m = await this.client.requestWhenReady<Metadata | null>('fs.stat', { path: this.processPath(target) }, signal);
-      return m ? { version: FsVersion(m.version), type: m.kind === 'symlink' ? 'other' : m.kind, size: m.size } : undefined;
-    } catch (error) { translate(error); }
+    return this.workspace.resources.run(signal, async signal => {
+      try {
+        const m = await this.client.requestWhenReady<Metadata | null>('fs.stat', { path: this.processPath(target) }, signal);
+        return m ? { version: FsVersion(m.version), type: m.kind === 'symlink' ? 'other' : m.kind, size: m.size } : undefined;
+      } catch (error) { translate(error); }
+    });
   }
   async lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<FsPathInfo | undefined> {
-    try {
-      const m = await this.client.requestWhenReady<Metadata | null>('fs.stat', { path: posix.resolve(opts?.cwd ?? this.client.info.cwd, path), follow: false }, signal);
-      return m ? { version: FsVersion(m.version), type: m.kind, size: m.size } : undefined;
-    } catch (error) { translate(error); }
+    return this.workspace.resources.run(signal, async signal => {
+      try {
+        const m = await this.client.requestWhenReady<Metadata | null>('fs.stat', { path: posix.resolve(opts?.cwd ?? this.workspace.cwd, path), follow: false }, signal);
+        return m ? { version: FsVersion(m.version), type: m.kind, size: m.size } : undefined;
+      } catch (error) { translate(error); }
+    });
   }
   async readBytes(target: FsTarget, signal: AbortSignal | undefined, maxBytes: number): Promise<Uint8Array> {
-    try { return (await readFile(this.client, this.processPath(target), maxBytes, signal)).data; }
-    catch (error) { translate(error); }
+    return this.workspace.resources.run(signal, async signal => {
+      try { return (await readFile(this.client, this.processPath(target), maxBytes, signal)).data; }
+      catch (error) { translate(error); }
+    });
   }
   async readByteRange(target: FsTarget, range: { offset: number; length: number }, signal?: AbortSignal): Promise<Uint8Array> {
-    try { return (await readFileRange(this.client, this.processPath(target), range.offset, range.length, signal)).data; }
-    catch (error) { translate(error); }
+    return this.workspace.resources.run(signal, async signal => {
+      try { return (await readFileRange(this.client, this.processPath(target), range.offset, range.length, signal)).data; }
+      catch (error) { translate(error); }
+    });
   }
   async readText(target: FsTarget, signal?: AbortSignal): Promise<string> { return text(await this.readBytes(target, signal, this.config.textMaxBytes)); }
   async streamText(target: FsTarget, signal?: AbortSignal): Promise<AsyncIterable<string>> {
-    const client = this.client;
-    let opened: { stream: string };
-    try { opened = await client.requestWhenReady('fs.read', { path: this.processPath(target), maxBytes: this.config.textMaxBytes }, signal); }
-    catch (error) { translate(error); }
-    return (async function* () {
-      const decoder = new TextDecoder('utf-8', { fatal: true });
-      try {
-        for await (const bytes of rawStream(client, opened.stream, signal)) {
-          if (bytes.includes(0)) throw new FsError('File contains NUL bytes', 'FS_NOT_TEXT');
-          try { yield decoder.decode(bytes, { stream: true }); }
-          catch (cause) { throw new FsError('File is not valid UTF-8', 'FS_NOT_TEXT', { cause }); }
-        }
-        try { const tail = decoder.decode(); if (tail) yield tail; }
-        catch (cause) { throw new FsError('File ends with incomplete UTF-8', 'FS_NOT_TEXT', { cause }); }
-      } catch (error) { translate(error); }
-      finally {
+    return this.workspace.resources.run(signal, async signal => {
+      signal = this.workspace.resources.signal(signal);
+      const client = this.client;
+      let opened: { stream: string };
+      try { opened = await client.requestWhenReady('fs.read', { path: this.processPath(target), maxBytes: this.config.textMaxBytes }, signal); }
+      catch (error) { translate(error); }
+      const cleanup = async () => {
         if (client.state === 'ready' || client.state === 'reconnecting') {
-          await client.whenReady(); await client.requestWhenReady('stream.close', { stream: opened.stream });
+          await client.requestWhenReady('stream.close', { stream: opened.stream });
         }
-      }
-    })();
+      };
+      let close: () => Promise<void>;
+      try { close = this.workspace.registerOwner(cleanup); }
+      catch (error) { await cleanup(); throw error; }
+      return (async function* () {
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        try {
+          for await (const bytes of rawStream(client, opened.stream, signal)) {
+            if (bytes.includes(0)) throw new FsError('File contains NUL bytes', 'FS_NOT_TEXT');
+            try { yield decoder.decode(bytes, { stream: true }); }
+            catch (cause) { throw new FsError('File is not valid UTF-8', 'FS_NOT_TEXT', { cause }); }
+          }
+          try { const tail = decoder.decode(); if (tail) yield tail; }
+          catch (cause) { throw new FsError('File ends with incomplete UTF-8', 'FS_NOT_TEXT', { cause }); }
+        } catch (error) { translate(error); }
+        finally {
+          await close();
+        }
+      })();
+    });
   }
   async listDir(target: FsTarget, signal?: AbortSignal): Promise<FsDirEntry[]> {
-    try {
-      const result = await this.client.requestWhenReady<{ entries: { name: string; path: string; metadata: Metadata | null }[] }>('fs.list', { path: this.processPath(target) }, signal);
-      return result.entries.map(e => ({ name: e.name, target: this.target(e.path), type: e.metadata?.kind === 'file' ? 'file' : e.metadata?.kind === 'directory' ? 'directory' : 'other',
-        ...(e.metadata ? { version: FsVersion(e.metadata.version), size: e.metadata.size } : {}) }));
-    } catch (error) { translate(error); }
+    return this.workspace.resources.run(signal, async signal => {
+      try {
+        const result = await this.client.requestWhenReady<{ entries: { name: string; path: string; metadata: Metadata | null }[] }>('fs.list', { path: this.processPath(target) }, signal);
+        return result.entries.map(e => ({ name: e.name, target: this.target(e.path), type: e.metadata?.kind === 'file' ? 'file' : e.metadata?.kind === 'directory' ? 'directory' : 'other',
+          ...(e.metadata ? { version: FsVersion(e.metadata.version), size: e.metadata.size } : {}) }));
+      } catch (error) { translate(error); }
+    });
   }
   private async locked<T>(target: FsTarget, operation: () => Promise<T>): Promise<T> {
     const previous = this.locks.get(target.targetKey) ?? Promise.resolve();
@@ -119,46 +142,50 @@ export default class SshFileSystem extends FileSystem {
   }
   private async publish(target: FsTarget, content: string, expected: Expected, signal?: AbortSignal): Promise<{ version: FsVersion; operation: 'create' | 'update' }> {
     const authorization = fileAuthorization.getStore();
-    if (authorization && authorization.client !== this.client) throw new FsError('File authorization belongs to another runtime', 'FS_PERMISSION_DENIED');
+    if (authorization && authorization.owner !== this.workspace.resources) throw new FsError('File authorization belongs to another workspace owner', 'FS_PERMISSION_DENIED');
     const result = await writeFile(this.client, this.processPath(target), Buffer.from(content), expected, signal, authorization?.root);
     if (!result.metadata) throw new FsError('File was committed but its new version could not be observed; do not automatically repeat the write', 'FS_IO_ERROR', { cause: new RemoteError('COMMITTED_UNOBSERVED', 'Publication succeeded', { committed: true }) });
     return { version: FsVersion(result.metadata.version), operation: result.kind };
   }
   writeText(target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal): Promise<FsWriteOutcome> {
-    return this.locked(target, async () => {
-      let before: string | null = null;
-      if (expected?.kind !== 'createIfAbsent' && Buffer.byteLength(content) < this.config.diffBasisMaxBytes) {
-        try {
-          const prior = await readFile(this.client, this.processPath(target), this.config.diffBasisMaxBytes - 1, signal);
-          if (prior.data.length === prior.metadata.size) before = normalize(text(prior.data));
-        } catch (error) {
-          if (signal?.aborted) throw new RemoteError('CANCELLED', 'Write aborted');
-          // Context is optional; infrastructure loss still fails the actual remote publication.
-          if (!(error instanceof FsError || error instanceof RemoteError)) throw error;
+    return this.workspace.resources.run(signal, async signal => {
+      return this.locked(target, async () => {
+        let before: string | null = null;
+        if (expected?.kind !== 'createIfAbsent' && Buffer.byteLength(content) < this.config.diffBasisMaxBytes) {
+          try {
+            const prior = await readFile(this.client, this.processPath(target), this.config.diffBasisMaxBytes - 1, signal);
+            if (prior.data.length === prior.metadata.size) before = normalize(text(prior.data));
+          } catch (error) {
+            if (signal?.aborted) throw new RemoteError('CANCELLED', 'Write aborted');
+            // Context is optional; infrastructure loss still fails the actual remote publication.
+            if (!(error instanceof FsError || error instanceof RemoteError)) throw error;
+          }
         }
-      }
-      const guard: Expected = expected?.kind === 'createIfAbsent' ? { kind: 'absent' } : expected ? { kind: 'version', version: expected.version } : { kind: 'any' };
-      const result = await this.publish(target, content, guard, signal);
-      return { ...result, before: result.operation === 'create' ? null : before, after: normalize(content) };
+        const guard: Expected = expected?.kind === 'createIfAbsent' ? { kind: 'absent' } : expected ? { kind: 'version', version: expected.version } : { kind: 'any' };
+        const result = await this.publish(target, content, guard, signal);
+        return { ...result, before: result.operation === 'create' ? null : before, after: normalize(content) };
+      });
     });
   }
   editText(target: FsTarget, edit: FsEditRequest, expected?: { version: FsVersion }, signal?: AbortSignal): Promise<FsEditOutcome> {
-    return this.locked(target, async () => {
-      const observed = await this.stat(target, signal);
-      if (expected && observed?.version !== expected.version) throw new FsError('File changed since observation', 'FS_STALE_VERSION');
-      if (!observed) throw new FsError('File does not exist', 'FS_NOT_FOUND');
-      const read = await readFile(this.client, this.processPath(target), this.config.textMaxBytes, signal);
-      if (read.metadata.version !== observed.version) throw new FsError('File changed before editing', 'FS_STALE_VERSION');
-      const raw = text(read.data), before = normalize(raw), old = normalize(edit.oldString), replacement = normalize(edit.newString);
-      if (!old) throw new FsError('old_string must be non-empty', 'FS_EDIT_NOT_FOUND');
-      const parts = before.split(old);
-      if (parts.length === 1) throw new FsError('old_string was not found', 'FS_EDIT_NOT_FOUND');
-      if (parts.length > 2 && !edit.replaceAll) throw new FsError('old_string matched more than once', 'FS_AMBIGUOUS_EDIT');
-      const after = parts.join(replacement);
-      const sample = raw.slice(0, 4096), crlf = sample.split('\r\n').length - 1, lf = sample.split('\n').length - 1 - crlf;
-      const stored = crlf > lf ? after.replaceAll('\n', '\r\n') : after;
-      const result = await this.publish(target, stored, { kind: 'version', version: observed.version }, signal);
-      return { version: result.version, before, after };
+    return this.workspace.resources.run(signal, async signal => {
+      return this.locked(target, async () => {
+        const observed = await this.stat(target, signal);
+        if (expected && observed?.version !== expected.version) throw new FsError('File changed since observation', 'FS_STALE_VERSION');
+        if (!observed) throw new FsError('File does not exist', 'FS_NOT_FOUND');
+        const read = await readFile(this.client, this.processPath(target), this.config.textMaxBytes, signal);
+        if (read.metadata.version !== observed.version) throw new FsError('File changed before editing', 'FS_STALE_VERSION');
+        const raw = text(read.data), before = normalize(raw), old = normalize(edit.oldString), replacement = normalize(edit.newString);
+        if (!old) throw new FsError('old_string must be non-empty', 'FS_EDIT_NOT_FOUND');
+        const parts = before.split(old);
+        if (parts.length === 1) throw new FsError('old_string was not found', 'FS_EDIT_NOT_FOUND');
+        if (parts.length > 2 && !edit.replaceAll) throw new FsError('old_string matched more than once', 'FS_AMBIGUOUS_EDIT');
+        const after = parts.join(replacement);
+        const sample = raw.slice(0, 4096), crlf = sample.split('\r\n').length - 1, lf = sample.split('\n').length - 1 - crlf;
+        const stored = crlf > lf ? after.replaceAll('\n', '\r\n') : after;
+        const result = await this.publish(target, stored, { kind: 'version', version: observed.version }, signal);
+        return { version: result.version, before, after };
+      });
     });
   }
 }

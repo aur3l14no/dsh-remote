@@ -50,7 +50,7 @@ it('completes a real-model coding and external-search task in the selected World
     expect((await verify.done).exitCode).toBe(0);
     await verify.waitForExit();
     const other = await host.ctx.get('worldPortableWorkspaces').createInWorld('b', '/workspace');
-    const otherOwner = await host.ctx.get('executionWorlds').prepareWorld(host.ctx.get('worldPortableWorkspaces').definition(other.id));
+    const otherOwner = await host.ctx.get('executionWorlds').prepareWorkspace(host.ctx.get('worldPortableWorkspaces').definition(other.id));
     expect(await otherOwner.fs.stat(await otherOwner.fs.resolve('LIVE_ACCEPTANCE.md'))).toBeUndefined();
     expect(results.length).toBeGreaterThan(0);
     await writeFile(`${root}/artifacts/dsh/live-details.json`, JSON.stringify({ model: agent.options.model, tools, searchSucceeded: true, codingTestsPassed: true, remoteCredentialAbsent: true, otherWorldUnchanged: true }, null, 2) + '\n');

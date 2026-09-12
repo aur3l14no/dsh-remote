@@ -173,7 +173,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await page.screenshot({ path: `${root}/artifacts/dsh/web-management.png`, fullPage: true });
   await expect.poll(() => new URL(page.url()).searchParams.get('session')).toBe(sessionId);
   const deepLink = new URL(page.url());
-  const oldRuntime = owner.remoteWorld.client.info.runtime;
+  const oldRuntime = owner.remoteWorkspace.client.info.runtime;
   const savedSecondBinding = scaffold.ctx.get('executionWorlds').bindings.get(second.session.header.id);
   expect(savedSecondBinding).toBeDefined();
   await page.close();
@@ -216,7 +216,7 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   const resumed = scaffold.ctx.agents.get(sessionId)!;
   expect(scaffold.ctx.get('sandboxPolicy').resolve({ session: resumed.session }).mode).toBe('danger-full-access');
   const resumedOwner = scaffold.ctx.get('executionWorlds').forAgent(resumed);
-  expect(resumedOwner.remoteWorld.client.info.runtime).not.toBe(oldRuntime);
+  expect(resumedOwner.remoteWorkspace.client.info.runtime).not.toBe(oldRuntime);
   expect(await resumedOwner.fs.readText(await resumedOwner.fs.resolve('world.txt'))).toBe('a\n');
   expect(replay.requests).toHaveLength(2);
   await stopBackground(resumed);

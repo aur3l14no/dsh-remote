@@ -114,7 +114,7 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   expect(registry.forSession(originalId).id).toBe(nativeWorkspace.id);
   await expect(registry.get(nativeWorkspace.id).detachSession(originalId)).rejects.toThrow('membership is immutable');
   await localOperations(resumed, 'installed');
-  expect(worlds.forAgent(resumed).get('remoteWorld')).toBeUndefined();
+  expect(worlds.forAgent(resumed).get('remoteWorkspace')).toBeUndefined();
   const skills = await host.ctx.get('sessionSkillCatalog').list({ sessionId: originalId }, AbortSignal.timeout(10000));
   expect(skills.skills.map(skill => skill.name)).toContain('local-proof');
   const adapter = await turn(resumed, 'INSTALLED_LOCAL_DONE');
@@ -360,7 +360,7 @@ it.skipIf(!process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG)('isolates local macOS
   expect((await reload.apply(preview.id)).applied).toBe(true);
   expect(registry.worlds().find(row => row.id === 'local').name).toBe('My computer');
   expect(registry.get(workspaces[0].id).title).toBe('Local project');
-  const remoteClient = worlds.forAgent(agents[1]).remoteWorld.client;
+  const remoteClient = worlds.forAgent(agents[1]).remoteWorkspace.client;
   execFileSync('docker', ['stop', containers.a]);
   await expect.poll(() => remoteClient.state).not.toBe('ready');
   expect((await tool(agents[1], 'read', { file_path: 'world.txt' })).isError).toBe(true);

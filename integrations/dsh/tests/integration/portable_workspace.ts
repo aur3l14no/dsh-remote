@@ -85,7 +85,7 @@ if (!phase) {
     installModelSelectionProjection(ctx);
     const provider = ssh ? ExecutionWorlds : executionWorldsPlugin(async definition => {
       connections++;
-      const r = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
+      const r = await runtime({ world: definition.id, lease: 5000 });
       return { client: r.client, ripgrep: rg, close: () => r.close() };
     });
     await ctx.plugin(provider, { bindingFile: `${base}/bindings.json`, packagedRipgrep: await SearchTools.resolveRgPath(),
@@ -150,7 +150,7 @@ if (!phase) {
       assert.ok((await stat(localSideEffect)).isDirectory());
       console.log('GAP native Web create makes a local directory before preset/binding admission');
       const saved: Saved = { portableWorkspaceIds: [a.id, b.id], sessionIds: ids,
-        runtimeIds: ids.map(id => ctx.executionWorlds.forAgent(ctx.agents.get(id)).remoteWorld.client.info.runtime) };
+        runtimeIds: ids.map(id => ctx.executionWorlds.forAgent(ctx.agents.get(id)).remoteWorkspace.client.info.runtime) };
       await writeFile(`${base}/saved.json`, JSON.stringify(saved), { mode: 0o600 });
       await ctx.sessionPersistence.flush();
     } else {
@@ -183,7 +183,7 @@ if (!phase) {
           await openPortableWorkspaceSession(ctx, portableWorkspaceId, sessionId);
           const adopted = await apiCommands.create({ workspaceId: portableWorkspaceId, sessionId });
           assert.equal(adopted.sessionId, id);
-          assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorld.client.info.runtime, saved.runtimeIds[index]);
+          assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorkspace.client.info.runtime, saved.runtimeIds[index]);
           await readMarker(sessionId, ssh ? `world-${index}` : 'native-shared-directory');
         }
         console.log('PASS PortableWorkspace entry prepares the saved World and native JSONL resume is adopted by unchanged Web activation');

@@ -96,7 +96,7 @@ if (!phase) {
     // Only native acceptance injects a resolver. SSH exercises the normal bootstrap entry point.
     const provider = ssh ? ExecutionWorlds : executionWorldsPlugin(async definition => {
       connected++;
-      const r = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
+      const r = await runtime({ world: definition.id, lease: 5000 });
       return { client: r.client, ripgrep: rg, close: () => r.close() };
     });
     const manifest = ssh ? JSON.parse(await readFile(process.env.DSH_TEST_BOOTSTRAP_MANIFEST!, 'utf8')) : {};
@@ -137,7 +137,8 @@ if (!phase) {
       assert.throws(() => fsService.resolve('sentinel.txt'), { code: 'WORLD_REQUIRED' });
       for (const agent of [a.agent, b.agent]) {
         const concrete = worlds.forAgent(agent);
-        await concrete.fs.writeText(await concrete.fs.resolve('sentinel.txt'), `${concrete.remoteWorld.client.info.world}\n`);
+        assert.equal(concrete.remoteWorkspace.client.info.world, worlds.bindings.get(agent.id)!.worldId);
+        await concrete.fs.writeText(await concrete.fs.resolve('sentinel.txt'), `${worlds.bindings.get(agent.id)!.id}\n`);
       }
       const approvals: ReturnType<typeof Routing.executionWorldContext>[] = [];
       ctx.on('tools/pre-execute', async (exec, next) => { approvals.push(Routing.executionWorldContext(ctx, exec)); return next(); });
@@ -162,7 +163,7 @@ if (!phase) {
       assert.deepEqual(ctx.tools.schemas(child.localAgent).map(t => t.name), ['read']);
       assert.ok(JSON.stringify(child.localAgent!.session.snapshotEvents()).includes('route-a'));
       const modelRequest = JSON.stringify(adapter.requests[0]);
-      assert.ok(modelRequest.includes(worlds.forAgent(a.agent).remoteWorld.client.info.runtime));
+      assert.ok(modelRequest.includes(worlds.forAgent(a.agent).remoteWorkspace.client.info.runtime));
       for (const fact of ['"world":"environment-a"', '"workspace":"route-a"', '"kind":"ssh"']) {
         assert.ok(modelRequest.includes(JSON.stringify(fact).slice(1, -1)), `Model context is missing ${fact}`);
       }
@@ -193,7 +194,7 @@ if (!phase) {
       const once = concrete.subprocess.spawn({ argv: [targetFixture, 'append', `${definitions[0]!.cwd}/executed.txt`], cwd: definitions[0]!.cwd,
         stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 500 });
       assert.equal((await once.done).exitCode, 0, once.collected.stderr!.readFrom(0).text); await once.waitForExit();
-      await writeFile(`${base}/proof.json`, JSON.stringify({ childId, runtime: concrete.remoteWorld.client.info.runtime }));
+      await writeFile(`${base}/proof.json`, JSON.stringify({ childId, runtime: concrete.remoteWorkspace.client.info.runtime }));
       await ctx.sessionPersistence.flush();
       await b.dispose(); await a.dispose();
     } else {
@@ -204,7 +205,7 @@ if (!phase) {
       await worlds.prepare('a');
       const a = await ctx.agents.resume({ resumeSessionId: SessionId('a'), setup });
       const concrete = worlds.forAgent(a.agent);
-      assert.notEqual(concrete.remoteWorld.client.info.runtime, proof.runtime);
+      assert.notEqual(concrete.remoteWorkspace.client.info.runtime, proof.runtime);
       assert.equal((await execute(a.agent, 'read', { file_path: 'sentinel.txt' })).isError, false);
       assert.equal(await concrete.fs.readText(await concrete.fs.resolve('executed.txt')), 'once\n');
       await worlds.prepare(proof.childId);

@@ -144,17 +144,17 @@ class Suite:
         grace = self.args.grace_ms if grace is None else grace
         self.grace_ms = grace
         self.runtime = self.root + "/" + name
-        self.run([self.helper, "start", "--runtime-dir", self.runtime, "--cwd", self.root,
+        self.run([self.helper, "start", "--runtime-dir", self.runtime,
                   "--grace-ms", str(grace), "--lease-ms", str(lease)])
 
     def connect(self, resume=None):
-        hello = {"api": 1, "world": "acceptance", "required": ["process.pty", "runtime.resume"]}
+        hello = {"api": 2, "world": "acceptance", "required": ["process.pty", "runtime.resume"]}
         if resume:
             hello.update(runtime=resume["runtime"], token=resume["token"])
         client = Client(self.command([self.helper, "connect", "--socket", self.runtime + "/socket"]), hello)
         client.seq = client.hello["requestHighWater"]
         self.client = client
-        self.root = client.hello["cwd"]
+        self.root = self.run(["realpath", self.root]).strip()
         return client
 
     def write(self, path, data, expected=None):
@@ -213,13 +213,13 @@ class Suite:
         expect("INVALID_ARGUMENT", lambda: c.request("runtime.shutdown", deadlineMs=-1))
         assert c.request("runtime.ping")["runtime"] == c.hello["runtime"]
         command = self.command([self.helper, "connect", "--socket", self.runtime + "/socket"])
-        expect("INCOMPATIBLE_VERSION", lambda: Client(command, {"api": 2, "world": "acceptance"}))
-        expect("UNSUPPORTED", lambda: Client(command, {"api": 1, "world": "acceptance", "required": ["not-implemented"]}))
-        expect("SESSION_BUSY", lambda: Client(command, {"api": 1, "world": "acceptance"}))
+        expect("INCOMPATIBLE_VERSION", lambda: Client(command, {"api": 1, "world": "acceptance"}))
+        expect("UNSUPPORTED", lambda: Client(command, {"api": 2, "world": "acceptance", "required": ["not-implemented"]}))
+        expect("SESSION_BUSY", lambda: Client(command, {"api": 2, "world": "acceptance"}))
         credentials = c.hello
         c.disconnect()
         eventually(lambda: c.dead)
-        expect("SESSION_MISMATCH", lambda: Client(command, {"api": 1, "world": "acceptance", "runtime": credentials["runtime"], "token": "wrong"}))
+        expect("SESSION_MISMATCH", lambda: Client(command, {"api": 2, "world": "acceptance", "runtime": credentials["runtime"], "token": "wrong"}))
         self.connect(credentials)
 
     def filesystem(self):
@@ -245,13 +245,14 @@ class Suite:
         expect("STALE_VERSION", lambda: self.write(path, b"bad", {"kind": "version", "version": version}))
         assert self.read(path) == b"updated"
         assert c.request("fs.stat", path=self.root + "/missing") is None
-        assert c.request("fs.resolve", path="nested/space λ.bin")["path"] == path
+        expect("INVALID_ARGUMENT", lambda: c.request("fs.resolve", path="nested/space λ.bin"))
+        assert c.request("fs.resolve", path="nested/space λ.bin", cwd=self.root)["path"] == path
         names = [e["name"] for e in c.request("fs.list", path=self.root + "/nested")["entries"]]
         assert names == sorted(names)
         expect("NOT_REGULAR_FILE", lambda: c.request("fs.read", path=self.root, maxBytes=10))
         expect("NOT_REGULAR_FILE", lambda: c.request("fs.read", path="/dev/null", maxBytes=10))
         self.run(["ln", "-s", "nested", self.root + "/link"])
-        assert c.request("fs.resolve", path=self.root + "/link/space λ.bin")["path"] == path
+        assert c.request("fs.resolve", path=self.root + "/link/space λ.bin", cwd=self.root)["path"] == path
         self.write(self.root + "/link/space λ.bin", b"link target")
         assert c.request("fs.stat", path=self.root + "/link", follow=False)["kind"] == "symlink"
         assert self.read(path) == b"link target"

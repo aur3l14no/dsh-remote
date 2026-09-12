@@ -82,7 +82,7 @@ async function start() {
   await current.plugin(AgentDefaultModel, { provider: 'openai', model: 'gpt-4.1' });
   installModelSelectionProjection(current);
   const provider = ssh ? ExecutionWorlds : executionWorldsPlugin(async definition => {
-    const native = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
+    const native = await runtime({ world: definition.id, lease: 5000 });
     return { client: native.client, ripgrep: resolve(process.env.DSH_TEST_RG!), dataRoot: `${base}/remote-${definition.id}`, close: () => native.close() };
   });
   await current.plugin(provider, { bindingFile: `${base}/bindings.json`, packagedRipgrep: await SearchTools.resolveRgPath(), bootstrap: {
@@ -118,7 +118,7 @@ try {
   const path = stores[0]!.fileExecutionPath(file)!;
   const imagePath = stores[0]!.imageExecutionPath(images[0]!)!;
   const owner = host.ctx.executionWorlds.forSession(ids[0]!);
-  assert.deepEqual((await readRemote(owner.remoteWorld.client, path, body.length)).data, body);
+  assert.deepEqual((await readRemote(owner.remoteWorkspace.client, path, body.length)).data, body);
   assert.deepEqual(Buffer.concat(await Array.fromAsync(stores[0]!.readFileStream(file))), body);
   await assert.rejects(readFile(`${base}/home/attachments/v1/objects/${images[0]!.attachmentId.slice(7, 9)}/${images[0]!.attachmentId.slice(7, 71)}`), { code: 'ENOENT' });
   assert.deepEqual(await readdir(`${base}/home/remote/attachment-staging`), []);
@@ -171,11 +171,11 @@ try {
   await assert.rejects(host.ctx.attachments.readImage(legacyRef), { code: 'WORLD_REQUIRED' });
   const corruptOwner = host.ctx.executionWorlds.forSession(ids[0]!);
   const original = (await resumed.readImage(images[0]!)).data;
-  await writeRemote(corruptOwner.remoteWorld.client, imagePath, new Uint8Array(original.length));
+  await writeRemote(corruptOwner.remoteWorkspace.client, imagePath, new Uint8Array(original.length));
   await assert.rejects(resumed.readImage(images[0]!), { code: 'ATTACHMENT_CORRUPT' });
   await assert.rejects(resumed.readImageRequest(images[0]!, { maxPixels: 1024, maxBytes: 1024 }), { code: 'ATTACHMENT_CORRUPT' });
   // A local object with the same content digest must never rescue a remote read.
-  await writeRemote(corruptOwner.remoteWorld.client, imagePath, original);
+  await writeRemote(corruptOwner.remoteWorkspace.client, imagePath, original);
   const deletion = corruptOwner.subprocess.spawn({ argv: ['rm', '--', imagePath], cwd: selection.path, stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 500 });
   assert.deepEqual(await deletion.done, { exitCode: 0, signal: null }, deletion.collected.stderr?.readFrom(0).text);
   await assert.rejects(resumed.readImage(images[0]!), { code: 'ATTACHMENT_NOT_FOUND' });

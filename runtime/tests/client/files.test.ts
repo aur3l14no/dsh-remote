@@ -4,6 +4,17 @@ import { readdir, symlink } from 'node:fs/promises';
 import { readFile, writeFileStream } from '../../client/src/index.ts';
 import { runtime } from './support.ts';
 
+test('real helper: path resolution has no implicit workspace cwd', async () => {
+  const r = await runtime({ world: 'test-world' });
+  try {
+    assert.equal(r.client.info.world, 'test-world');
+    assert.equal('cwd' in r.client.info, false);
+    await assert.rejects(r.client.request('fs.resolve', { path: '/tmp' }), { code: 'INVALID_ARGUMENT' });
+    await assert.rejects(r.client.request('fs.resolve', { path: '.', cwd: 'relative' }), { code: 'INVALID_ARGUMENT' });
+    assert.deepEqual(await r.client.request('fs.resolve', { path: '.', cwd: r.dir }), { path: r.dir });
+  } finally { await r.close(); }
+});
+
 test('real helper: streamed writes publish complete bytes and abort incomplete sources', async () => {
   const r = await runtime();
   const source = async function* (bytes: Uint8Array) { yield bytes.subarray(0, 3); yield bytes.subarray(3); };

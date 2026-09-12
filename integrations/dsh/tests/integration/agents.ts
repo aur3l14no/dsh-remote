@@ -19,7 +19,7 @@ const runtimes = await Promise.all(['world-a', 'world-b'].map(world => ssh ? rem
 let ctx: Awaited<ReturnType<typeof presetHarness>> | undefined;
 try {
   process.execPath = `${local}/harness`; Reflect.set(process, 'pkg', {}); await copyFile(rg, `${process.execPath}-rg`);
-  ctx = await presetHarness(`${local}/presets`, runtimes.map((r, i) => ({ id: i ? 'world-b' : 'world-a', client: r.client,
+  ctx = await presetHarness(`${local}/presets`, runtimes.map((r, i) => ({ id: i ? 'world-b' : 'world-a', client: r.client, cwd: r.dir,
     ripgrep: ('ripgrep' in r ? r.ripgrep : ssh ? process.env.DSH_TEST_REMOTE_RG : rg)! })));
   const adapter = new MockAdapter([
     toolCallResponse('parent-read', 'read', { file_path: 'sentinel.txt' }), textResponse('parent done'),

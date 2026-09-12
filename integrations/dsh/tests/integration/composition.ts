@@ -3,7 +3,7 @@ import { readFile, copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { Context } from '@deepseek-ai/cordis';
 import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader';
 import { runRipgrep, resolveRgPath, RAW_OUTPUT_MAX_BYTES, SEARCH_GRACE_MS, SEARCH_STDERR_MAX_BYTES } from '@deepseek-ai/dsh-tool-fs-search';
-import { worldPlugin } from '../../packages/world/ssh-world/src/world.ts';
+import { workspacePlugin } from '../../packages/world/ssh-world/src/workspace.ts';
 import SshFileSystem from '../../packages/world/ssh-world/src/fs.ts';
 import SshSubprocess from '../../packages/world/ssh-world/src/subprocess.ts';
 import { runtime, fixture as nativeFixture } from '../../../../runtime/tests/client/support.ts';
@@ -30,8 +30,8 @@ try {
   assert.equal(packaged, `${local}/test-harness-rg`);
   await ctx.plugin(Loader);
   let remote!: Context;
-  ctx.loader.builtins = { group: Group, 'remote-world': worldPlugin(r.client), 'fs-ssh': SshFileSystem, 'subprocess-ssh': SshSubprocess,
-    consumer: { name: 'consumer', inject: ['remoteWorld', 'fs', 'subprocess'], apply(scope: Context) { remote = scope; } } };
+  ctx.loader.builtins = { group: Group, 'remote-world': workspacePlugin(r.client, r.dir), 'fs-ssh': SshFileSystem, 'subprocess-ssh': SshSubprocess,
+    consumer: { name: 'consumer', inject: ['remoteWorkspace', 'fs', 'subprocess'], apply(scope: Context) { remote = scope; } } };
   const config = JSON.parse(await readFile('integrations/dsh/tests/integration/cordis.yml', 'utf8'));
   config[0].config.find((entry: { id: string }) => entry.id === 'process').config.executables[packaged] = rg;
   await ctx.loader.root.update(config);
@@ -39,7 +39,7 @@ try {
   assert.ok(remote);
   assert.equal(ctx.get('fs'), undefined);
   assert.equal(ctx.get('subprocess'), undefined);
-  assert.equal(remote.remoteWorld.client, r.client);
+  assert.equal(remote.remoteWorkspace.client, r.client);
   const firstFileSystem = remote.fs;
 
   const target = await remote.fs.resolve('sentinel.txt');
@@ -95,13 +95,13 @@ try {
   const firstOwner = remote.subprocess.spawn({ argv: [fixture, 'hold'], cwd: r.dir,
     stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 200 });
   let shared!: Context;
-  ctx.loader.builtins['shared-consumer'] = { name: 'shared-consumer', inject: ['remoteWorld', 'fs', 'subprocess'], apply(scope: Context) { shared = scope; } };
+  ctx.loader.builtins['shared-consumer'] = { name: 'shared-consumer', inject: ['remoteWorkspace', 'fs', 'subprocess'], apply(scope: Context) { shared = scope; } };
   await ctx.loader.create({ name: 'cordis:group', isolate: { subprocess: true }, config: [
     { id: 'shared-process', name: 'cordis:subprocess-ssh', config: { executables: {} } },
     { id: 'shared-consumer', name: 'cordis:shared-consumer' },
   ] }, 'world');
   await ctx.loader.await();
-  assert.equal(shared.remoteWorld.client, r.client);
+  assert.equal(shared.remoteWorkspace.client, r.client);
   assert.notEqual(shared.subprocess, remote.subprocess);
   const sharedProcess = shared.subprocess.spawn({ argv: [fixture, 'hold'], cwd: r.dir,
     stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 1024 } }, graceMs: 200 });
@@ -115,8 +115,8 @@ try {
 
   // A second isolated group owns distinct providers and rejects first-World file identities.
   let other!: Context;
-  ctx.loader.builtins['second-world'] = worldPlugin(second.client);
-  ctx.loader.builtins['second-consumer'] = { name: 'second-consumer', inject: ['remoteWorld', 'fs', 'subprocess'], apply(scope: Context) { other = scope; } };
+  ctx.loader.builtins['second-world'] = workspacePlugin(second.client, second.dir);
+  ctx.loader.builtins['second-consumer'] = { name: 'second-consumer', inject: ['remoteWorkspace', 'fs', 'subprocess'], apply(scope: Context) { other = scope; } };
   const otherConfig = JSON.parse(await readFile('integrations/dsh/tests/integration/cordis.yml', 'utf8'))[0];
   otherConfig.id = 'other';
   for (const entry of otherConfig.config) {

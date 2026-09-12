@@ -7,7 +7,7 @@ import { bundleKey } from './manifest.ts';
 import type { Artifact, Bundle } from './manifest.ts';
 import type { Control, ControlOptions } from './control.ts';
 
-export interface Probe { os: string; arch: string; glibc?: string; cwd: string; installRoot: string; home: string }
+export interface Probe { os: string; arch: string; glibc?: string; installRoot: string; home: string }
 export interface Installation { root: string; generation: string; helper: string; ripgrep: string; reused: boolean; bundle: Bundle }
 export function remotePath(value: string): string {
   if (!value.startsWith('/') || /[\0\r\n]/.test(value)) throw new RemoteError('INVALID_ARGUMENT', 'Bootstrap requires absolute paths without NUL or line breaks');
@@ -26,8 +26,8 @@ export async function script(control: Control, body: string, args: string[], opt
   return result;
 }
 
-export async function probe(control: Control, cwd: string, installRoot?: string, signal?: AbortSignal): Promise<Probe> {
-  remotePath(cwd); if (installRoot !== undefined) remotePath(installRoot);
+export async function probe(control: Control, installRoot?: string, signal?: AbortSignal): Promise<Probe> {
+  if (installRoot !== undefined) remotePath(installRoot);
   const result = await script(control, String.raw`
 case $(uname -s) in Linux) os=linux;; Darwin) os=macos;; *) fail UNSUPPORTED_PLATFORM;; esac
 case $(uname -m) in aarch64|arm64) arch=aarch64;; x86_64|amd64) arch=x86_64;; *) fail UNSUPPORTED_PLATFORM;; esac
@@ -36,14 +36,13 @@ if [ "$os" = linux ]; then
   found=$(getconf GNU_LIBC_VERSION 2>/dev/null || true)
   case "$found" in 'glibc '*) libc=\${found#glibc };; esac
 fi
-cwd=$(cd "$1" && pwd -P) || fail INVALID_WORKSPACE
-root=$2
+root=$1
 if [ -z "$root" ]; then root="$HOME/.cache/dsh-remote"; fi
-printf 'DSH-PROBE\n%s\n%s\n%s\n%s\n%s\n%s\n' "$os" "$arch" "$libc" "$cwd" "$root" "$HOME"
-`, [cwd, installRoot ?? ''], { signal });
+printf 'DSH-PROBE\n%s\n%s\n%s\n%s\n%s\n' "$os" "$arch" "$libc" "$root" "$HOME"
+`, [installRoot ?? ''], { signal });
   const lines = result.split('\n');
-  if (lines.length !== 8 || lines[0] !== 'DSH-PROBE') throw new RemoteError('CONTROL_PROTOCOL', 'Unexpected platform probe response');
-  return { os: lines[1]!, arch: lines[2]!, ...(lines[3] !== 'unknown' ? { glibc: lines[3]! } : {}), cwd: remotePath(lines[4]!), installRoot: remotePath(lines[5]!), home: remotePath(lines[6]!) };
+  if (lines.length !== 7 || lines[0] !== 'DSH-PROBE') throw new RemoteError('CONTROL_PROTOCOL', 'Unexpected platform probe response');
+  return { os: lines[1]!, arch: lines[2]!, ...(lines[3] !== 'unknown' ? { glibc: lines[3]! } : {}), installRoot: remotePath(lines[4]!), home: remotePath(lines[5]!) };
 }
 
 const filesystem = String.raw`

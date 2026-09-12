@@ -31,7 +31,7 @@ export function apply(ctx: Context): void {
     const saved = ctx.executionWorlds.bindings.get(id);
     if (!saved || !sameWorkspace(expected, saved)) throw new Error('File preview binding mismatch');
     const definition = await observe(ctx.executionWorlds.prepare(id), active);
-    const owner = await observe(ctx.executionWorlds.prepareWorld(definition), active);
+    const owner = await observe(ctx.executionWorlds.prepareWorkspace(definition), active);
     active.throwIfAborted();
     return { fs: owner.fs, workspaceRoot: definition.cwd };
   }

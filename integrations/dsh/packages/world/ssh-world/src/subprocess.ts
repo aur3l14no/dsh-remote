@@ -4,7 +4,7 @@ import type { SubprocessHandle, SubprocessSpawnSpec, SubprocessTerminalHandle, S
 import { Readable, Writable } from 'node:stream';
 import { RemoteProcess, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import type { OutputSpec } from '../../../../../../runtime/client/src/index.ts';
-import './world.ts';
+import type { RemoteWorkspace } from './workspace.ts';
 import { SshTerminal } from './terminal.ts';
 
 export interface Config {
@@ -25,18 +25,19 @@ export function outcome(state: Awaited<RemoteProcess['done']>): SubprocessOutcom
 
 /** Remote-only subprocess provider, with per-provider ownership in a shared runtime. */
 export default class SshSubprocess extends SubprocessRuntime {
-  static inject = ['remoteWorld'];
+  static inject = ['remoteWorkspace'];
   private executables: Map<string, string>;
   private owned = new Set<Promise<RemoteProcess>>();
   private terminals = new Set<Promise<SshTerminal>>();
   private disposed = false;
+  private readonly workspace: RemoteWorkspace;
 
   constructor(ctx: Context, config: Config) {
-    super(ctx);
-    if (!ctx.remoteWorld.client.info.capabilities.includes('process.exit-signal-name')) throw new RemoteError('UNSUPPORTED', 'Target signal-name observations are required');
+    super(ctx); this.workspace = ctx.remoteWorkspace;
+    if (!ctx.remoteWorkspace.client.info.capabilities.includes('process.exit-signal-name')) throw new RemoteError('UNSUPPORTED', 'Target signal-name observations are required');
     this.executables = new Map(Object.entries(config.executables));
     for (const [source, target] of this.executables) if (!source.startsWith('/') || !target.startsWith('/')) throw new Error('Managed executables require absolute identities');
-    ctx.effect(() => ctx.remoteWorld.registerOwner(async () => {
+    ctx.effect(() => ctx.remoteWorkspace.registerOwner(async () => {
       this.disposed = true;
       const results = await Promise.allSettled([...this.owned].map(async pending => {
         const process = await pending;
@@ -49,12 +50,14 @@ export default class SshSubprocess extends SubprocessRuntime {
 
   async resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string> {
     if (this.disposed) throw new RemoteError('OWNER_CLOSED', 'Subprocess owner is disposed');
-    const client = this.ctx.remoteWorld.client;
-    return (await client.requestWhenReady<{ path: string }>('process.resolveExecutable', { command: this.executables.get(command) ?? command, cwd: client.info.cwd, ...(env ? { env: { ...env } } : {}) }, signal)).path;
+    const client = this.workspace.client;
+    return this.workspace.resources.run(signal, async signal =>
+      (await client.requestWhenReady<{ path: string }>('process.resolveExecutable', { command: this.executables.get(command) ?? command, cwd: this.workspace.cwd, ...(env ? { env: { ...env } } : {}) }, signal)).path);
   }
 
   spawn(spec: SubprocessSpawnSpec): SubprocessHandle {
-    const client = this.ctx.remoteWorld.client;
+    this.workspace.resources.signal(spec.signal);
+    const client = this.workspace.client;
     if (this.disposed) throw new RemoteError('OWNER_CLOSED', 'Subprocess owner is disposed');
     if (!spec.cwd.startsWith('/')) throw new Error('An absolute target cwd is required');
     if (!Number.isInteger(spec.graceMs) || spec.graceMs < 1 || spec.graceMs > (client.info.limits.maxGraceMs ?? 30000)) throw new RemoteError('UNSUPPORTED_LIMIT', 'Subprocess grace exceeds helper support');
@@ -143,7 +146,8 @@ export default class SshSubprocess extends SubprocessRuntime {
   }
 
   async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SshTerminal> {
-    const client = this.ctx.remoteWorld.client;
+    this.workspace.resources.signal(spec.signal);
+    const client = this.workspace.client;
     if (this.disposed) throw new RemoteError('OWNER_CLOSED', 'Subprocess owner is disposed');
     if (!['process.pty', 'process.signals'].every(cap => client.info.capabilities.includes(cap))) throw new RemoteError('UNSUPPORTED', 'Target lacks required terminal capabilities');
     if (!spec.cwd.startsWith('/') || !spec.argv.length || !spec.argv[0]) throw new RemoteError('INVALID_ARGUMENT', 'Terminal requires argv and absolute target cwd');

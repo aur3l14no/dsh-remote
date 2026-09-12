@@ -59,7 +59,7 @@ try {
   await ctx.plugin(SandboxedFs, { cwd: `${base}/local` });
   await ctx.plugin(LocalSubprocess);
   await ctx.plugin(executionWorldsPlugin(async definition => {
-    const r = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
+    const r = await runtime({ world: definition.id, lease: 5000 });
     return { client: r.client, ripgrep: process.env.DSH_TEST_RG!, close: () => r.close() };
   }), { local: ctx, bindingFile: `${base}/bindings.json`, packagedRipgrep: process.env.DSH_TEST_RG!,
     bootstrap: { manifest: {}, cacheDir: base } });

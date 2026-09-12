@@ -4,16 +4,16 @@ import type { ToolExecution } from '@deepseek-ai/dsh-tools';
 import { serviceForAgent } from '@deepseek-ai/dsh-agent-presets';
 import { scopeOf } from '@deepseek-ai/dsh-scope';
 import { RemoteError } from '../../../../../../runtime/client/src/index.ts';
-import './world.ts';
+import './workspace.ts';
 
 const bindings = new WeakMap<Agent, { world: string; runtime: string; cwd: string }>();
 
 function resolveWorld(ctx: Context, agent: Agent) {
-  const world = serviceForAgent(ctx, agent, 'remoteWorld');
+  const world = serviceForAgent(ctx, agent, 'remoteWorkspace');
   if (!world) throw new RemoteError('WORLD_REQUIRED', 'Agent preset has no Execution World');
   const info = world.client.info;
-  if (agent.session.header.cwd !== info.cwd) throw new RemoteError('WORLD_MISMATCH', 'Session cwd differs from the selected World');
-  return Object.freeze({ world: info.world, runtime: info.runtime, cwd: info.cwd, helperBuild: info.build,
+  if (agent.session.header.cwd !== world.cwd) throw new RemoteError('WORLD_MISMATCH', 'Session cwd differs from the selected World');
+  return Object.freeze({ world: info.world, runtime: info.runtime, cwd: world.cwd, helperBuild: info.build,
     platform: info.platform, arch: info.arch, capabilities: Object.freeze([...info.capabilities]), state: world.client.state });
 }
 
@@ -29,12 +29,12 @@ export function worldContextFor(ctx: Context, subject: Agent | ToolExecution) {
 }
 
 export const name = 'ssh-world-context';
-export const inject = ['remoteWorld', 'tools', 'systemPrompt'];
+export const inject = ['remoteWorkspace', 'tools', 'systemPrompt'];
 
 /** Contribute context and execution checks to a standing preset; register no tools or agents. */
 export function apply(ctx: Context): void {
   if (scopeOf(ctx) === undefined) throw new RemoteError('WORLD_REQUIRED', 'World context belongs in a DSH preset');
-  const client = ctx.remoteWorld.client;
+  const client = ctx.remoteWorkspace.client;
   // DSH owns creation/rollback and inheritance. This observer records only World identity.
   ctx.on('agent/created', ({ agent }) => {
     const facts = resolveWorld(ctx, agent);

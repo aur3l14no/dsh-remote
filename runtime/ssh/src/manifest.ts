@@ -12,7 +12,7 @@ export interface TargetPlatform {
 }
 export interface Bundle {
   target: TargetPlatform;
-  helper: { version: string; api: 1; artifact: Artifact };
+  helper: { version: string; api: 2; artifact: Artifact };
   ripgrep: { version: string; artifact: Artifact };
 }
 export interface Manifest { format: 1; bundles: Bundle[] }
@@ -44,9 +44,9 @@ export function parseManifest(value: unknown): Manifest {
     else if (t.os === 'linux' && abi.kind === 'musl-static') targetAbi = { kind: 'musl-static' };
     else if (t.os === 'linux' && abi.kind === 'glibc' && typeof abi.minimum === 'string' && /^\d{1,3}\.\d{1,3}$/.test(abi.minimum)) targetAbi = { kind: 'glibc', minimum: abi.minimum };
     else return fail('Invalid target ABI');
-    if (helper.api !== 1) return fail('Only helper API 1 is supported');
+    if (helper.api !== 2) return fail('Only helper API 2 is supported');
     return { target: { os: t.os, arch: t.arch, abi: targetAbi } as TargetPlatform,
-      helper: { version: version(helper.version), api: 1 as const, artifact: artifact(helper.artifact) },
+      helper: { version: version(helper.version), api: 2 as const, artifact: artifact(helper.artifact) },
       ripgrep: { version: version(rg.version), artifact: artifact(rg.artifact) } };
   });
   if (new Set(bundles.map(bundleKey)).size !== bundles.length) return fail('Duplicate bundle');

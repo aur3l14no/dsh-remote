@@ -83,7 +83,7 @@ try {
   if (packaged) {
     await run('package-session-routing', ['.build/dsh/package-check/accept.mjs'], { ...env, DSH_TEST_PACKAGED: '1' });
   } else {
-    const ready = await bootstrapSshWorld({ ...nested, world: 'nested-transport', cwd: root, manifest, cacheDir: cache, installRoot: `${root}/artifacts` });
+    const ready = await bootstrapSshWorld({ ...nested, world: 'nested-transport', manifest, cacheDir: cache, installRoot: `${root}/artifacts` });
     try {
       await run('client', ['--test', 'runtime/tests/client/ssh.test.ts'], { ...env, DSH_TEST_REMOTE_HELPER: ready.installation.helper, DSH_TEST_REMOTE_RG: ready.ripgrep });
     } finally { await ready.close(); }
@@ -97,7 +97,7 @@ try {
   await hostControl(['podman', 'rm', '--force', container]);
   container = undefined;
   await assert.rejects(control(['printf', 'must-not-run-on-host']), { code: 'CONTROL_FAILED' });
-  await assert.rejects(bootstrapSshWorld({ ...nested, world: 'removed-container', cwd: root, manifest, cacheDir: cache }), { code: 'CONTROL_FAILED' });
+  await assert.rejects(bootstrapSshWorld({ ...nested, world: 'removed-container', manifest, cacheDir: cache }), { code: 'CONTROL_FAILED' });
   checks.push({ suite: 'removed-container', passed: true, observations: ['Removed final environment refuses control and bootstrap without selecting the SSH host'] });
   report = { schema: 1, started, completed: new Date().toISOString(), platform: bundle.target, transport: 'system-ssh/podman-exec',
     imageId, helper: bundle.helper.version, helperSha256: bundle.helper.artifact.sha256, fixtureSha256: fixtureHash,

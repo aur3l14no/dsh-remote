@@ -28,6 +28,7 @@ fn main() {
     }
 }
 fn bridge(args: &[String]) -> Result<()> {
+    validate_options(args, &["--socket"])?;
     use std::{
         io::{self, Read, Write},
         net::Shutdown,
@@ -57,8 +58,20 @@ fn bridge(args: &[String]) -> Result<()> {
     }
     Ok(())
 }
+fn validate_options(args: &[String], allowed: &[&str]) -> Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    for pair in args[2..].chunks(2) {
+        if pair.len() != 2 || !allowed.contains(&pair[0].as_str()) || !seen.insert(&pair[0]) {
+            return Err(invalid(format!("invalid or duplicate option {}", pair[0])));
+        }
+    }
+    Ok(())
+}
 async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|s| s == "start" || s == "serve") {
+        validate_options(&args, &["--runtime-dir", "--grace-ms", "--lease-ms"])?;
+    }
     let option = |name: &str| -> Result<&str> {
         args.windows(2)
             .find(|v| v[0] == name)
@@ -81,7 +94,6 @@ async fn run() -> Result<()> {
         Some("serve") => {
             runtime::Runtime::serve(
                 PathBuf::from(option("--runtime-dir")?),
-                PathBuf::from(option("--cwd")?),
                 milliseconds("--grace-ms", 30_000)?,
                 milliseconds("--lease-ms", 30_000)?,
             )
@@ -134,7 +146,7 @@ async fn run() -> Result<()> {
         }
         Some("--version") => {
             println!(
-                "dsh-remote-helper {} api=1 {}-{}",
+                "dsh-remote-helper {} api=2 {}-{}",
                 env!("CARGO_PKG_VERSION"),
                 std::env::consts::ARCH,
                 std::env::consts::OS
@@ -142,7 +154,7 @@ async fn run() -> Result<()> {
             Ok(())
         }
         _ => {
-            eprintln!("Usage: dsh-remote-helper serve|start --runtime-dir ABSENT_DIR --cwd DIR [--grace-ms N] [--lease-ms N]\n       dsh-remote-helper connect --socket PATH\n       dsh-remote-helper --version");
+            eprintln!("Usage: dsh-remote-helper serve|start --runtime-dir ABSENT_DIR [--grace-ms N] [--lease-ms N]\n       dsh-remote-helper connect --socket PATH\n       dsh-remote-helper --version");
             Err(invalid("unknown command"))
         }
     }

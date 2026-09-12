@@ -2,7 +2,7 @@
   {
     "id": "world",
     "name": "cordis:group",
-    "isolate": { "remoteWorld": true, "fs": true, "subprocess": true },
+    "isolate": { "remoteWorkspace": true, "fs": true, "subprocess": true },
     "config": [
       { "id": "runtime", "name": "cordis:remote-world" },
       { "id": "fs", "name": "cordis:fs-ssh", "config": { "textMaxBytes": 33554432, "diffBasisMaxBytes": 10485760 } },

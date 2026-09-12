@@ -13,7 +13,7 @@ const paths = Object.fromEntries(Object.entries(upstream).map(([key, values]) =>
 })]));
 paths['@dsh-test/mock-adapter'] = [join(root, 'packages/core/agent-loop/tests/mock-adapter.ts')];
 for (const name of ['agent', 'commands', 'model-selection-projection']) paths[`@dsh-test/web-${name}`] = [join(root, 'packages/api/session-controller/src', name + '.ts')];
-const program = ts.createProgram([...['world', 'context', 'fs', 'subprocess', 'terminal', 'bindings', 'worlds', 'routing'].map(name => join(local, ['bindings', 'worlds', 'routing'].includes(name) ? '../execution-world/src' : 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'preset-harness', 'terminal-consumers', 'terminal', 'session-routing', 'local-world', 'portable_workspace'].map(name => resolve('integrations/dsh/tests/integration', name + '.ts'))], {
+const program = ts.createProgram([...['workspace', 'context', 'fs', 'subprocess', 'terminal', 'bindings', 'worlds', 'routing'].map(name => join(local, ['bindings', 'worlds', 'routing'].includes(name) ? '../execution-world/src' : 'src', name + '.ts')), ...['composition', 'remote-runtime', 'agents', 'preset-harness', 'terminal-consumers', 'terminal', 'session-routing', 'local-world', 'portable_workspace', 'shared-runtime'].map(name => resolve('integrations/dsh/tests/integration', name + '.ts'))], {
   target: ts.ScriptTarget.ES2024, lib: ['lib.es2024.d.ts', 'lib.esnext.array.d.ts'], module: ts.ModuleKind.NodeNext, strict: true, noEmit: true, skipLibCheck: true,
   allowImportingTsExtensions: true, paths, types: ['node'], typeRoots: [resolve('node_modules/@types')],
 });

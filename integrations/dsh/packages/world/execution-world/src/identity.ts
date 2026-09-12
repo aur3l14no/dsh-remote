@@ -50,3 +50,9 @@ export function targetFingerprint(target: WorldTarget): string {
   return worldFingerprint(worldDefinition({ ...value, id: 'target' }));
 }
 
+
+/** Recover the World identity from a saved Workspace without retaining its id or cwd. */
+export function worldOfWorkspace(workspace: WorkspaceDefinition): WorldDefinition {
+  const { worldId, cwd: _cwd, id: _workspaceId, ...target } = workspaceDefinition(workspace);
+  return worldDefinition({ ...target, id: worldId });
+}

@@ -8,6 +8,7 @@ const args = process.argv.slice(2);
 const suite = args.length === 1 && args[0] === '--suite';
 const lanes = suite ? [
   ['.build/dsh/patched-host/admission.mjs'],
+  ['.build/dsh/composition/shared-runtime.mjs'],
   ['--expose-internals', '.build/dsh/attachment-check/lib/attachments.mjs'],
   ['integrations/dsh/tests/e2e/skills-deployment.mjs'],
   ['integrations/dsh/tests/e2e/worlds-reload.mjs'],

@@ -28,7 +28,7 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
   const cwd = `${root}/workspace 'quote'`;
   try {
     await control(['mkdir', cwd]);
-    const platform = await probe(control, cwd);
+    const platform = await probe(control);
     const helperPath = process.env.DSH_BOOTSTRAP_HELPER ?? resolve('runtime/helper/target/debug/dsh-remote-helper');
     const rgPath = process.env.DSH_BOOTSTRAP_RG;
     const fixture = host ? process.env.DSH_TEST_REMOTE_FIXTURE : resolve('runtime/helper/target/debug/dsh-remote-fixture');
@@ -36,10 +36,10 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
     assert.ok(fixture, 'Supply the target-native acceptance process fixture');
     const bundle = parseManifest({ format: 1, bundles: [{
       target: { os: platform.os, arch: platform.arch, abi: platform.os === 'macos' ? { kind: 'darwin' } : platform.glibc ? { kind: 'glibc', minimum: platform.glibc } : { kind: 'musl-static' } },
-      helper: { version: '0.1.3', api: 1, artifact: await cacheArtifact(resolve(helperPath), cache) },
+      helper: { version: '0.1.5', api: 2, artifact: await cacheArtifact(resolve(helperPath), cache) },
       ripgrep: { version: '15.2.0', artifact: await cacheArtifact(resolve(rgPath), cache) },
     }] }).bundles[0]!;
-    const options: BootstrapOptions = { ...target, world: 'bootstrap-test', cwd, cacheDir: cache, manifest: { format: 1, bundles: [bundle] }, installRoot: `${root}/install space'quote`, runtimeBase: root, graceMs: 15000, leaseMs: 5000 };
+    const options: BootstrapOptions = { ...target, world: 'bootstrap-test', cacheDir: cache, manifest: { format: 1, bundles: [bundle] }, installRoot: `${root}/install space'quote`, runtimeBase: root, graceMs: 15000, leaseMs: 5000 };
     const start = async (overrides: Partial<BootstrapOptions> = {}) => {
       const world = host ? await bootstrapSshWorld({ ...options, ...overrides }) : await provisionWorld(control, connect, { ...options, ...overrides });
       worlds.add(world); return world;
@@ -47,7 +47,7 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
     let first!: SshWorld;
     await t.test('cold installation, negotiated helper and remote managed search', async () => {
       first = await start(); assert.equal(first.installation.reused, false);
-      assert.equal(first.client.info.cwd, platform.cwd);
+      assert.equal(first.client.info.world, 'bootstrap-test');
       await writeFile(first.client, `${cwd}/sentinel.txt`, Buffer.from('needle remotely\n'));
       if (host) await assert.rejects(readFile(`${cwd}/sentinel.txt`), { code: 'ENOENT' });
       const p = await RemoteProcess.spawn(first.client, { argv: [first.ripgrep, '--no-config', 'needle', 'sentinel.txt'], cwd, stdout: { mode: 'collect', maxBytes: 1024 }, stderr: { mode: 'collect', maxBytes: 1024 } });
@@ -113,7 +113,7 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
       await control(['mkdir', '-p', `${home}/.cache/dsh-remote`]);
       await control(['chmod', '500', `${home}/.cache/dsh-remote`]);
       const withHome: Control = (argv, opt) => control(['env', `HOME=${home}`, ...argv], opt);
-      const defaults = await probe(withHome, cwd);
+      const defaults = await probe(withHome);
       assert.equal(defaults.installRoot, `${home}/.cache/dsh-remote`);
       await assert.rejects(install(withHome, defaults, bundle, cache), { code: 'UNSAFE_INSTALL_ROOT' });
       const alternate = await install(withHome, { ...defaults, installRoot: `${home}/alternative` }, bundle, cache);
@@ -127,7 +127,7 @@ test('bootstrap acceptance: supplied local cache to selected platform', { skip: 
       await new Promise(resolve => setTimeout(resolve, graceMs + 100));
     });
     await t.test('distinct helper upgrade preserves old live runtime', { skip: !process.env.DSH_BOOTSTRAP_PREVIOUS_HELPER }, async () => {
-      const previous = { ...bundle, helper: { version: '0.1.0', api: 1, artifact: await cacheArtifact(resolve(process.env.DSH_BOOTSTRAP_PREVIOUS_HELPER!), cache) } };
+      const previous = { ...bundle, helper: { version: '0.1.0', api: 2, artifact: await cacheArtifact(resolve(process.env.DSH_BOOTSTRAP_PREVIOUS_HELPER!), cache) } };
       const old = await start({ manifest: { format: 1, bundles: [previous] }, world: 'previous' });
       const held = await RemoteProcess.spawn(old.client, { argv: [fixture, 'hold'], cwd, stdout: { mode: 'collect', maxBytes: 1024 }, stderr: { mode: 'collect', maxBytes: 1024 } });
       const upgraded = await start({ world: 'upgraded' });

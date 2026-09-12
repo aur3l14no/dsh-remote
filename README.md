@@ -22,6 +22,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 
 - 本机原生文件、进程、Skills、权限与目录选择；与 SSH 工作区共用选择器。
 - 远端文件读写、搜索与预览，以及项目指令和 Skills。
+- 同一 DSH 进程内，同一 World 的多个 Workspace 共用一个 helper 和 SSH 数据连接，目录与资源清理各自独立。
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
 - 不切换 Workspace 的单次跨 World 文件与命令操作；[工具执行环境](docs/reference/tool-execution.md)。
 - Experimental Agent Teams：宿主上的成员、消息与任务板，teammate 可绑定不同 World；[Teams](docs/agent-teams.md)。

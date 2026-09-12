@@ -22,7 +22,7 @@ test('release packages only declared artifacts and rejects corruption without re
     const artifact = await cacheArtifact(join(state, 'binary'), join(state, 'cache'));
     await writeFile(join(state, 'cache/private-token'), 'must never be packaged');
     await writeFile(join(state, 'manifest.json'), JSON.stringify({ format: 1, bundles: [{ target: { os: 'linux', arch: 'x86_64', abi: { kind: 'glibc', minimum: '2.36' } },
-      helper: { version: '0.1.3', api: 1, artifact }, ripgrep: { version: '13.0.0', artifact } }] }));
+      helper: { version: '0.1.3', api: 2, artifact }, ripgrep: { version: '13.0.0', artifact } }] }));
     const output = join(state, 'release');
     const pack = () => execFileSync(process.execPath, [resolve('integrations/dsh/scripts/pack-release.mjs'), join(state, 'build.json'), join(state, 'manifest.json'),
       join(state, 'cache'), join(state, 'license'), output], { stdio: 'pipe' });

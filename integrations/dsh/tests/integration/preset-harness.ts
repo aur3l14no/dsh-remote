@@ -16,7 +16,7 @@ import { resolveRgPath } from '@deepseek-ai/dsh-tool-fs-search';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import type { Client } from '../../../../runtime/client/src/index.ts';
-import { worldPlugin } from '../../packages/world/ssh-world/src/world.ts';
+import { workspacePlugin } from '../../packages/world/ssh-world/src/workspace.ts';
 import * as WorldContext from '../../packages/world/ssh-world/src/context.ts';
 import SshFileSystem from '../../packages/world/ssh-world/src/fs.ts';
 import SshSubprocess from '../../packages/world/ssh-world/src/subprocess.ts';
@@ -24,22 +24,22 @@ import { applyTerminalConsumers } from './terminal-consumers.ts';
 export { serviceForAgent };
 
 /** Fixture application policy. All Agent, preset and tool services are unchanged DSH implementations. */
-export async function presetHarness(root: string, worlds: { id: string; client: Client; ripgrep: string; shell?: string }[]) {
+export async function presetHarness(root: string, worlds: { id: string; cwd: string; client: Client; ripgrep: string; shell?: string }[]) {
   const ctx = new Context();
   try {
     ctx.baseUrl = pathToFileURL(`${root}/`).href;
     await ctx.plugin(Loader);
     ctx.loader.builtins = { include: Include, group: Group, fs: SshFileSystem, subprocess: SshSubprocess,
       'world-context': WorldContext, 'file-tools': FileTools, 'search-tools': SearchTools,
-      'terminal-consumers': { inject: ['remoteWorld', 'subprocess'], apply: applyTerminalConsumers } };
+      'terminal-consumers': { inject: ['remoteWorkspace', 'subprocess'], apply: applyTerminalConsumers } };
     for (const plugin of [LlmRuntime, SessionStore, SystemPrompt, AgentRegistry, SessionProjectionRegistry]) await ctx.plugin(plugin);
     await ctx.plugin(ToolRuntime, { mode: 'native' });
     await ctx.plugin(AgentLoop, { agents: [] });
     const packagedRg = await resolveRgPath();
     for (const world of worlds) {
       await mkdir(`${root}/${world.id}`, { recursive: true });
-      ctx.loader.builtins[`world-${world.id}`] = worldPlugin(world.client, async () => {});
-      const config = [{ id: 'world', name: 'cordis:group', isolate: { remoteWorld: true, fs: true, subprocess: true, terminals: true, jobs: true, sandboxPolicy: true }, config: [
+      ctx.loader.builtins[`world-${world.id}`] = workspacePlugin(world.client, world.cwd, async () => {});
+      const config = [{ id: 'world', name: 'cordis:group', isolate: { remoteWorkspace: true, fs: true, subprocess: true, terminals: true, jobs: true, sandboxPolicy: true }, config: [
         { id: 'runtime', name: `cordis:world-${world.id}` },
         { id: 'fs', name: 'cordis:fs', config: { textMaxBytes: 33554432, diffBasisMaxBytes: 1048576 } },
         { id: 'subprocess', name: 'cordis:subprocess', config: { executables: { [packagedRg]: world.ripgrep } } },

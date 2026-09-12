@@ -6,3 +6,5 @@ export { RemoteProcess } from './process.ts';
 export type { SpawnSpec, OutputSpec } from './process.ts';
 export { readFile, readFileRange, writeFile, writeFileStream } from './files.ts';
 export type { Metadata, Expected, Published } from './files.ts';
+
+export { ResourceScope } from './ownership.ts';

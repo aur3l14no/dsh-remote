@@ -43,7 +43,7 @@ if (task === 'check') {
     throw new Error('Set DSH_TEST_RG to the absolute path of a native ripgrep executable before test-integration.');
   }
   script('check-composition', source);
-  for (const suite of ['composition', 'agents', 'terminal', 'session-routing', 'local-world', 'portable_workspace']) {
+  for (const suite of ['composition', 'agents', 'terminal', 'session-routing', 'local-world', 'portable_workspace', 'shared-runtime']) {
     script('build-composition', source, suite);
     node(`.build/dsh/composition/${suite === 'composition' ? 'run' : suite}.mjs`);
   }
@@ -56,6 +56,7 @@ if (task === 'check') {
   script('check-attachments', patchedSource);
   node('--expose-internals', '.build/dsh/attachment-check/lib/attachments.mjs');
 } else {
+  script('build-composition', source, 'shared-runtime');
   // Prepare each shared build/profile/fixture once, then preserve each acceptance lane.
   patched();
   packageExtension();

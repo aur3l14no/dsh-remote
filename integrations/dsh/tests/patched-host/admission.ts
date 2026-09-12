@@ -88,7 +88,7 @@ if (!phase) {
     const provider = ssh ? ExecutionWorlds : executionWorldsPlugin(async definition => {
       connections++;
       if (phase === 'unavailable') throw new Error('Selected World transport is unavailable');
-      const r = await runtime({ world: definition.id, cwd: definition.cwd, lease: 5000 });
+      const r = await runtime({ world: definition.id, lease: 5000 });
       return { client: r.client, ripgrep: rg, close: () => r.close() };
     });
     await ctx.plugin(provider, { bindingFile: `${base}/bindings.json`, packagedRipgrep: await SearchTools.resolveRgPath(),
@@ -212,7 +212,7 @@ if (!phase) {
       } finally { admission.prepare = originalPrepare; }
       console.log('PASS failed admission cannot be bypassed by adopting an already-live Agent');
       const saved: Saved = { portableWorkspaceIds: [a.id, b.id], sessionIds: ids,
-        runtimeIds: ids.map(id => ctx.executionWorlds.forAgent(ctx.agents.get(id)).remoteWorld.client.info.runtime) };
+        runtimeIds: ids.map(id => ctx.executionWorlds.forAgent(ctx.agents.get(id)).remoteWorkspace.client.info.runtime) };
       await writeFile(`${base}/saved.json`, JSON.stringify(saved), { mode: 0o600 });
       await ctx.sessionPersistence.flush();
     } else {
@@ -237,7 +237,7 @@ if (!phase) {
         assert.ok('error' in result);
         await assert.rejects(apiCommands.create({ workspaceId: portableWorkspaceId, sessionId }));
         assert.equal(ctx.agents.get(sessionId), undefined);
-        if (!ssh) assert.equal(connections, phase === 'unavailable' ? 1 : 0);
+        if (!ssh) assert.equal(connections, phase === 'unavailable' ? 2 : 0, 'A failed connection is retried on the next independent admission');
         console.log(`PASS ${phase} World or binding prevents resume and explicit-id redirection`);
       } else {
         if (phase === 'observed-resume') {
@@ -270,7 +270,7 @@ if (!phase) {
           assert.ok('agent' in restored);
           const adopted = await apiCommands.create({ workspaceId: portableWorkspaceId, sessionId });
           assert.equal(adopted.sessionId, id);
-          assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorld.client.info.runtime, saved.runtimeIds[index]);
+          assert.notEqual(ctx.executionWorlds.forAgent(ctx.agents.get(sessionId)).remoteWorkspace.client.info.runtime, saved.runtimeIds[index]);
           await readMarker(sessionId, markerFor(index));
         }
         console.log('PASS native Web resolves saved World and restores JSONL without an external preparation call');

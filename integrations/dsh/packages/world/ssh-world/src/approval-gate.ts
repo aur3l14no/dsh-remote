@@ -34,9 +34,9 @@ export function apply(ctx: Context): void {
         throw new RemoteError('APPROVAL_REQUIRED', '权限已变更，请重新执行此文件操作。');
       }
       const contained = bound.worldId === facts.world && owner.fs.contains(root, target);
-      if (facts.kind === 'ssh' && mode === 'workspace-write' && contained && owner.remoteWorld.client.info.capabilities.includes('fs.rooted-publish')) {
+      if (facts.kind === 'ssh' && mode === 'workspace-write' && contained && owner.remoteWorkspace.client.info.capabilities.includes('fs.rooted-publish')) {
         exec.signal?.throwIfAborted();
-        return fileAuthorization.run({ client: owner.remoteWorld.client, root: bound.cwd }, next);
+        return fileAuthorization.run({ owner: owner.remoteWorkspace.resources, root: bound.cwd }, next);
       }
       const action = exec.name === 'write' ? '写入' : '修改';
       reason = bound.worldId !== facts.world

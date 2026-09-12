@@ -25,7 +25,7 @@ const contexts: Context[] = [];
 let shell = process.env.DSH_TEST_TERMINAL_SHELL;
 const deadline = setTimeout(() => { throw new Error('Terminal acceptance exceeded 120 seconds'); }, 120000);
 async function harness(terminal?: { shell: string }) {
-  const ctx = await presetHarness(`${local}/presets-${contexts.length}`, [{ id: 'terminal-world', client: r.client,
+  const ctx = await presetHarness(`${local}/presets-${contexts.length}`, [{ id: 'terminal-world', client: r.client, cwd: r.dir,
     ripgrep: ('ripgrep' in r ? r.ripgrep : ssh ? process.env.DSH_TEST_REMOTE_RG : rg)!, shell: terminal?.shell }]);
   contexts.push(ctx);
   ctx.llm.registerAdapter(['mock'], new MockAdapter([]));

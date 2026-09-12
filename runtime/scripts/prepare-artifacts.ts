@@ -15,7 +15,7 @@ const cache = resolve(required('cache'));
 const placeholder = { bytes: 1, sha256: '0'.repeat(64) };
 const manifest = parseManifest({ format: 1, bundles: [{
   target: { os: required('os'), arch: required('arch'), abi: { kind: required('abi'), ...(values['minimum-glibc'] ? { minimum: values['minimum-glibc'] } : {}) } },
-  helper: { version: required('helper-version'), api: 1, artifact: placeholder },
+  helper: { version: required('helper-version'), api: 2, artifact: placeholder },
   ripgrep: { version: required('ripgrep-version'), artifact: placeholder },
 }] });
 const bundle = manifest.bundles[0]!;
