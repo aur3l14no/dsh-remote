@@ -1,3 +1,4 @@
+import { recordConversation } from './conversation-history.mjs';
 import { checkFilePreview } from './remote-file-preview.ts';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -46,6 +47,8 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(1);
   await choose(1);
   await expect.poll(() => scaffold!.ctx.agents.list().length, { timeout: 30000 }).toBe(2);
+  expect(await page.locator('.session-card').count()).toBe(0);
+  for (const agent of scaffold.ctx.agents.list()) await recordConversation(scaffold.ctx, agent);
   await expect.poll(() => page.locator('.session-card').count()).toBe(2);
   const cardFor = (id: string) => page.getByRole('button', { name: `Open session ${id}`, exact: true });
   await expect.poll(() => cardFor(scaffold!.ctx.agents.list()[0]!.session.header.id).locator('svg').first().getAttribute('stroke')).toBe('#a855f7');

@@ -1,0 +1,6 @@
+packages:
+  - runtime/client
+  - runtime/ssh
+linkWorkspacePackages: true
+allowBuilds:
+  esbuild: true

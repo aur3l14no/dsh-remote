@@ -49,7 +49,7 @@ DSH 提供 Workspace 导航、Session 创建／恢复／fork 和 Remote/store。
 
 新会话入口读取 [worlds.json](worlds.md) 中声明的 World 与 Workspace，选中后才连接和登记 canonical 目录。配置变化通过 **Reload worlds** 的只读预览和确认热加载；skill 增删改列出远端目标与版本，已有 Session 保留原绑定。侧栏使用原生 New Session 控件；现有 workspace 插件槽位提供 Reload worlds 和紧凑会话卡片，支持悬停置顶／归档，不再为布局便利扩展上游侧栏接口。
 
-**This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择、为权限初始化增加按 Session 的默认值，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。新本机会话通过显式目录选择建立绑定；未绑定的历史本机会话不自动采用。
+**This computer → Choose a folder…** 复用原生目录选择器，并与原生最近工作区合并。本机不经 SSH、helper 或远端 skill 部署。0010（文件名 `0010-local-workspace-admission.patch`）为准入增加可选 preset 选择，并允许 native registry 禁用按 cwd 自动归类历史；未配置这些入口的原版行为不变。新本机会话通过显式目录选择建立绑定；未绑定的历史本机会话不自动采用。
 
 恢复以保存的 binding 为准，不跟随 UI 当前选择。普通 fork 和 child 保留原环境与 cwd；continuation 保留原生 child Session 和工具过滤。缺失、损坏、冲突或不可用的绑定必须失败，不能用宿主同名目录或另一容器兜底。实现见[准入](../integrations/dsh/packages/workspace/portable-workspace/src/admission.ts)与 [World 管理](../integrations/dsh/packages/world/execution-world/src/worlds.ts)。
 
@@ -68,7 +68,7 @@ flowchart LR
 
 复用原生文件、搜索和 Bash 工具。`execution-world` 在 `tools/execute` hook 里按 Session binding 选择 World provider；SSH 操作经 client 转发到 helper。**0003 为 Bash 接入所属 Agent 的 workdir resolver，0004 让文件工具用注入 FS 解析 cwd**，避免路径提前在宿主解析。
 
-通用 binding、准入后分派与生命周期位于 `world/execution-world/`；`local-world` 借用原生 FS/subprocess，`ssh-world/adapter` 独立拥有 bootstrap、helper client 和远端服务。Standard preset 组合本机能力，remote preset 组合 SSH 能力；切换 preset 不能改变已绑定的执行环境。本机权限保留原生 sandbox，SSH 继续使用账户权限。
+通用 binding、准入后分派与生命周期位于 `world/execution-world/`；`local-world` 借用原生 FS/subprocess，`ssh-world/adapter` 独立拥有 bootstrap、helper client 和远端服务。Standard preset 组合本机能力，remote preset 组合 SSH 能力；切换 preset 不能改变已绑定的执行环境。本机权限保留原生 sandbox。SSH 的 Workspace Write 在 helper 支持 fs.rooted-publish 时，对工作区内的 write/edit 使用目录约束发布、免去审批；read 同样无需审批。工作区外写入、Read Only 下的写入及 Bash 等其他工具通过原生 approval 服务逐次请求授权；Full access 跳过这一关卡。审批等待期间切换权限会取消该调用。独立审批回答者只接原生 approval/request，不需要了解 Remote，也不改变执行 provider。
 
 路径、symlink 和 `..` 由目标 FS 解释；未打路径补丁的组合继续拒绝 `..`。shell、可执行文件和路径规则按目标平台选择。只传明确的 `spec.env`，不复制宿主 `process.env`。仅 DSH 已知 packaged ripgrep 路径映射到目标 rg；其他 argv[0] 仍发远端，这不是命令白名单或 Shell 字符串改写。实现见[路由](../integrations/dsh/packages/world/execution-world/src/routing.ts)。
 
@@ -134,13 +134,26 @@ remote preset 装配原生 Web 工具和宿主 DeepSeek search provider；请求
 
 ```mermaid
 flowchart LR
-  F1["功能<br/>远端 sandbox"] --> M1["机制<br/>宿主策略不能约束远端 OS"] --> S1["✕ 尚未提供<br/>仅使用 SSH 账户权限"] --> U1["DSH 接点<br/>permission／sandbox runner"]
+  F1["功能<br/>远端 sandbox"] --> M1["机制<br/>宿主策略不能约束远端 OS"] --> S1["✕ OS 沙箱未提供<br/>文件发布与工具审批另行约束"] --> U1["DSH 接点<br/>permission／sandbox runner"]
   F2["功能<br/>新 worktree 中启动 Agent"] --> M2["机制<br/>新目录需要新的执行绑定"] --> S2["✕ 尚未提供<br/>缺创建编排与失败清理"] --> U2["DSH 接点<br/>fork／child／workflow isolation"]
   classDef missing fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
   class S1,S2 missing
 ```
 
-**Workspace 是工作目录，不是权限围栏。** SSH 仅允许 `danger-full-access`，其他模式在权限记录写入前拒绝；本机保留原生 permission/UI 与 sandbox 行为。已绑定 SSH 会话缺少权限记录时按 SSH 账户模式初始化默认值。tool allow/deny 只控制可见性与调用权限，允许 Bash 就仍可执行命令。执行事实可以投影给模型和审批，不代表已有远端强制隔离；helper 参数／资源检查也不隔离同进程插件的任意本地代码。
+**Workspace 是工作目录，不是 OS 权限围栏。** SSH 不提供 OS 级沙箱。本机继续使用原生 sandbox；Remote 保留原生权限服务、菜单和预设表。SSH 模型工具的规则如下：
+
+| 模式与操作 | 行为 |
+| --- | --- |
+| Full access 下的工具调用 | 不经此审批关卡；项目 IO 使用 SSH 账户权限 |
+| 其他模式的 `read` | 免审批读取账户可读文件，包括工作区外路径 |
+| Workspace Write 的工作区内 `write` / `edit` | helper 支持 `fs.rooted-publish` 时免审批；否则请求审批 |
+| Read Only 的写入、工作区外写入、其他工具（包括 Bash） | 请求原生审批；只有 `allowed-once` 才执行 |
+
+免审批写入在远端解析真实路径、检查工作区范围，并持有目标父目录与暂存目录句柄完成发布，防止路径被替换成符号链接后重定向。此约束针对一次文件发布，不约束任意进程，也不阻止同账户将已打开的目录移到别处。
+
+需要审批的操作遇到拒绝、取消、无可用回答者或 `never` 策略时不执行；等待期间权限变更使授权失效。批准的项目文件和进程操作使用 SSH 账户权限，可能访问工作区外路径。Web API 等宿主连接器仍按前述入口使用宿主网络和凭据。因此 SSH 的 Read Only 表示写入需要审批，并非 OS 强制只读。一次批准覆盖该次工具操作及其进程生命周期，不是逐系统调用审查。人类审批理由展示操作、位置和权限范围，模型上下文另提供完整 World 信息。
+
+连接、目录发现、附件与浏览器文件预览仍由各自明确的用户操作和 Session 绑定入口管理，不经过模型工具调用关卡。
 
 worktree 已有可组合基础：远端 subprocess 可运行目标 Git，registry 可登记已有目录并创建绑定的新独立 Session。尚未形成“创建 worktree → 注册目录 → 启动 Agent → 失败清理”的产品流程；目标 Git／仓库条件也未专项验收。普通 child 必须继承完整 binding/cwd，Web fork 复制源 cwd，上游 workflow isolation 仍是 deferred 选项，不能仅改 cwd 绕过检查。后续定界见[worktree 计划](../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md#远端-worktree待处理)。
 
@@ -228,7 +241,7 @@ flowchart TD
 | `runtime/tests/`、`runtime/scripts/` | 通用 runtime 测试与产物准备 |
 | `integrations/dsh/packages/world/execution-world/` | identity.ts 的 World/Workspace 类型与身份比较、bindings.ts 的当前格式存储、分派、生命周期与 preset 选择 |
 | `integrations/dsh/packages/world/local-world/` | 组合原生本机 FS/subprocess，无 helper |
-| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、账户权限、绑定 owner 的 terminal backend |
+| `integrations/dsh/packages/world/ssh-world/` | SSH bootstrap/client/provider、工具审批与文件发布授权、绑定 owner 的 terminal backend |
 | `integrations/dsh/packages/workspace/local-workspace/` | 独立原生 registry 域及 facade 桥接 |
 | `integrations/dsh/packages/workspace/` | portable-workspace 的 registry/membership、独立 presentation、准入/UI；remote-attachments 的 Session 附件策略 |
 | `integrations/dsh/packages/skill/`、`bundle/` | Skills 发现／同步；整体装配和激活顺序 |
@@ -246,5 +259,6 @@ flowchart TD
 | [DSH rc.1 适配](../.agents/notes/implemented/integration/2026-09-10-dsh-rc1-upgrade.md) | 原生文档预览、导航、catalog 失败清理及完整安装态回归 |
 | [DSH 新版适配](../.agents/notes/implemented/integration/2026-09-09-dsh-upgrade.md) | 范围读取、预览、V2/V3 与安装回归 |
 | [远端附件](../.agents/notes/implemented/integration/2026-09-10-remote-attachments.md) | 持久源、模型读取、上传／预览／fork／重启及旧引用 |
+| [SSH 审批边界](../.agents/notes/implemented/integration/2026-09-12-independent-approval-answerer.md) | SSH 工具审批、工作区内文件发布与原生审批界面；确定性模型验收 |
 
 记录只证明当时声明的范围，历史路径原样保留。`docs/` 解释当前契约和用法，`.agents/notes/` 保存计划、决策与有日期的证据；不把历史成功自动升级成最新 CI 或公开发行承诺。

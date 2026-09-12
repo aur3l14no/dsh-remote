@@ -37,14 +37,15 @@ async function readStream(client: Client, method: string, params: Params, maxByt
   }
 }
 
-export async function writeFile(client: Client, path: string, data: Uint8Array, expected: Expected = { kind: 'any' }, signal?: AbortSignal): Promise<Published> {
-  return writeFileStream(client, path, (async function* () { yield data; })(), data.byteLength, expected, signal);
+export async function writeFile(client: Client, path: string, data: Uint8Array, expected: Expected = { kind: 'any' }, signal?: AbortSignal, writeRoot?: string): Promise<Published> {
+  return writeFileStream(client, path, (async function* () { yield data; })(), data.byteLength, expected, signal, writeRoot);
 }
 
 /** Publish a known-length file with bounded chunks and backpressure, without aggregating it in memory. */
-export async function writeFileStream(client: Client, path: string, data: AsyncIterable<Uint8Array>, bytes: number, expected: Expected = { kind: 'any' }, signal?: AbortSignal): Promise<Published> {
+export async function writeFileStream(client: Client, path: string, data: AsyncIterable<Uint8Array>, bytes: number, expected: Expected = { kind: 'any' }, signal?: AbortSignal, writeRoot?: string): Promise<Published> {
   if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > client.info.limits.uploadBytes!) throw new RemoteError('CLIENT_RESOURCE_LIMIT', 'File exceeds remote upload limit');
-  const { upload } = await client.requestWhenReady<{ upload: string }>('fs.beginWrite', { path, expected, maxBytes: Math.max(1, bytes) } as Params, signal);
+  if (writeRoot !== undefined && !client.info.capabilities.includes('fs.rooted-publish')) throw new RemoteError('UNSUPPORTED', 'Update the helper to enable workspace-contained writes');
+  const { upload } = await client.requestWhenReady<{ upload: string }>('fs.beginWrite', { path, expected, maxBytes: Math.max(1, bytes), ...(writeRoot === undefined ? {} : { writeRoot }) } as Params, signal);
   let committed = false;
   try {
     let offset = 0;

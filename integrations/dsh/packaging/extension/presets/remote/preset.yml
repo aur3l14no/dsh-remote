@@ -1,0 +1,3 @@
+name: SSH workspace
+description: Coding tools for your selected SSH workspace. Select an SSH workspace to use this mode; switching modes does not change where your session runs.
+order: 2

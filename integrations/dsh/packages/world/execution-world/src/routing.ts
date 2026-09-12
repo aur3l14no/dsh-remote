@@ -46,6 +46,7 @@ export function executionWorldContext(ctx: Context, subject: Agent | ToolExecuti
   const client = owner.remoteWorld.client;
   const info = client.info;
   return Object.freeze({ world: definition.worldId, workspace: definition.id, kind: definition.kind, runtime: info.runtime, cwd: info.cwd, helperBuild: info.build,
+    enforcement: 'no remote OS sandbox; reads are allowed; workspace-write permits rooted file writes inside the workspace when fs.rooted-publish is available; other restricted operations require approval; approved operations use SSH account permissions',
     platform: info.platform, arch: info.arch, capabilities: Object.freeze([...info.capabilities]), state: client.state });
 }
 

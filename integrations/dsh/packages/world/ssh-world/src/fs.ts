@@ -5,6 +5,7 @@ import { posix } from 'node:path';
 import { readFile, readFileRange, writeFile, rawStream, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import type { Metadata, Expected } from '../../../../../../runtime/client/src/index.ts';
 import './world.ts';
+import { fileAuthorization } from './file-authorization.ts';
 
 export interface Config { textMaxBytes: number; diffBasisMaxBytes: number }
 const normalize = (text: string) => text.replaceAll('\r\n', '\n');
@@ -117,7 +118,9 @@ export default class SshFileSystem extends FileSystem {
     finally { if (this.locks.get(target.targetKey) === current) this.locks.delete(target.targetKey); }
   }
   private async publish(target: FsTarget, content: string, expected: Expected, signal?: AbortSignal): Promise<{ version: FsVersion; operation: 'create' | 'update' }> {
-    const result = await writeFile(this.client, this.processPath(target), Buffer.from(content), expected, signal);
+    const authorization = fileAuthorization.getStore();
+    if (authorization && authorization.client !== this.client) throw new FsError('File authorization belongs to another runtime', 'FS_PERMISSION_DENIED');
+    const result = await writeFile(this.client, this.processPath(target), Buffer.from(content), expected, signal, authorization?.root);
     if (!result.metadata) throw new FsError('File was committed but its new version could not be observed; do not automatically repeat the write', 'FS_IO_ERROR', { cause: new RemoteError('COMMITTED_UNOBSERVED', 'Publication succeeded', { committed: true }) });
     return { version: FsVersion(result.metadata.version), operation: result.kind };
   }

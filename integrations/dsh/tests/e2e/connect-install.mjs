@@ -52,8 +52,10 @@ try {
     PATH: `${join(state, 'bin')}:${process.env.PATH}`, NODE_OPTIONS: `--import=${preload}` };
   execFileSync(process.execPath, ['--expose-internals', launcher, 'plugin', '--profile', 'web', 'add', resolve('dist/dsh', build.filename)], { env, stdio: 'pipe', timeout: 60000 });
   await assert.rejects(access(join(home, 'remote/config.json')));
+  const historyPatch = `${state}/history.patch.json`;
+  await writeFile(historyPatch, JSON.stringify([{ insert: [{ name: resolve('integrations/dsh/tests/e2e/conversation-history.mjs') }] }]));
   const start = async () => {
-    child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], { env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--patch', historyPatch, '--host', '127.0.0.1', '--port', '0', '--no-open'], { env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stderr.resume();
     return new Promise((resolve, reject) => {
       let output = '';
@@ -70,7 +72,6 @@ try {
   page = await browser.newPage({ locale: 'en-US' });
   await page.goto(endpoint);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.getByText('Add workspaces to $DSH_HOME/remote/worlds.json, then use Reload worlds.', { exact: true }).waitFor();
   await page.keyboard.press('Escape');
@@ -147,7 +148,6 @@ try {
   await assert.rejects(control(['sh', '-c', 'test -L "$HOME/.agents/skills/reload-proof"']));
   await stop();
   await page.goto(await start());
-  await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   const retiredFile = new URL('/api/file', page.url());
   retiredFile.searchParams.set('path', '/workspace/world.txt');
   retiredFile.searchParams.set('sessionId', firstId);
@@ -162,11 +162,13 @@ try {
   await stop();
   await rm(join(state, 'runtime.tar.gz')); // Restart must use the private cache, even offline.
   await page.goto(await start());
-  await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await page.getByRole('button', { name: 'New session', exact: true }).last().click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await page.screenshot({ path: 'artifacts/dsh/workspace-picker-open.png' });
-  await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
+  await page.keyboard.press('Escape');
+  // Resume the recorded conversation; choosing its workspace would correctly
+  // create a new draft now that the old session contains a message.
+  await page.getByRole('button', { name: `Open session ${firstId}`, exact: true }).click();
   await page.locator('.session-card[aria-current]').waitFor({ timeout: 60000 });
   assert.equal(requests, 2);
   assert.equal(await readFile(join(home, 'remote/bindings.json'), 'utf8'), bindings);
@@ -206,7 +208,6 @@ try {
   await page.getByRole('button', { name: `Archive session ${secondId}`, exact: true }).click();
   await page.getByRole('button', { name: `Open session ${secondId}`, exact: true }).waitFor({ state: 'hidden' });
   await page.reload();
-  await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await page.getByRole('button', { name: `Open session ${firstId}`, exact: true }).waitFor();
   assert.equal(await cards.count(), 1);
 

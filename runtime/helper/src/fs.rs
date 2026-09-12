@@ -219,6 +219,9 @@ pub async fn read_file(
 
 pub struct Upload {
     path: PathBuf,
+    // Holds the checked parent directory across upload and publication.
+    rooted_parent: Option<File>,
+    _rooted_stage: Option<File>,
     stage_dir: PathBuf,
     staged: PathBuf,
     pub state: Mutex<UploadState>,
@@ -265,9 +268,96 @@ fn check_guard(path: &Path, expected: &Value) -> Result<Option<Metadata>> {
     }
     Ok(m)
 }
+
+/// Open each directory without following links, and retain its identity rather
+/// than reusing an absolute path after authorization. Rooted writes are a Linux
+/// capability: procfs provides paths relative to the retained directory handle.
+#[cfg(target_os = "linux")]
+fn rooted_target(path: &Path, root: &Path) -> Result<(PathBuf, File)> {
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd};
+    let relative = path.strip_prefix(root).map_err(|_| {
+        Error::new(
+            "PATH_OUTSIDE_ROOT",
+            "write target is outside the allowed directory",
+        )
+    })?;
+    let leaf = relative
+        .file_name()
+        .ok_or_else(|| invalid("write target must name a file"))?;
+    let mut directory = File::open("/")?;
+    let root_parts = root
+        .components()
+        .filter(|part| !matches!(part, Component::RootDir));
+    let child_parts = relative.parent().unwrap_or(Path::new("")).components();
+    for (part, create) in root_parts
+        .map(|part| (part, false))
+        .chain(child_parts.map(|part| (part, true)))
+    {
+        let Component::Normal(part) = part else {
+            return Err(invalid("rooted paths must be canonical"));
+        };
+        let name = CString::new(part.as_encoded_bytes()).map_err(|_| invalid("NUL in path"))?;
+        let open = || unsafe {
+            libc::openat(
+                directory.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        let mut fd = open();
+        if fd < 0
+            && create
+            && std::io::Error::last_os_error().kind() == std::io::ErrorKind::NotFound
+        {
+            let created = unsafe { libc::mkdirat(directory.as_raw_fd(), name.as_ptr(), 0o755) };
+            if created < 0
+                && std::io::Error::last_os_error().kind() != std::io::ErrorKind::AlreadyExists
+            {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            fd = open();
+        }
+        if fd < 0 {
+            return Err(Error::new(
+                "PATH_OUTSIDE_ROOT",
+                "write directory changed or contains a symbolic link",
+            ));
+        }
+        directory = unsafe { File::from_raw_fd(fd) };
+    }
+    Ok((
+        PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd())).join(leaf),
+        directory,
+    ))
+}
+
 impl Upload {
     pub fn begin(p: &Value, nonce: &str) -> Result<Arc<Self>> {
-        let path = resolve(&absolute(string(p, "path")?)?)?;
+        #[allow(unused_mut)]
+        let mut path = resolve(&absolute(string(p, "path")?)?)?;
+        #[allow(unused_mut)]
+        let mut rooted_parent = None;
+        if let Some(root) = p.get("writeRoot") {
+            let root = absolute(
+                root.as_str()
+                    .ok_or_else(|| invalid("writeRoot must be an absolute path"))?,
+            )?;
+            #[cfg(target_os = "linux")]
+            {
+                let (target, parent) = rooted_target(&path, &root)?;
+                path = target;
+                rooted_parent = Some(parent);
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                let _ = root;
+                return Err(Error::new(
+                    "UNSUPPORTED",
+                    "rooted publication requires Linux",
+                ));
+            }
+        }
         let expected = p.get("expected").cloned().unwrap_or(json!({"kind":"any"}));
         check_guard(&path, &expected)?;
         let limit = number(p, "maxBytes", 16 * 1024 * 1024, 64 * 1024 * 1024)?;
@@ -278,7 +368,22 @@ impl Upload {
         let stage_dir = parent.join(format!(".dsh-stage-{nonce}"));
         std::os::unix::fs::DirBuilderExt::mode(&mut fs::DirBuilder::new(), 0o700)
             .create(&stage_dir)?;
-        let staged = stage_dir.join("content");
+        let rooted_stage = if rooted_parent.is_some() {
+            Some(
+                OpenOptions::new()
+                    .read(true)
+                    .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+                    .open(&stage_dir)?,
+            )
+        } else {
+            None
+        };
+        let staged = if let Some(stage) = &rooted_stage {
+            use std::os::fd::AsRawFd;
+            PathBuf::from(format!("/proc/self/fd/{}/content", stage.as_raw_fd()))
+        } else {
+            stage_dir.join("content")
+        };
         let file = match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -293,6 +398,8 @@ impl Upload {
         };
         Ok(Arc::new(Self {
             path,
+            rooted_parent,
+            _rooted_stage: rooted_stage,
             stage_dir,
             staged,
             state: Mutex::new(UploadState {
@@ -344,7 +451,7 @@ impl Upload {
                 .file
                 .as_mut()
                 .ok_or_else(|| Error::new("CLOSED", "upload is closed"))?;
-            if resolve(&self.path)? != self.path {
+            if self.rooted_parent.is_none() && resolve(&self.path)? != self.path {
                 return Err(Error::new("STALE_VERSION", "target resolution changed"));
             }
             let prior = check_guard(&self.path, &self.expectation)?;
@@ -375,5 +482,66 @@ impl Upload {
                 json!({"committed":true,"kind":if prior.is_some(){"update"}else{"create"},"metadata":after}),
             )
         })
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod rooted_tests {
+    use super::*;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn rooted_publication_holds_directories_and_rejects_escape() {
+        let base =
+            std::env::temp_dir().join(format!("dsh-rooted-{}", crate::unix::random_id().unwrap()));
+        let root = base.join("workspace");
+        let outside = base.join("workspace-other");
+        fs::create_dir_all(root.join("dir")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("escape")).unwrap();
+        for path in [
+            outside.join("file"),
+            root.join("escape/file"),
+            root.join("../workspace-other/file"),
+        ] {
+            assert!(Upload::begin(&json!({"path":path,"writeRoot":root}), "denied").is_err());
+        }
+        assert!(fs::read_dir(&outside).unwrap().next().is_none());
+        let upload = Upload::begin(
+            &json!({"path":root.join("dir/file"),"writeRoot":root}),
+            "pinned",
+        )
+        .unwrap();
+        upload
+            .write(
+                &json!({"offset":0,"data":STANDARD.encode(b"inside")}),
+                &Cancel::default(),
+            )
+            .await
+            .unwrap();
+        fs::rename(root.join("dir"), root.join("held")).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("dir")).unwrap();
+        upload
+            .commit(&Cancel::default(), &Mutex::new(()))
+            .await
+            .unwrap();
+        drop(upload);
+        assert_eq!(fs::read(root.join("held/file")).unwrap(), b"inside");
+        assert!(fs::read_dir(&outside).unwrap().next().is_none());
+        assert_eq!(fs::read_dir(root.join("held")).unwrap().count(), 1);
+
+        let fresh = Upload::begin(&json!({"path":root.join("new/nested/file"),"writeRoot":root,"expected":{"kind":"absent"}}), "new").unwrap();
+        fresh
+            .write(
+                &json!({"offset":0,"data":STANDARD.encode(b"new")}),
+                &Cancel::default(),
+            )
+            .await
+            .unwrap();
+        fresh
+            .commit(&Cancel::default(), &Mutex::new(()))
+            .await
+            .unwrap();
+        drop(fresh);
+        assert_eq!(fs::read(root.join("new/nested/file")).unwrap(), b"new");
+        fs::remove_dir_all(base).unwrap();
     }
 }

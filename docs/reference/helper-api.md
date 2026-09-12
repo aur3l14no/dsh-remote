@@ -1,6 +1,6 @@
 # Helper API revision 1
 
-Wire revision 1, helper 0.1.3. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
+Wire revision 1, helper 0.1.4. This contract defines runtime-owned processes, bounded live-runtime reconnection, filesystem operations, cleanup facts, and output/backpressure. DSH integration status is maintained in the root README.
 
 ## Design basis
 
@@ -148,3 +148,9 @@ Stable errors distinguish invalid input, unknown/expired session/resource, unava
 ## DSH integration boundary
 
 DSH adapters own provisional handles, local collection mirrors, text editing and Agent context. Search runs target-native ripgrep through `process.spawn`; the adapter maps only DSH's exact registered packaged-ripgrep identity. The helper has no search engine or basename-based executable rewrite. Current composition is described in [architecture](../system-map.md); historical platform evidence remains in [helper acceptance](../../.agents/notes/archived/2026-09-initial-integration/helper-acceptance.md).
+
+### Optional rooted publication (Linux)
+
+A helper advertising fs.rooted-publish accepts writeRoot on fs.beginWrite. It resolves the target and rejects paths outside that root. The root and descendant directories are opened component by component without following symlinks; missing descendant directories may be created. Parent and staging directory descriptors remain open through upload, atomic publication and cleanup, so replacing a path component with a symlink cannot redirect publication. Initial canonical resolution follows existing symlinks, including the final component, before checking containment. Subsequent directory opens do not follow symlinks, and publication rejects a final component replaced with a symlink.
+
+The root is a directory capability for this upload, not an OS sandbox. Moving an already-open directory does not change its identity. External commands and other uploads are not constrained by this optional field. Older helpers must not receive a request relying on this field without capability negotiation.

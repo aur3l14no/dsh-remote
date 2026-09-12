@@ -62,7 +62,9 @@ try {
   }
   await writeFile(`${state}/replacement-config.json`, JSON.stringify({ ...config, bootstrap: initialized.bootstrap }), { mode: 0o600 });
   assert.throws(() => plugin('exec', 'dsh-remote-config', 'init', `${state}/replacement-config.json`));
-  child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const historyPatch = `${state}/history.patch.json`;
+  await writeFile(historyPatch, JSON.stringify([{ insert: [{ name: resolve('integrations/dsh/tests/e2e/conversation-history.mjs'), config: credentialHome ? { restoreModel: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } } : {} }] }]));
+  child = spawn(process.execPath, ['--expose-internals', launcher, '--profile', 'web', '--patch', historyPatch, '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const log = createWriteStream(resolve('.build/dsh/logs/extension-cli.private.log'), { mode: 0o600 });
   child.stdout.pipe(log, { end: false });
   child.stderr.pipe(log, { end: false });
@@ -86,7 +88,6 @@ try {
   });
   await page.goto(url);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await page.getByRole('button', { name: 'Choose workspace', exact: true }).click();
   await rm(`${skillSource}/SKILL.md`);
   await page.getByRole('menuitem').filter({ hasText: '/workspace' }).first().click();
@@ -115,7 +116,6 @@ try {
   assert.equal(await card.locator('svg').first().getAttribute('stroke'), '#a855f7');
   assert.ok((await card.boundingBox()).height < 84);
   await page.reload();
-  if (!credentialHome) await page.getByRole('button', { name: 'Configure later', exact: true }).click();
   await card.waitFor();
   assert.equal(await card.locator('svg').first().getAttribute('stroke'), '#a855f7');
   await rm(`${skillSource}/SKILL.md`);

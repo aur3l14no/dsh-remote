@@ -81,10 +81,9 @@
     },
     {
       "file": "0010-local-workspace-admission.patch",
-      "sha256": "e02fdcf2247920fc29e72da2165daa264d5d35682834de74b698b4cbedb0fe43",
+      "sha256": "f34e69ed02a8bdd73d568624ebd9e2bfd53c6c6c20bb7cf2ed336bcab1ef97d7",
       "packages": [
         "@deepseek-ai/dsh-api-session-controller",
-        "@deepseek-ai/dsh-permission-presets",
         "@deepseek-ai/dsh-workspace"
       ]
     },

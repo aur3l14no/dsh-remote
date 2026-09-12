@@ -21,7 +21,7 @@ paths['@deepseek-ai/dsh-api-workspace-controller/types'] = [join(upstream, 'pack
 paths['@deepseek-ai/dsh-client-file-upload/types'] = [join(upstream, 'packages/client/file-upload/src/types.ts')];
 const format = { getCurrentDirectory: () => root, getCanonicalFileName: name => name, getNewLine: () => '\n' };
 let failures = 0;
-for (const entry of ['world/execution-world/src/presets.ts', 'workspace/remote-attachments/src/index.ts', 'bundle/remote/src/index.ts', 'workspace/portable-workspace/src/client/index.tsx', 'skill/remote-skills/src/deploy.ts', 'world/ssh-world/src/terminal-backend.ts']) {
+for (const entry of ['world/ssh-world/src/approval-gate.ts', 'world/execution-world/src/presets.ts', 'workspace/remote-attachments/src/index.ts', 'bundle/remote/src/index.ts', 'workspace/portable-workspace/src/client/index.tsx', 'skill/remote-skills/src/deploy.ts', 'world/ssh-world/src/terminal-backend.ts']) {
   const program = ts.createProgram([join(root, 'integrations/dsh/packages', entry), join(upstream, 'packages/client/ui-sidebar/src/css-modules.d.ts')], {
     target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, jsx: ts.JsxEmit.ReactJSX,
     strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,

@@ -1,5 +1,7 @@
 # Repository maintenance
 
+After every UI change, open the actual running page and personally inspect screenshots and interactions before delivery. Check the affected layout at desktop and narrow widths, including light and dark themes when supported; DOM assertions alone are insufficient.
+
 Before changing execution or DSH integration, read README.md and docs/system-map.md. Active plan: .agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md.
 
 - Keep World, Workspace, Session binding and runtime instance identities distinct. Display preferences must not change execution identity or workspace timestamps. Prefer existing UI extension points over cosmetic upstream patches.

@@ -13,6 +13,7 @@
       config:
         providerPaths: true
         kind: ssh
+    - name: '../../plugins/web/lib/approval.js'
     - name: '@deepseek-ai/dsh-bash-local'
       config:
         maxSpillBytes: 4194304

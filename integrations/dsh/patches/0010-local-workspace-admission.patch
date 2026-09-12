@@ -62,56 +62,6 @@
      try {
        const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
        await this.ctx.agents.create({
---- a/packages/interaction/permission-presets/src/index.ts
-+++ b/packages/interaction/permission-presets/src/index.ts
-@@ -140,6 +140,12 @@
- }
- 
- /** The {@link PermissionPresetService} config: preset table and composition default. */
-+declare module '@deepseek-ai/cordis' {
-+  interface Context {
-+    sessionPermissionDefaults: { preset(session: Session, configured: string): string; validate?(session: Session, selected: string): void }
-+  }
-+}
-+
- export interface Config {
-   /**
-    * The preset table: name → knob bundle. Defaults to `workspace-write`
-@@ -377,6 +383,7 @@
-    * @param name - the preset to switch to; unknown names throw.
-    */
-   set(session: Session, name: string): void {
-+    this.ctx.get('sessionPermissionDefaults')?.validate?.(session, name)
-     this.apply(session, name, (policy) =>{  setApprovalPolicy(session, policy) })
-   }
- 
-@@ -407,8 +414,9 @@
-     const sandbox = state.sandbox
-     const approval = state.approval
-     const seeded = state.seeded
-+    const environmentDefault = this.ctx.get('sessionPermissionDefaults')?.preset(session, this.defaultPreset)
-     if (selected === null && sandbox === null && approval === null && !seeded) {
--      const name = this.defaultPreset
-+      const name = environmentDefault ?? this.defaultPreset
-       const spec = this.resolve(name)
-       session.append('permission/preset', { preset: name })
-       setSandboxMode(session, spec.sandbox)
-@@ -416,12 +424,13 @@
-       return
-     }
- 
--    const effective = this.derive(state)
-+    const fallbackSandbox = environmentDefault === undefined ? this.ctx.shell.sandboxMode as SandboxMode : this.resolve(environmentDefault).sandbox
-+    const effective = this.derive(environmentDefault === undefined ? state : { ...state, sandbox: sandbox ?? fallbackSandbox })
-     if (selected === null && effective !== CUSTOM_PRESET) {
-       session.append('permission/preset', { preset: effective })
-     }
-     if (sandbox === null) {
--      setSandboxMode(session, this.ctx.shell.sandboxMode as SandboxMode)
-+      setSandboxMode(session, fallbackSandbox)
-     }
-     if (approval === null) {
-       setApprovalPolicy(session, this.ctx.approval.config.policy ?? 'ask')
 --- a/packages/workspace/workspace/src/index.ts
 +++ b/packages/workspace/workspace/src/index.ts
 @@ -110,7 +110,7 @@

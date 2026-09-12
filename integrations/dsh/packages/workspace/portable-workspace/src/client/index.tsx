@@ -179,6 +179,9 @@ function installWorkspaceUi(ctx: Context) {
     const sessions = useSyncExternalStore(subscribeSessions, sessionSnapshot);
     const { worlds, error: catalogError } = useWorlds();
     const pinned = worlds.flatMap(world => world.pinnedSessionIds);
+    const history = snapshot.items.flatMap(row => row.sessionIds
+      .filter(id => sessions.byId[id]?.blank === false && !snapshot.archivedSessionIds.includes(id))
+      .map(id => ({ row, id })));
     const [busySession, setBusySession] = useState<string>();
     const [error, setError] = useState('');
     async function perform(action: () => Promise<void>) {
@@ -214,9 +217,9 @@ function installWorkspaceUi(ctx: Context) {
       <ReloadWorlds ctx={ctx} />
       {navigation.unavailableSession && <p role="alert">The linked Session is unavailable.</p>}
       {(error || catalogError || snapshot.error) && <p role="alert">{error || catalogError || snapshot.error?.message}</p>}
-      {!snapshot.items.some(row => row.sessionIds.some(id => !snapshot.archivedSessionIds.includes(id))) && <p className="empty-sessions">Start a new session to choose a workspace.</p>}
+      {!history.length && <p className="empty-sessions">Your conversations will appear here after the first message.</p>}
       <div className="session-list">
-      {snapshot.items.flatMap(row => row.sessionIds.filter(id => !snapshot.archivedSessionIds.includes(id)).map(id => ({ row, id })))
+      {history
         .sort((a, b) => {
           const left = pinned.indexOf(a.id), right = pinned.indexOf(b.id);
           return left < 0 ? (right < 0 ? 0 : 1) : right < 0 ? -1 : left - right;

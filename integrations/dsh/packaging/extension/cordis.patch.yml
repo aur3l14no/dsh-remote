@@ -21,8 +21,6 @@
   disabled: true
 - id: sandbox-policy
   disabled: true
-- id: permission
-  disabled: true
 - insert:
     - id: remote-workspaces
       name: './plugins/web/lib/index.js'
@@ -69,21 +67,6 @@
         includeShippedRoot: false
         includeUserRoot: false
         roots: !!js ctx.remoteSetup.roots
-    - id: world-permission
-      name: './compat/@deepseek-ai/dsh-permission-presets/lib/index.js'
-      inject: [remoteSetup, sessionPermissionDefaults]
-      config:
-        defaultPreset: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
-        presets:
-          read-only:
-            sandbox: read-only
-            approval: ask
-          workspace-write:
-            sandbox: workspace-write
-            approval: ask
-          danger-full-access:
-            sandbox: danger-full-access
-            approval: never
 
 - id: workspace-files
   disabled: true

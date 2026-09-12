@@ -45,7 +45,7 @@
 
 点击 **New Session**，在输入框上方点击 **Choose workspace**，按 World 分组选择 Workspace。本机 **This computer → Choose a folder…** 使用原生目录选择器，不要求先编辑配置，也不建立 SSH 连接或下载 helper。选中 SSH 目录后才建立连接、安装所需 runtime 并检查远端真实路径；一个暂时离线的 World 不会阻止浏览其他选项。失败显示在选择菜单中，修复后可再次选择。
 
-已有会话始终按保存的 World × canonical Workspace 恢复。选择另一个 Workspace 会打开该目录的新会话或复用其空白会话，不会修改原会话的绑定。会话卡片显示 World / Workspace、标题和目录，长文字截断，悬停可查看完整标题、World 和目录；悬停或键盘聚焦时显示置顶与归档图标。置顶会话排在列表顶部，重启后保留；归档同时取消置顶，保留历史和远端文件。两项偏好单独保存在宿主 `workspace_presentation`，不改执行身份或 workspace 时间戳。
+已有会话始终按保存的 World × canonical Workspace 恢复。选择另一个 Workspace 会打开该目录的新会话或复用其空白会话，不会修改原会话的绑定。空白会话作为草稿保留，开始第一轮对话后才显示在侧栏历史中。会话卡片显示 World / Workspace、标题和目录，长文字截断，悬停可查看完整标题、World 和目录；悬停或键盘聚焦时显示置顶与归档图标。置顶会话排在列表顶部，重启后保留；归档同时取消置顶，保留历史和远端文件。两项偏好单独保存在宿主 `workspace_presentation`，不改执行身份或 workspace 时间戳。
 
 本机条目可省略，选择器仍提供默认 **This computer**。配置中的本机目录在启动／确认 Reload 后登记到原生最近工作区，按 canonical path 合并；移除配置条目不会删除最近工作区或历史。`local` 为保留 ID，不能改成 SSH 类型；本机条目禁止 `host`、`skills`、`enabledSkills` 等 SSH 专属字段。
 

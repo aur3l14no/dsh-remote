@@ -48,8 +48,9 @@ async function localOperations(agent: Agent, suffix: string) {
 }
 async function turn(agent: Agent, text: string) {
   const adapter = new MockAdapter([textResponse(text)]);
-  host!.ctx.llm.registerAdapter(['local-fixture'], adapter);
-  await host!.ctx.get('sessionController').selectModel({ sessionId: agent.id, provider: 'local-fixture', model: 'fixture' });
+  const provider = `local-fixture-${randomUUID()}`;
+  host!.ctx.llm.registerAdapter([provider], adapter);
+  await host!.ctx.get('sessionController').selectModel({ sessionId: agent.id, provider, model: 'fixture' });
   const done = host!.whenTurnSettled();
   await host!.ctx.get('sessionController').prompt({ sessionId: agent.id, requestId: brandString<SessionRequestId>(randomUUID()), mode: 'queue', content: [{ type: 'text', text: 'Verify this workspace.' }] }, AbortSignal.timeout(30000));
   await done;
@@ -262,6 +263,20 @@ it('preserves native macOS workspaces and permissions when the standard extensio
   await chooser.getByRole('button', { name: 'Open', exact: true }).click();
   await expect.poll(() => host!.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)).toBeDefined();
   expect(host.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)!.session.header.agentPreset).toBe('standard');
+  const selectedAgent = host.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)!;
+  expect(await page.getByRole('button', { name: `Open session ${selectedAgent.id}`, exact: true }).count()).toBe(0);
+  // Exercise the generated RPC, not just the direct service call above: an
+  // override parameter rename must not turn the admission error into a wire error.
+  await page.getByRole('button', { name: 'Standard mode', exact: true }).click();
+  const remotePreset = page.getByRole('menuitem').filter({ hasText: 'SSH workspace' });
+  expect(await remotePreset.innerText()).toContain('switching modes does not change where your session runs');
+  await remotePreset.click();
+  await page.getByText(/This session uses a local workspace/).waitFor();
+  expect(await page.getByText(/unexpected "agentPreset"/).count()).toBe(0);
+  expect(host.ctx.agents.list().find(agent => agent.session.header.cwd === selectedFolder)!.session.header.agentPreset).toBe('standard');
+  await turn(selectedAgent, 'FIRST_MESSAGE_VISIBLE');
+  await page.getByRole('button', { name: `Open session ${selectedAgent.id}`, exact: true }).waitFor();
+  await turn(freshAgent, 'ANOTHER_CONVERSATION');
   await page.setViewportSize({ width: 1280, height: 300 });
   const list = page.locator('.portable-workspaces .session-list');
   await expect.poll(() => list.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);

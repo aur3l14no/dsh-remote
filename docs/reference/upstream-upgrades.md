@@ -33,7 +33,7 @@
 | 0007 session-attachments | 附件消费者传递 Session，后端可提供执行环境路径和复用图片校验/归一化；模型上传索引接受不透明附件 ID |
 | 0008 sidebar-resource-dot-segments | 原生侧栏 URI glob 能识别包含 `.` / `..` 的地址，且保留 Session 与路径原文 |
 | 0009 present-desktop-availability | 禁用宿主打开时，交付文件 HTTP 元数据与拒绝入口不再依赖宿主 FS / sandboxPolicy |
-| 0010 local-workspace-admission | 准入可选择 Session preset；权限初始化可按 Session 选择缺失默认值；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
+| 0010 local-workspace-admission | 准入可选择 Session preset；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
 | 0011 child-execution-environment | 原生 child 创建／续接提供可等待的执行环境准备与发布校验，显式选择目标 preset/cwd，保留普通 child 的 standing composition、原生 Session lineage 与工具过滤 |
 
 新增补丁应直接服务执行身份、生命周期或 provider 接口；展示便利优先使用现有插件槽位。New Session 使用原生控件，Reload worlds 位于工作区插件，不再维护侧栏 primary actions 补丁。

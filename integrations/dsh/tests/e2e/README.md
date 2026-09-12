@@ -45,3 +45,11 @@ Private inputs stay under `.build/dsh/e2e/run-*`; the runner does not load perso
 Set `DSH_TEST_RELEASE_OUTPUT` to an absent directory to retain the complete candidate accepted by extension-install; otherwise its temporary candidate is removed. CI uses this for [release promotion](../../../../docs/release.md). Set `DSH_E2E_VIDEO_DIR` for a 1440×900 WebM of the CLI browser flow; default runs are unrecorded, and SSH assertions remain in the runner.
 
 Browser state lives under `.build/dsh/e2e/browser-*` and is removed after the test. Sanitized screenshots/results live under `artifacts/dsh/`, including `live-result.json`, `extension-install.json` and `extension-install-live.json`. Private CLI logs may contain a process-token URL and must not be uploaded. Local acceptance does not establish a GitHub runner result; outstanding scenarios are maintained only in the [current plan](../../../../.agents/notes/proposed/integration/2026-09-07-world-portable_workspace-web.md).
+
+## SSH approval boundary
+
+```sh
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --ssh-approval
+```
+
+Prepare browser fixtures first using the normal development entry points. This self-contained lane uses native approval events and deterministic model tool calls against Linux/SSH. It verifies workspace-contained write/edit/read without approval, outside-workspace allow/reject, read-only writes, cancel/unavailable, permission changes during approval, the never policy, Full access bypass, and native human approval rejection at desktop/narrow widths in light/dark themes. It verifies actual remote file effects and requires no third-party approval plugin. Results use `artifacts/dsh/ssh-approval-result.json`.

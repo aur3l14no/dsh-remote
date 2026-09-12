@@ -107,6 +107,8 @@ impl Runtime {
             return Err(std::io::Error::last_os_error().into());
         }
         let mut capabilities = CAPABILITIES.to_vec();
+        #[cfg(target_os = "linux")]
+        capabilities.push("fs.rooted-publish");
         if unix::pty(24, 80).is_err() {
             capabilities.retain(|cap| *cap != "process.pty");
         }
