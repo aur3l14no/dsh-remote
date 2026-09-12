@@ -1,3 +1,4 @@
+import BashExecutor from '@deepseek-ai/dsh-bash-local';
 import { Context } from '@deepseek-ai/cordis';
 import { type Client, RemoteError } from '../../../../../../runtime/client/src/index.ts';
 import { bootstrapSshWorld, type BootstrapOptions } from '../../../../../../runtime/ssh/src/index.ts';
@@ -43,6 +44,7 @@ export class SshWorldAdapter {
       await owner.plugin(worldPlugin(connection.client, () => connection.close(), connection.dataRoot)); mounted = true;
       await owner.plugin(SshFileSystem, { textMaxBytes: 33554432, diffBasisMaxBytes: 1048576 });
       await owner.plugin(SshSubprocess, { executables: { [this.config.packagedRipgrep]: connection.ripgrep } });
+      await owner.plugin(BashExecutor, { maxSpillBytes: 4194304 });
       return owner;
     } catch (error) {
       try { await owner.fiber.dispose(); if (!mounted) await connection.close(); }

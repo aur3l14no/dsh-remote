@@ -239,6 +239,18 @@ export default class WorldPortableWorkspaceRegistry extends WorkspaceRegistry {
     return this.createInWorld(worldId, path);
   }
 
+  /** Prepare an explicit call target without creating membership or changing Session bindings. */
+  async prepareOperation(worldId: string, path: string, signal: AbortSignal) {
+    const world = this.environment(worldId);
+    const definition = workspaceFor(world.environment, `operation:${worldFingerprint(world.environment)}`, '/');
+    const owner = await this.ctx.executionWorlds.prepareWorld(definition);
+    const target = await owner.fs.resolve(path, { signal });
+    if ((await owner.fs.stat(target, signal))?.type !== 'directory') throw new RemoteError('NOT_DIRECTORY', 'Execution directory must exist on the selected World');
+    this.environment(worldId, world.environment);
+    signal.throwIfAborted();
+    return { owner, definition, cwd: owner.fs.processPath(target) };
+  }
+
   async createInWorld(worldId: string, path: string): Promise<Workspace> {
     if (!path.startsWith('/')) throw new RemoteError('INVALID_ARGUMENT', 'Absolute workspace path required');
     const world = this.environment(worldId);

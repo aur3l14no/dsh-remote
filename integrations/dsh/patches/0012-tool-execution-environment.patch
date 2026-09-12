@@ -1,0 +1,611 @@
+diff --git a/packages/api/workspace-files/src/index.ts b/packages/api/workspace-files/src/index.ts
+--- a/packages/api/workspace-files/src/index.ts
++++ b/packages/api/workspace-files/src/index.ts
+@@ -49,7 +49,7 @@
+     workspaceFiles: WorkspaceFiles
+     /** Optional Session-owned filesystem for non-tool reads, including cold Sessions. */
+     workspaceFileEnvironment: {
+-      resolve(sessionId: SessionId, signal: AbortSignal): Promise<WorkspaceFileEnvironment>
++      resolve(sessionId: SessionId, signal: AbortSignal, path?: string): Promise<WorkspaceFileEnvironment>
+     }
+   }
+ }
+@@ -318,6 +318,12 @@
+     }
+     const { fs, target } = await this.locateFile(workspaceFileScope, path, signal)
+     const absolute = fs.processPath(target)
++    if (/^[a-z][a-z\d+.-]*:\/\//iu.test(absolute)) {
++      const base = new URL(absolute);
++      const resolved = new URL(relative.split('/').map(encodeURIComponent).join('/'), base);
++      resolved.search = base.search;
++      return this.readAll(workspaceFileScope, resolved.href, signal);
++    }
+     const paths = absolute.startsWith('/') ? posix : win32
+     return this.readAll(workspaceFileScope, paths.resolve(paths.dirname(absolute), relative), signal)
+   }
+@@ -377,11 +383,11 @@
+   }
+ 
+   /** Select once per operation; a configured environment failure never falls back to the Host. */
+-  private async environmentOf(scope: WorkspaceFileScope, signal: AbortSignal): Promise<WorkspaceFileEnvironment> {
++  private async environmentOf(scope: WorkspaceFileScope, signal: AbortSignal, path?: string): Promise<WorkspaceFileEnvironment> {
+     signal.throwIfAborted()
+     const environment = this.ctx.get('workspaceFileEnvironment')
+     const resolved = environment
+-      ? await environment.resolve(scope.sessionId, signal)
++      ? await environment.resolve(scope.sessionId, signal, path)
+       : { fs: this.ctx.get('fs'), workspaceRoot: scope.workspaceRoot }
+     if (!resolved.fs) throw new Error('File preview filesystem is unavailable')
+     signal.throwIfAborted()
+@@ -424,7 +430,7 @@
+     signal: AbortSignal,
+   ): Promise<WorkspaceFileEnvironment & { root: FsTarget; entry: FsPathInfo }> {
+     if (path.length === 0) throw new RemoteError('gateway/bad-request', 'path is required', {})
+-    const { fs, workspaceRoot } = await this.environmentOf(workspaceFileScope, signal)
++    const { fs, workspaceRoot } = await this.environmentOf(workspaceFileScope, signal, path)
+     const root = await fs.resolve(workspaceRoot, { signal })
+     // Gate on the path itself before anything follows it.
+     const entry = await fs.lstat(path, { cwd: workspaceRoot }, signal)
+diff --git a/packages/client/ui-deliverables/src/client/PresentedFileCard.tsx b/packages/client/ui-deliverables/src/client/PresentedFileCard.tsx
+--- a/packages/client/ui-deliverables/src/client/PresentedFileCard.tsx
++++ b/packages/client/ui-deliverables/src/client/PresentedFileCard.tsx
+@@ -1,3 +1,4 @@
++import { displayPath } from '../presented.ts'
+ /** File identity and explicit default-app or file-manager actions for one delivery. */
+ import { useRef, useState } from 'react'
+ import { resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+@@ -49,9 +50,9 @@
+       : reveal === 'directory' && phase === 'revealing' ? 'presented.directoryOpening'
+         : reveal === 'directory' && phase === 'revealError' ? 'presented.directoryError' : `presented.${phase}`)
+   return <div className={css.file} data-presented-file>
+-    <button type="button" className={css.cardPreview} title={resolveWorkspacePath(cwd, file.path)}
++    <button type="button" className={css.cardPreview} title={file.path.includes('://') ? displayPath(file.path) : resolveWorkspacePath(cwd, file.path)}
+       aria-label={t('presented.previewCard', { name: file.path })} onClick={onPreview} />
+-    <span className={css.fileIcon}><FileTypeIcon path={file.path} /></span>
++    <span className={css.fileIcon}><FileTypeIcon path={name} /></span>
+     <div className={css.fileBody}>
+       <div className={css.details}>
+         <span className={css.fileName}>{name}</span>
+diff --git a/packages/client/ui-deliverables/src/client/turn-deliverables.ts b/packages/client/ui-deliverables/src/client/turn-deliverables.ts
+--- a/packages/client/ui-deliverables/src/client/turn-deliverables.ts
++++ b/packages/client/ui-deliverables/src/client/turn-deliverables.ts
+@@ -192,6 +192,10 @@
+     if (match.event.type !== 'tool/result') return context.state
+     const result = match.event.data.message.content[0]
+     if (result.isError === true) return context.state
++    const meta = match.event.data.meta
++    if (isRecord(meta) && Array.isArray(meta.producedFiles) && meta.producedFiles.every(path => typeof path === 'string')) {
++      return { ...context.state, produced: [...context.state.produced, ...meta.producedFiles.map(path => ({ seq: match.event.seq, path }))] }
++    }
+     const callId = String(match.event.data.message.source.callId)
+     const path = context.state.calls.get(callId)
+     return path === null || path === undefined
+diff --git a/packages/client/ui-deliverables/src/presented.ts b/packages/client/ui-deliverables/src/presented.ts
+--- a/packages/client/ui-deliverables/src/presented.ts
++++ b/packages/client/ui-deliverables/src/presented.ts
+@@ -72,7 +72,14 @@
+  * @param path - Slash- or backslash-separated path.
+  * @returns The final segment, or the whole string when separator-free.
+  */
++export function displayPath(path: string): string {
++  if (/^[a-z][a-z\d+.-]*:\/\//iu.test(path)) {
++    try { const url = new URL(path); return `${decodeURIComponent(url.hostname)}${decodeURIComponent(url.pathname)}`; } catch { /* Keep malformed historical paths displayable. */ }
++  }
++  return path
++}
+ export function basename(path: string): string {
++  path = displayPath(path)
+   const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+   return at === -1 ? path : path.slice(at + 1)
+ }
+diff --git a/packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx b/packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx
+--- a/packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx
++++ b/packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx
+@@ -1,3 +1,4 @@
++import { displayPathOf } from './definition.ts'
+ /**
+  * The text preview's body: a file's content, or the reason it is not showing.
+  *
+@@ -86,7 +87,7 @@
+   const state = useStore(s => s.byTab[tab.id])
+   const definitions = useDocumentPreviews(value => value)
+   const candidates = useMemo(() => {
+-    const matched = matchingDocumentPreviews(definitions, file.path)
++    const matched = matchingDocumentPreviews(definitions, displayPathOf(file.path))
+     const fallback = definitions.find(definition => definition.id === PLAIN_BODY_ID)
+     return fallback === undefined ? matched : [...matched, fallback]
+   }, [definitions, file.path])
+@@ -99,7 +100,7 @@
+   const pathRef = useRef<HTMLDivElement | null>(null)
+   const pathTextRef = useRef<HTMLSpanElement | null>(null)
+   const [menuOpen, setMenuOpen] = useState(false)
+-  const displayPath = meta.value?.absolutePath ?? current?.complete?.absolutePath ?? file.path
++  const displayPath = displayPathOf(meta.value?.absolutePath ?? current?.complete?.absolutePath ?? file.path)
+   usePathClipped(pathRef, pathTextRef, displayPath, state !== undefined)
+   // Every tab of this type is a `file` resource address, so its params are the
+   // `file` type's; the union is narrowed on the one field read, not validated.
+diff --git a/packages/client/ui-sidebar-documentpreview/src/client/definition.ts b/packages/client/ui-sidebar-documentpreview/src/client/definition.ts
+--- a/packages/client/ui-sidebar-documentpreview/src/client/definition.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/definition.ts
+@@ -27,15 +27,18 @@
+  * @param address - a `file:`-shaped address.
+  * @returns the decoded last path segment, or the address itself when it has none.
+  */
++export function displayPathOf(path: string): string {
++  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) return path
++  try { const url = new URL(path); return decodeURIComponent(url.hostname + url.pathname) } catch { return path }
++}
+ export function basenameOf(address: string): string {
++  const file = parseFileAddress(address)
++  if (file) {
++    const path = displayPathOf(file.path)
++    return path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1) || path
++  }
+   const name = address.slice(address.lastIndexOf('/') + 1)
+-  if (name === '') return address
+-  try {
+-    return decodeURIComponent(name)
+-  } catch {
+-    // A malformed percent sequence is still a name; showing it raw beats refusing the address.
+-    return name
+-  }
++  try { return decodeURIComponent(name) || address } catch { return name }
+ }
+ 
+ /**
+diff --git a/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx b/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx
+--- a/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx
++++ b/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx
+@@ -20,16 +20,28 @@
+   home?: string | undefined
+   children?: ReactNode
+ }) {
+-  const owner: ToolCallOwnerProps = useMemo(() => ({
++  const owner: ToolCallOwnerProps = useMemo(() => {
++    const meta = 'kind' in block ? block.meta : undefined
++    const value = meta !== null && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>).fileEnvironment : undefined
++    const environment = value !== null && typeof value === 'object' && !Array.isArray(value)
++      && 'cwd' in value && 'base' in value && typeof value.cwd === 'string' && typeof value.base === 'string' ? { cwd: value.cwd, base: value.base } : undefined
++    const open: typeof openFile = environment === undefined ? openFile : (path, options) => {
++      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) return openFile(path, options)
++      const base = new URL(environment.base)
++      const address = new URL(path.split('/').map(encodeURIComponent).join('/'), base)
++      address.search = base.search
++      openFile(address.href, options)
++    }
++    return ({
+     callId,
+     toolName,
+     block,
+-    openFile,
+-    cwd,
++    openFile: open,
++    cwd: environment?.cwd ?? cwd,
+     home,
+     loadImage,
+     inspect: () => { inspectCall(callId) },
+-  }), [callId, toolName, block, openFile, cwd, home, loadImage, inspectCall])
++  }) }, [callId, toolName, block, openFile, cwd, home, loadImage, inspectCall])
+   return (
+     <div
+       className={css.callRow}
+diff --git a/packages/client/ui-tool/src/client/tool/components/ToolRow.tsx b/packages/client/ui-tool/src/client/tool/components/ToolRow.tsx
+--- a/packages/client/ui-tool/src/client/tool/components/ToolRow.tsx
++++ b/packages/client/ui-tool/src/client/tool/components/ToolRow.tsx
+@@ -172,7 +172,7 @@
+     return `+${added} -${removed}`
+   }, [diffBody])
+   const suffix = failureLine === null ? summarySuffix ?? diffStat : null
+-  const fileLink = filePath !== undefined && onOpenFile !== undefined && failureLine === null
++  const fileLink = state !== 'running' && filePath !== undefined && onOpenFile !== undefined && failureLine === null
+   const toggleExpand = () => {
+     setExpanded(v => !v)
+   }
+diff --git a/packages/core/tools/src/execution-environment.ts b/packages/core/tools/src/execution-environment.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/tools/src/execution-environment.ts
+@@ -0,0 +1,17 @@
++import type { Context } from '@deepseek-ai/cordis'
++import type { ToolExecution, ToolExecutionResult } from './index.ts'
++
++/** Optional host environment extension; tools retain their ordinary Session default. */
++export interface ToolEnvironment {
++  fileEnvironment(): { cwd: string; base: string } | undefined
++  readonly parameters: Record<string, unknown>
++  run(exec: ToolExecution, next: () => Promise<ToolExecutionResult>): Promise<ToolExecutionResult>
++  fileReference(exec: ToolExecution, path: string): string | undefined
++  cwd(exec: ToolExecution): string | undefined
++}
++declare module '@deepseek-ai/cordis' {
++  interface Context { toolEnvironment: ToolEnvironment }
++}
++export function executionCwd(ctx: Context, exec: ToolExecution): string | undefined {
++  return ctx.get('toolEnvironment')?.cwd(exec) ?? exec.agent?.session.header.cwd
++}
+diff --git a/packages/core/tools/src/index.ts b/packages/core/tools/src/index.ts
+--- a/packages/core/tools/src/index.ts
++++ b/packages/core/tools/src/index.ts
+@@ -1,3 +1,5 @@
++export { executionCwd } from './execution-environment.ts'
++export type { ToolEnvironment } from './execution-environment.ts'
+ /**
+  * Tool registry, model presentation modes, and pre/guard/around/post/result
+  * execution pipeline.
+@@ -212,6 +214,7 @@
+ 
+ /** A registered tool: its schema plus the execution function. */
+ export interface ToolDefinition extends ToolSchema {
++  readonly executionEnvironment?: { readonly access: 'read' | 'write' | 'execute'; readonly path?: string; readonly directory?: string; readonly selection?: boolean; readonly resource?: { kind: string; parameter: string }; readonly produces?: { kind: string; result: string } }
+   /** Mandatory canonical output declaration. */
+   readonly output: ToolOutputDefinition
+   /**
+diff --git a/packages/core/tools/src/schema.ts b/packages/core/tools/src/schema.ts
+--- a/packages/core/tools/src/schema.ts
++++ b/packages/core/tools/src/schema.ts
+@@ -1,6 +1,7 @@
+ /** Unified JSON-value schema DSL, inference, compilation, and typed tool helper. @module dsh-tools/schema */
+ 
+ import { HarnessError } from '@deepseek-ai/dsh-llm'
++import type { ToolEnvironment } from './execution-environment.ts'
+ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+ import type { ToolDefinition, ToolExecution, ToolExecutionResult, ToolRunContext, ToolResult } from './index.ts'
+@@ -483,6 +484,9 @@
+ export interface DefineToolOptions<S extends ParameterSchemaSpec, O extends ValueSchemaSpec> {
+   /** Tool name (must be unique). */
+   readonly name: string
++  /** Opt in to the host execution-environment extension. */
++  readonly environment?: ToolEnvironment
++  readonly executionEnvironment?: { readonly access: 'read' | 'write' | 'execute'; readonly path?: string; readonly directory?: string; readonly selection?: boolean; readonly resource?: { kind: string; parameter: string }; readonly produces?: { kind: string; result: string } }
+   /** Human-readable description sent to the model. */
+   readonly description: string
+   /** Per-property parameter schema compiled to an implicit open object root. */
+@@ -563,11 +567,15 @@
+   if (options.timeoutMs !== undefined && (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)) {
+     throw new Error(`defineTool(${options.name}): timeoutMs must be a positive finite number`)
+   }
+-  const parameters = parameterSchemaSpecToJsonSchema(options.parameters)
++  const declared = parameterSchemaSpecToJsonSchema(options.parameters)
++  const parameters = options.executionEnvironment && options.executionEnvironment.selection !== false && options.environment?.parameters
++    ? { ...declared, properties: { ...(declared.properties as object), ...options.environment?.parameters } }
++    : declared
+   const outputSchema = valueSchemaSpecToJsonSchema(options.output.schema)
+   const validate = (args: unknown): string[] => validateJsonSchemaValue(parameters, args, '')
+   const tool: ToolDefinition = {
+     name: options.name,
++    executionEnvironment: options.executionEnvironment,
+     description: options.description,
+     parameters: parameters as unknown as Record<string, unknown>,
+     output: {
+@@ -575,9 +583,13 @@
+       render(args: unknown, value: JsonValue): ContentBlock[] {
+         return userRender(args as InferArgs<S>, value as unknown as InferValue<NoInfer<O>>)
+       },
+-      ...userPresentationMeta !== undefined ? {
++      ...userPresentationMeta !== undefined || options.environment !== undefined ? {
+         presentationMeta(args: unknown, value: JsonValue): JsonValue {
+-          return userPresentationMeta(args as InferArgs<S>, value as unknown as InferValue<NoInfer<O>>)
++          const meta = userPresentationMeta?.(args as InferArgs<S>, value as unknown as InferValue<NoInfer<O>>) ?? {}
++          const fileEnvironment = options.environment?.fileEnvironment()
++          if (fileEnvironment === undefined) return meta
++          if (meta === null || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('Environment-aware tool presentation metadata must be an object')
++          return { ...meta, fileEnvironment }
+         },
+       } : {},
+     },
+diff --git a/packages/fs/tool-fs/src/edit.ts b/packages/fs/tool-fs/src/edit.ts
+--- a/packages/fs/tool-fs/src/edit.ts
++++ b/packages/fs/tool-fs/src/edit.ts
+@@ -1,3 +1,4 @@
++import { executionCwd } from '@deepseek-ai/dsh-tools'
+ /**
+  * Model-facing literal edit, unique-match by default. It obtains an optional guard from the
+  * single intent slot, calls `ctx.fs.editText` without a separate stat, then records the observed
+@@ -83,6 +84,8 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'edit',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'write', path: 'file_path' },
+     description: 'Edit an existing UTF-8 text file by replacing literal text.',
+     parameters: {
+       file_path: { type: 'string', required: true, description: 'Path to edit, resolved by the filesystem backend.' },
+@@ -106,6 +109,7 @@
+         text: formatEditOutput(value.path, args.replace_all ?? false),
+       }],
+       presentationMeta: (args, value) => ({
++        producedFiles: [value.path],
+         diffs: computeHunkDiffs(args.file_path, value.before, value.after)
+           .map(({ path, oldText, newText }) => ({ path, oldText, newText })),
+       }),
+@@ -115,7 +119,7 @@
+       // Resolve the per-call sandbox policy (approved mode > session override
+       // > backend default, plus the session cwd root) BEFORE anything executes.
+       const sandboxPolicy = await sandbox.resolvePolicy('edit', args, exec)
+-      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs))
++      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs, executionCwd(ctx, exec)))
+       // Single-slot decision: the policy plugin returns { version: vObserved } or
+       // throws FS_NOT_OBSERVED; the bare default is undefined (unconditional edit).
+       // No stat — the bare default never manufactures a version basis. The intent
+@@ -140,7 +144,7 @@
+       }
+       ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, exec)
+       return {
+-        path: target.displayPath,
++        path: ctx.get('toolEnvironment')?.fileReference(exec, ctx.fs.processPath(target)) ?? target.displayPath,
+         before: outcome.before,
+         after: outcome.after,
+       }
+diff --git a/packages/fs/tool-fs/src/read-image.ts b/packages/fs/tool-fs/src/read-image.ts
+--- a/packages/fs/tool-fs/src/read-image.ts
++++ b/packages/fs/tool-fs/src/read-image.ts
+@@ -208,6 +208,8 @@
+ export function applyReadImageTool(ctx: Context): void {
+   ctx.tools.register(defineTool({
+     name: 'read_image',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'read', path: 'file_path' },
+     description: 'Read a PNG/JPEG/WebP/GIF file and return the image itself. '
+       + 'A path without a file extension is accepted; the format is detected from the file content, so normalized attachment paths can be passed directly without copying or renaming. '
+       + 'Harness validates and downscales large supported images before the next model request, so use this tool directly instead of installing image libraries or creating thumbnails merely to inspect an image. '
+diff --git a/packages/fs/tool-fs/src/read-target.ts b/packages/fs/tool-fs/src/read-target.ts
+--- a/packages/fs/tool-fs/src/read-target.ts
++++ b/packages/fs/tool-fs/src/read-target.ts
+@@ -1,3 +1,4 @@
++import { executionCwd } from '@deepseek-ai/dsh-tools'
+ /**
+  * Shared path resolution and regular-file validation for model-facing read tools.
+  * @module @deepseek-ai/dsh-tool-fs/src/read-target
+@@ -21,7 +22,7 @@
+   exec: ToolExecution,
+   requestedPath: string,
+ ): Promise<{ target: FsTarget; info: FsInfo }> {
+-  const target = await ctx.fs.resolve(requestedPath, await sessionResolveOptions(exec, requestedPath, undefined, ctx.fs))
++  const target = await ctx.fs.resolve(requestedPath, await sessionResolveOptions(exec, requestedPath, undefined, ctx.fs, executionCwd(ctx, exec)))
+   const info = await ctx.fs.stat(target, exec.signal)
+   if (info === undefined) {
+     ctx.emit('fs/observed', target, { kind: 'absent' }, exec)
+diff --git a/packages/fs/tool-fs/src/read.ts b/packages/fs/tool-fs/src/read.ts
+--- a/packages/fs/tool-fs/src/read.ts
++++ b/packages/fs/tool-fs/src/read.ts
+@@ -76,6 +76,8 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'read',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'read', path: 'file_path' },
+     description: 'Read a UTF-8 text file and return line-numbered content.',
+     parameters: {
+       file_path: { type: 'string', required: true, description: 'Path to read, resolved by the filesystem backend.' },
+diff --git a/packages/fs/tool-fs/src/session-cwd.ts b/packages/fs/tool-fs/src/session-cwd.ts
+--- a/packages/fs/tool-fs/src/session-cwd.ts
++++ b/packages/fs/tool-fs/src/session-cwd.ts
+@@ -38,10 +38,11 @@
+   requestedPath: string,
+   policyWorkspaceRoot?: string,
+   fileSystem?: FileSystem,
++  environmentCwd?: string,
+ ): Promise<{ cwd?: string; signal?: AbortSignal }> {
+-  const raw = exec.agent?.session.header.cwd
++  const raw = environmentCwd ?? exec.agent?.session.header.cwd
+   const needsIdentity = raw !== undefined && (PARENT_PATH_SEGMENT.test(raw) || PARENT_PATH_SEGMENT.test(requestedPath))
+-  const cwd = policyWorkspaceRoot ?? (needsIdentity && fileSystem !== undefined
++  const cwd = environmentCwd ?? policyWorkspaceRoot ?? (needsIdentity && fileSystem !== undefined
+     ? fileSystem.processPath(await fileSystem.resolve(raw, { signal: exec.signal }))
+     : sessionCwd(exec, requestedPath))
+   return {
+diff --git a/packages/fs/tool-fs/src/write.ts b/packages/fs/tool-fs/src/write.ts
+--- a/packages/fs/tool-fs/src/write.ts
++++ b/packages/fs/tool-fs/src/write.ts
+@@ -1,3 +1,4 @@
++import { executionCwd } from '@deepseek-ai/dsh-tools'
+ /**
+  * Model-facing full-file write. It obtains an optional intent from the single policy slot, calls
+  * `ctx.fs.writeText` without a stat, then records the resulting version; no policy means an
+@@ -71,6 +72,8 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'write',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'write', path: 'file_path' },
+     description: 'Create or fully replace a UTF-8 text file.',
+     parameters: {
+       file_path: { type: 'string', required: true, description: 'Path to write, resolved by the filesystem backend.' },
+@@ -96,6 +99,7 @@
+       },
+       render: (_args, value) => [{ type: 'text', text: formatWriteOutput(value.path, value) }],
+       presentationMeta: (args, value) => ({
++        producedFiles: [value.path],
+         diffs: value.before === null
+           ? []
+           : computeHunkDiffs(args.file_path, value.before, value.after)
+@@ -108,7 +112,7 @@
+       // > backend default, plus the session cwd root) BEFORE anything executes;
+       // an escalating call throws its distinct text on any non-grant.
+       const sandboxPolicy = await sandbox.resolvePolicy('write', args, exec)
+-      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs))
++      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot, ctx.fs, executionCwd(ctx, exec)))
+       // Single-slot decision: the policy plugin produces createIfAbsent/
+       // replaceIfVersion; the bare default is undefined (unconditional). No stat.
+       const intent = await ctx.waterfall('fs/write-intent', target, exec, () => undefined)
+@@ -123,7 +127,7 @@
+       }
+       ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, exec)
+       return {
+-        path: target.displayPath,
++        path: ctx.get('toolEnvironment')?.fileReference(exec, ctx.fs.processPath(target)) ?? target.displayPath,
+         operation: outcome.operation,
+         before: outcome.before,
+         after: outcome.after,
+diff --git a/packages/fs/tool-fs-search/src/glob.ts b/packages/fs/tool-fs-search/src/glob.ts
+--- a/packages/fs/tool-fs-search/src/glob.ts
++++ b/packages/fs/tool-fs-search/src/glob.ts
+@@ -311,6 +311,8 @@
+     : `a larger result returns the first ${caps.maxResults} paths in modification-time order`
+   const tool = defineTool({
+     name: 'glob',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'read' },
+     description: 'Find files whose paths match a glob pattern. Returns matching file paths — never directories — '
+       + 'including hidden and ignored files (VCS metadata directories are excluded). '
+       + `Up to ${caps.maxResults} paths come back in modification-time order; ${overCapDescription}, `
+diff --git a/packages/fs/tool-fs-search/src/grep.ts b/packages/fs/tool-fs-search/src/grep.ts
+--- a/packages/fs/tool-fs-search/src/grep.ts
++++ b/packages/fs/tool-fs-search/src/grep.ts
+@@ -283,6 +283,8 @@
+ 
+   const tool = defineTool({
+     name: 'grep',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'read' },
+     description: 'Search file contents with a ripgrep regular expression. Returns matching lines with line numbers, grouped by file. '
+       + `Returns the first ${caps.maxMatches} matches inline; a capped result reports where the complete match list was saved. `
+       + 'Use read on a matched file for surrounding context.',
+diff --git a/packages/fs/tool-fs-search/src/search-core.ts b/packages/fs/tool-fs-search/src/search-core.ts
+--- a/packages/fs/tool-fs-search/src/search-core.ts
++++ b/packages/fs/tool-fs-search/src/search-core.ts
+@@ -1,3 +1,4 @@
++import { executionCwd } from '@deepseek-ai/dsh-tools'
+ /**
+  * Shared execution plumbing for the `glob` / `grep` search tools: the
+  * package-owned `SEARCH_*` error vocabulary, one spawn helper that runs the
+@@ -228,7 +229,7 @@
+   if (exec.signal.aborted) {
+     throw new SearchError(`${toolName} was aborted before completion (tool timeout or caller cancellation)`, 'SEARCH_ABORTED')
+   }
+-  const cwd = exec.agent?.session.header.cwd
++  const cwd = executionCwd(ctx, exec)
+   const workdir = cwd ?? process.cwd()
+   let handle: SubprocessHandle
+   try {
+diff --git a/packages/fs/tool-present/src/index.ts b/packages/fs/tool-present/src/index.ts
+--- a/packages/fs/tool-present/src/index.ts
++++ b/packages/fs/tool-present/src/index.ts
+@@ -1,3 +1,4 @@
++import { executionCwd } from '@deepseek-ai/dsh-tools'
+ /** Scoped tool that declares filesystem deliveries in their owning Session. */
+ import type { Context } from '@deepseek-ai/cordis'
+ import z from '@deepseek-ai/schemastery'
+@@ -37,6 +38,8 @@
+   const pending = new WeakMap<ToolExecution, { session: Session; turn: number; files: PresentedFile[] }>()
+   ctx.tools.register(defineTool({
+     name: 'present',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'read' },
+     description: 'Declare existing files accessible through the Session filesystem as final deliverables. '
+       + 'When a file you create or update is an output the user asked to receive, you must call present after writing it and before your final response, including files created through Bash or code execution. '
+       + 'Mentioning its path in your reply does not replace this call. The files must already exist. '
+@@ -77,7 +80,7 @@
+       const boundary = ctx.sessionProjections.stateOf(exec.agent.session, 'turnBoundary')
+       if (boundary === undefined || boundary.openTurnStartSeq === null) throw new Error('present requires an open turn')
+       if (args.files.length === 0 || args.files.length > config.maxFiles) throw new Error(`present accepts 1 to ${config.maxFiles} files`)
+-      const cwd = exec.agent.session.header.cwd
++      const cwd = executionCwd(ctx, exec)
+       if (cwd === undefined) throw new Error('present requires a workspace')
+       const options = { cwd, signal: exec.signal }
+       const files: PresentedFile[] = []
+@@ -89,7 +92,7 @@
+         const info = await ctx.fs.stat(target, exec.signal)
+         if (info === undefined) throw new FsError(`Cannot present ${file.path}: file not found. Check the path, create the file if needed, and retry.`, 'FS_NOT_FOUND')
+         if (info.type !== 'file') throw new Error(`Cannot present ${file.path}: not a regular file`)
+-        files.push({ ...file })
++        files.push({ ...file, path: ctx.get('toolEnvironment')?.fileReference(exec, ctx.fs.processPath(target)) ?? file.path })
+       }
+       exec.signal.throwIfAborted()
+       pending.set(exec, { session: exec.agent.session, turn: boundary.lastTurn, files })
+diff --git a/packages/jobs/tool-jobs/src/index.ts b/packages/jobs/tool-jobs/src/index.ts
+--- a/packages/jobs/tool-jobs/src/index.ts
++++ b/packages/jobs/tool-jobs/src/index.ts
+@@ -300,6 +300,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'job_output',
++    executionEnvironment: { access: 'read', selection: false, resource: { kind: 'job', parameter: 'job_id' } },
+     description: 'Read a background job. Stream jobs return only output since the previous read; '
+       + 'final-output jobs return their result after settlement. Every response ends with '
+       + '`[status: ...]`. Reads are non-blocking unless `wait: true`, which waits up to the configured cap.',
+@@ -360,6 +361,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'job_kill',
++    executionEnvironment: { access: 'execute', selection: false, resource: { kind: 'job', parameter: 'job_id' } },
+     description: 'Request cancellation of a running background job by job id. Returns immediately; the job settles as killed once its work actually stops.',
+     parameters: {
+       job_id: { type: 'string', required: true, description: 'Job id returned by the tool that started the background work.' },
+diff --git a/packages/shell/tool-bash/src/index.ts b/packages/shell/tool-bash/src/index.ts
+--- a/packages/shell/tool-bash/src/index.ts
++++ b/packages/shell/tool-bash/src/index.ts
+@@ -248,6 +248,8 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'bash',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'execute', directory: 'workdir', produces: { kind: 'job', result: 'jobId' } },
+     description: bashDescription(backgroundEnabled, escalationModes),
+     parameters: {
+       command: { type: 'string', required: true, description: 'The bash command to execute.' },
+diff --git a/packages/terminal/terminal-bash/src/index.ts b/packages/terminal/terminal-bash/src/index.ts
+--- a/packages/terminal/terminal-bash/src/index.ts
++++ b/packages/terminal/terminal-bash/src/index.ts
+@@ -184,6 +184,7 @@
+       terminal: SubprocessTerminalHandle,
+       config: ResolvedConfig,
+     ) => LocalPtySession = (terminal, config) => new LocalPtySession(terminal, config),
++    private readonly resolvePolicy = (spec: TerminalBackendSpawnSpec) => ctx.sandboxPolicy.resolve({ session: spec.owner.session }),
+   ) {
+     this.type = config.backendType
+   }
+@@ -191,7 +192,7 @@
+   async spawn(spec: TerminalBackendSpawnSpec): Promise<LocalPtySession> {
+     spec.signal?.throwIfAborted()
+     ensureSandboxModeFence(this.ctx, spec.owner)
+-    const policy = this.ctx.sandboxPolicy.resolve({ session: spec.owner.session })
++    const policy = this.resolvePolicy(spec)
+     const argv = spawnArgv(this.ctx, this.config, policy)
+     if (argv[0] === undefined) throw new Error('terminal-bash: sandbox returned empty argv')
+     const terminal = await this.spawnTerminal({
+diff --git a/packages/terminal/tool-terminal/src/index.ts b/packages/terminal/tool-terminal/src/index.ts
+--- a/packages/terminal/tool-terminal/src/index.ts
++++ b/packages/terminal/tool-terminal/src/index.ts
+@@ -161,6 +161,8 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'terminal_open',
++    environment: ctx.get('toolEnvironment'),
++    executionEnvironment: { access: 'execute', directory: 'cwd', produces: { kind: 'terminal', result: 'sessionId' } },
+     description: 'Create a persistent, owner-isolated terminal session from a registered backend type. Use this for shell or REPL state that must survive across tool calls.',
+     parameters: {
+       type: { type: 'string', required: true, description: 'Registered terminal backend type, usually "shell".' },
+@@ -196,6 +198,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'terminal_send',
++    executionEnvironment: { access: 'execute', selection: false, resource: { kind: 'terminal', parameter: 'sessionId' }, produces: { kind: 'job', result: 'jobId' } },
+     description: 'Send text to a persistent terminal. By default Enter is submitted and the call waits for a prompt, stdin wait, output silence, timeout, or session exit.'
+       + (enableRunInBackground ? ' Background mode returns a job id for job_output/job_kill.' : ''),
+     parameters: {
+@@ -297,6 +300,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'terminal_read',
++    executionEnvironment: { access: 'read', selection: false, resource: { kind: 'terminal', parameter: 'sessionId' } },
+     description: 'Read a bounded page of retained output from a persistent terminal without sending input.',
+     parameters: {
+       sessionId: { type: 'string', required: true, description: 'Terminal session id.' },
+@@ -330,6 +334,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'terminal_signal',
++    executionEnvironment: { access: 'execute', selection: false, resource: { kind: 'terminal', parameter: 'sessionId' } },
+     description: 'Send an allowed signal to the current foreground process group of a persistent terminal.',
+     parameters: {
+       sessionId: { type: 'string', required: true, description: 'Terminal session id.' },
+@@ -355,6 +360,7 @@
+ 
+   ctx.tools.register(defineTool({
+     name: 'terminal_close',
++    executionEnvironment: { access: 'execute', selection: false, resource: { kind: 'terminal', parameter: 'sessionId' } },
+     description: 'Close one persistent terminal and wait until its captured owned process tree is gone.',
+     parameters: {
+       sessionId: { type: 'string', required: true, description: 'Terminal session id.' },

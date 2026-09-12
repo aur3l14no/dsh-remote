@@ -1,3 +1,4 @@
+import CallEnvironments from '../../../world/execution-world/src/call-environment.ts';
 import * as NativeWorkspaces from '../../../workspace/local-workspace/src/native.ts';
 import * as FilePreview from '../../../workspace/portable-workspace/src/file-preview.ts';
 import type { Context } from '@deepseek-ai/cordis';
@@ -31,6 +32,7 @@ export async function apply(ctx: Context, config: Config) {
   });
   await ctx.plugin(NativeWorkspaces);
   await ctx.plugin(Registry, { worlds: config.worlds });
+  await ctx.plugin(CallEnvironments);
   await ctx.plugin({ inject: ['worldPortableWorkspaces'], apply(ctx: Context) {
     if (config.worldsFile) {
       const reload = new WorldsReload(ctx, config.worldsFile, config.worlds, sync);

@@ -54,6 +54,8 @@
     "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-scope": "0.1.5-rc.1",
     "@deepseek-ai/dsh-subprocess": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.1"
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-bash-local": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-shell": "0.1.5-rc.1"
   }
 }

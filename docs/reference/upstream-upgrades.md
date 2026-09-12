@@ -35,6 +35,9 @@
 | 0009 present-desktop-availability | 禁用宿主打开时，交付文件 HTTP 元数据与拒绝入口不再依赖宿主 FS / sandboxPolicy |
 | 0010 local-workspace-admission | 准入可选择 Session preset；原生 registry 可关闭按 cwd 自动采用历史。保留未配置时的原生行为 |
 | 0011 child-execution-environment | 原生 child 创建／续接提供可等待的执行环境准备与发布校验，显式选择目标 preset/cwd，保留普通 child 的 standing composition、原生 Session lineage 与工具过滤 |
+| 0012 tool-execution-environment | 工具声明操作与资源元数据，使用可选调用环境的 cwd／文件引用；工具与文件输出 metadata、延迟预览和 URI 显示保留来源身份，terminal backend 可注入执行策略。原生工具调度、事件格式、job/terminal 生命周期保持不变 |
+
+重建文档预览浏览器模块时，PDF.js 主模块、worker、字体／解码资源与许可证须一起保留，并与固定上游依赖版本一致；不能仅编译界面代码后沿用另一版本 worker。
 
 新增补丁应直接服务执行身份、生命周期或 provider 接口；展示便利优先使用现有插件槽位。New Session 使用原生控件，Reload worlds 位于工作区插件，不再维护侧栏 primary actions 补丁。
 

@@ -334,6 +334,7 @@ it.skipIf(!process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG)('isolates local macOS
   const reads = await Promise.all(agents.map(agent => tool(agent, 'read', { file_path: 'world.txt' })));
   reads.forEach((result, index) => { expect(result.isError).toBe(false); expect(JSON.stringify(result)).toContain(markers[index]); });
   expect(agents.map(agent => agent.session.header.agentPreset)).toEqual(['standard', 'remote', 'remote']);
+  for (const agent of agents.slice(1)) host.ctx.get('permissionPresets').set(agent.session, 'danger-full-access');
   await Promise.all(agents.map(async (agent, index) => {
     expect((await tool(agent, 'bash', { command: `printf EFFECT_${index} > mixed-effect.txt`, description: 'Verify World isolation' })).isError).toBe(false);
   }));
@@ -342,10 +343,11 @@ it.skipIf(!process.env.DSH_TEST_PORTABLE_WORKSPACE_CONFIG)('isolates local macOS
     const owner = worlds.forAgent(agents[i]);
     expect(await owner.fs.readText(await owner.fs.resolve('mixed-effect.txt'))).toBe(`EFFECT_${i}`);
     await expect(host.ctx.get('agentPresets').select(agents[i], 'standard')).rejects.toThrow('execution environment');
-    const permissionEvents = agents[i].session.snapshotEvents();
-    expect(() => host!.ctx.get('permissionPresets').set(agents[i].session, 'workspace-write')).toThrow('account permissions');
-    expect(agents[i].session.snapshotEvents()).toEqual(permissionEvents);
-    expect(() => agents[i].session.append('sandbox/mode', { mode: 'workspace-write' })).toThrow('SSH account');
+    host.ctx.get('permissionPresets').set(agents[i].session, 'workspace-write');
+    expect(host.ctx.get('sandboxPolicy').resolve({ session: agents[i].session })).toMatchObject({ mode: 'workspace-write', workspaceRoot: project });
+    const denied = await tool(agents[i], 'bash', { command: 'touch unapproved.txt', description: 'Requires approval in SSH workspace-write' });
+    expect(denied.isError, JSON.stringify(denied)).toBe(true);
+    expect(await owner.fs.stat(await owner.fs.resolve('unapproved.txt'))).toBeUndefined();
   }
   await expect(host.ctx.get('sessionController').create({ sessionId: agents[0].id, workspaceId: workspaces[1].id })).rejects.toThrow();
   await expect(registry.create(project)).rejects.toThrow('explicit World');

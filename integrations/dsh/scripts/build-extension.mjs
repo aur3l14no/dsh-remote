@@ -43,7 +43,7 @@ for (const name of new Set(series.patches.flatMap(patch => patch.packages))) {
   const packageSource = join(sources, metadata.repository.directory, 'src') + '/';
   if (Object.keys(compiled.metafile.inputs).some(path => !resolve(path).startsWith(packageSource))) throw new Error(`Compatibility package bundled a foreign source: ${name}`);
 }
-for (const name of ['@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right']) {
+for (const name of ['@deepseek-ai/dsh-client-ui-tool', '@deepseek-ai/dsh-client-ui-chat', '@deepseek-ai/dsh-client-ui-sidebar-right', '@deepseek-ai/dsh-client-ui-deliverables', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview']) {
   await buildClientCompatibility(sources, installation,
     JSON.parse(await readFile(join(installation, 'node_modules', name, 'package.json'), 'utf8')),
     join(output, 'compat', name));
@@ -64,7 +64,7 @@ for (const file of program.getSourceFiles()) {
   const destination = join(owner.destination, relative(owner.source, file.fileName).replace(/\.tsx?$/, '.d.ts'));
   await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, declaration);
 }
-const entries = { approval: 'world/ssh-world/src/approval-gate.ts', worldTools: 'world/execution-world/src/tools.ts', presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
+const entries = { shell: 'world/execution-world/src/routed-shell.ts', approval: 'world/ssh-world/src/approval-gate.ts', worldTools: 'world/execution-world/src/tools.ts', presets: 'world/execution-world/src/presets.ts', attachments: 'workspace/remote-attachments/src/index.ts', index: 'bundle/remote/src/index.ts', terminal: 'world/ssh-world/src/terminal-backend.ts', routing: 'world/execution-world/src/routing.ts', fs: 'world/execution-world/src/routed-fs.ts', subprocess: 'world/execution-world/src/routed-subprocess.ts' };
 const dependencies = { '@deepseek-ai/dsh-home-paths': version, '@deepseek-ai/dsh-tool-terminal': version, 'js-yaml': '4.3.2' };
 for (const browser of [false, true]) {
   const name = browser ? 'web-ui' : 'web';
@@ -106,6 +106,9 @@ localPreset += `
   name: '../../plugins/web/lib/routing.js'
   config:
     kind: local
+    providerPaths: true
+- id: local-tool-approval
+  name: '../../plugins/web/lib/approval.js'
 - id: local-terminals
   name: '@deepseek-ai/cordis-plugin-group'
   isolate:
@@ -113,8 +116,20 @@ localPreset += `
   config:
     - name: '@deepseek-ai/dsh-terminal'
     - name: '../../plugins/web/lib/terminal.js'
-    - name: '@deepseek-ai/dsh-tool-terminal'
+    - name: '../../compat/@deepseek-ai/dsh-tool-terminal/lib/index.js'
 `;
+localPreset = `- id: local-capabilities
+  name: '@deepseek-ai/cordis-plugin-group'
+  isolate:
+    fs: true
+    subprocess: true
+    shell: true
+    toolBashWorkdir: true
+  config:
+    - name: '../../plugins/web/lib/fs.js'
+    - name: '../../plugins/web/lib/subprocess.js'
+    - name: '../../plugins/web/lib/shell.js'
+` + localPreset.split('\n').map(line => '    ' + line).join('\n');
 await mkdir(join(output, 'presets/standard'), { recursive: true });
 await writeFile(join(output, 'presets/standard/agent.cordis.yml'), localPreset);
 

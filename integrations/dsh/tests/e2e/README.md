@@ -53,3 +53,11 @@ node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.m
 ```
 
 Prepare browser fixtures first using the normal development entry points. This self-contained lane uses native approval events and deterministic model tool calls against Linux/SSH. It verifies workspace-contained write/edit/read without approval, outside-workspace allow/reject, read-only writes, cancel/unavailable, permission changes during approval, the never policy, Full access bypass, and native human approval rejection at desktop/narrow widths in light/dark themes. It verifies actual remote file effects and requires no third-party approval plugin. Results use `artifacts/dsh/ssh-approval-result.json`.
+
+## Per-call execution environments
+
+```sh
+node integrations/dsh/scripts/e2e.mjs -- node integrations/dsh/scripts/web-e2e.mjs --call-environment
+```
+
+Uses the installed extension, deterministic model calls, native approval events and two Linux/SSH Worlds. Covers all 9 target-selecting tools, relative workdir, concurrent calls, background jobs, terminal ownership and follow-up approval context, local/SSH directions, unchanged raw argument events and Session/Workspace identity, invalid targets, durable file preview and actual browser interactions at desktop/narrow widths in light/dark themes. Results use `artifacts/dsh/call-environment-result.json`.

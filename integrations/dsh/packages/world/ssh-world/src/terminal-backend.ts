@@ -1,3 +1,4 @@
+import CallEnvironments, { currentEnvironment } from '../../execution-world/src/call-environment.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import { BashTerminalBackend } from '@deepseek-ai/dsh-terminal-bash';
 import type { TerminalBackendSpawnSpec } from '@deepseek-ai/dsh-terminal';
@@ -15,10 +16,21 @@ const config: ConstructorParameters<typeof BashTerminalBackend>[1] = {
 export function apply(ctx: Context): void {
   ctx.terminals.registerBackend({ type: config.backendType,
     async spawn(spec: TerminalBackendSpawnSpec) {
-      const owner = ctx.executionWorlds.forAgent(spec.owner);
-      const cwd = owner.fs.processPath(await owner.fs.resolve(spec.cwd ?? spec.owner.session.header.cwd!, { signal: spec.signal }));
-      const backend = new BashTerminalBackend(ctx, config, input => owner.subprocess.spawnTerminal(input));
-      return backend.spawn({ ...spec, cwd });
+      const active = currentEnvironment();
+      const call = active?.execution.agent === spec.owner ? active : undefined;
+      const owner = call?.owner ?? ctx.executionWorlds.forAgent(spec.owner);
+      const cwd = owner.fs.processPath(await owner.fs.resolve(call?.cwd ?? spec.cwd ?? spec.owner.session.header.cwd!, { signal: spec.signal }));
+      const backend = new BashTerminalBackend(ctx, config, input => owner.subprocess.spawnTerminal(input), undefined, input => {
+        const policy = ctx.sandboxPolicy.resolve({ session: input.owner.session });
+        const definition = call?.definition ?? ctx.executionWorlds.bindings.get(input.owner.id)!;
+        return definition.kind === 'ssh' ? { ...policy, mode: 'danger-full-access' } : policy;
+      });
+      const session = await backend.spawn({ ...spec, cwd });
+      // Native API callers also create terminals without a terminal_open tool result.
+      (ctx.get('toolEnvironment') as CallEnvironments | undefined)?.remember(spec.owner, 'terminal', spec.sessionId, {
+        owner, definition: call?.definition ?? ctx.executionWorlds.bindings.get(spec.owner.id)!, cwd, explicit: call?.explicit ?? false,
+      });
+      return session;
     },
   });
 }

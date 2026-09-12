@@ -14,15 +14,13 @@
         providerPaths: true
         kind: ssh
     - name: '../../plugins/web/lib/approval.js'
-    - name: '@deepseek-ai/dsh-bash-local'
-      config:
-        maxSpillBytes: 4194304
+    - name: '../../plugins/web/lib/shell.js'
     - name: '../../compat/@deepseek-ai/dsh-tool-bash/lib/index.js'
       config:
         enableRunInBackground: true
     - name: '../../compat/@deepseek-ai/dsh-tool-fs/lib/index.js'
-    - name: '@deepseek-ai/dsh-tool-present'
-    - name: '@deepseek-ai/dsh-tool-fs-search'
+    - name: '../../compat/@deepseek-ai/dsh-tool-present/lib/index.js'
+    - name: '../../compat/@deepseek-ai/dsh-tool-fs-search/lib/index.js'
       config:
         sampleOverCapGlobResults: false
     - name: '@deepseek-ai/dsh-tool-web'
@@ -30,10 +28,10 @@
       config:
         maxBytes: 32768
     - name: '../../compat/@deepseek-ai/dsh-tool-skill/lib/index.js'
-    - name: '@deepseek-ai/dsh-tool-jobs'
+    - name: '../../compat/@deepseek-ai/dsh-tool-jobs/lib/index.js'
     - name: '@deepseek-ai/dsh-terminal'
     - name: '../../plugins/web/lib/terminal.js'
-    - name: '@deepseek-ai/dsh-tool-terminal'
+    - name: '../../compat/@deepseek-ai/dsh-tool-terminal/lib/index.js'
     - name: '../../compat/@deepseek-ai/dsh-tool-subagent/lib/index.js'
       config:
         provider: spawn

@@ -96,6 +96,24 @@
         "@deepseek-ai/dsh-subagent-spawn-in-process",
         "@deepseek-ai/dsh-tool-subagent"
       ]
+    },
+    {
+      "file": "0012-tool-execution-environment.patch",
+      "sha256": "571365c614e05a2d56b4041d570299f6dd2ca5fcdda84f06207272d5cfb23bad",
+      "packages": [
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+        "@deepseek-ai/dsh-api-workspace-files",
+        "@deepseek-ai/dsh-client-ui-deliverables",
+        "@deepseek-ai/dsh-tool-jobs",
+        "@deepseek-ai/dsh-tools",
+        "@deepseek-ai/dsh-tool-bash",
+        "@deepseek-ai/dsh-tool-fs",
+        "@deepseek-ai/dsh-tool-fs-search",
+        "@deepseek-ai/dsh-tool-terminal",
+        "@deepseek-ai/dsh-terminal-bash",
+        "@deepseek-ai/dsh-tool-present"
+      ]
     }
   ],
   "release": {

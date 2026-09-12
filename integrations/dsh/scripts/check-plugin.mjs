@@ -48,7 +48,7 @@ if (diagnostics.length) throw new Error(ts.formatDiagnosticsWithColorAndContext(
   getCurrentDirectory: () => process.cwd(), getCanonicalFileName: name => name, getNewLine: () => '\n',
 }));
 console.log('Installed plugin exports and declarations typecheck against the pinned DSH interfaces');
-const hostPeers = ['@deepseek-ai/cordis', '@deepseek-ai/dsh-fs', '@deepseek-ai/dsh-subprocess', '@deepseek-ai/dsh-scope'];
+const hostPeers = ['@deepseek-ai/dsh-bash-local', '@deepseek-ai/dsh-shell', '@deepseek-ai/cordis', '@deepseek-ai/dsh-fs', '@deepseek-ai/dsh-subprocess', '@deepseek-ai/dsh-scope'];
 const sourceAlias = { name: 'host-source-only', setup(builder) {
   builder.onResolve({ filter: /^@dsh-test\/mock-adapter$/ }, () => ({ path: join(root, 'packages/core/agent-loop/tests/mock-adapter.ts') }));
   builder.onResolve({ filter: /^@deepseek-ai\// }, async ({ path }) => {

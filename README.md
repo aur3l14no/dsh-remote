@@ -2,7 +2,7 @@
 
 [![Tested with DSH 0.1.5-rc.1](https://img.shields.io/badge/Tested_with_DSH-0.1.5--rc.1-blue?style=flat)](docs/reference/upstream-upgrades.md)
 
-为 DeepSeek Harness（DSH）提供本机与 SSH 工作区。同一实例中选择执行环境，模型调用、对话历史和 Web 界面留在 DSH 宿主；项目文件、搜索和命令按会话绑定在本机或选定的 SSH 主机／容器执行。
+为 DeepSeek Harness（DSH）提供本机与 SSH 工作区。同一实例中选择执行环境，模型调用、对话历史和 Web 界面留在 DSH 宿主；项目文件、搜索和命令默认按会话绑定执行，也可为单次工具调用显式指定另一个 World 与目录。
 
 ## 快速开始
 
@@ -23,6 +23,7 @@ dsh plugin --profile web add https://github.com/aur3l14no/dsh-remote/releases/la
 - 本机原生文件、进程、Skills、权限与目录选择；与 SSH 工作区共用选择器。
 - 远端文件读写、搜索与预览，以及项目指令和 Skills。
 - 前台与后台 Bash、jobs、原生子 Agent 和终端工具。
+- 不切换 Workspace 的单次跨 World 文件与命令操作；[工具执行环境](docs/reference/tool-execution.md)。
 - 本机 leader 显式委派跨 World 原生 child；[跨 World 委派](docs/cross-world-delegation.md)。
 - World 与目录选择、Session 创建、fork 和重启后恢复。Session 固定绑定 **World × Workspace**，连接失败不会切回本地。
 

@@ -16,13 +16,15 @@ for (const manifest of globSync('node_modules/@deepseek-ai/*/package.json', { cw
 }
 for (const name of ['react', 'react-dom']) paths[name] = [resolve(`node_modules/@types/${name}/index.d.ts`)];
 paths['react/jsx-runtime'] = [resolve('node_modules/@types/react/jsx-runtime.d.ts')];
+paths['pdfjs-dist'] = [resolve('node_modules/pdfjs-dist/types/src/pdf.d.ts')];
 paths['picomatch/posix'] = [join(installation, 'node_modules/@types/picomatch/posix.d.ts')];
 const entries = [];
-for (const name of ['ui-chat', 'ui-sidebar-right']) {
+for (const name of ['ui-tool', 'ui-chat', 'ui-sidebar-right', 'ui-deliverables', 'ui-sidebar-documentpreview']) {
   const directory = join(source, 'packages/client', name, 'src');
   paths[`@deepseek-ai/dsh-client-${name}/client`] = [join(directory, 'client/index.ts')];
   entries.push(join(directory, 'client/index.ts'), join(directory, 'css-modules.d.ts'));
 }
+entries.push(join(source, 'packages/client/ui-sidebar-documentpreview/src/client/pdf/asset-imports.d.ts'));
 const program = ts.createProgram(entries, {
   target: ts.ScriptTarget.ES2024, module: ts.ModuleKind.NodeNext, jsx: ts.JsxEmit.ReactJSX,
   strict: true, noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true, paths,

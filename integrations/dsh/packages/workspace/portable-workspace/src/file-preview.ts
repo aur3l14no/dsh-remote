@@ -1,4 +1,5 @@
-import { sameWorkspace } from '../../../world/execution-world/src/identity.ts';
+import { ReferencedFiles, parseReference } from '../../../world/execution-world/src/resource-reference.ts';
+import { worldFingerprint, sameWorkspace } from '../../../world/execution-world/src/identity.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-api-workspace-files';
@@ -12,10 +13,19 @@ export const inject = ['executionWorlds', 'worldPortableWorkspaces'];
 export function apply(ctx: Context): void {
   const lifetime = new AbortController();
   ctx.effect(() => () => lifetime.abort(new Error('File preview disposed')));
-  async function resolve(sessionId: string, signal: AbortSignal) {
+  async function resolve(sessionId: string, signal: AbortSignal, path?: string) {
     const active = AbortSignal.any([signal, lifetime.signal]);
     active.throwIfAborted();
     const id = SessionId(sessionId);
+    const reference = path === undefined ? undefined : parseReference(path);
+    if (reference) {
+      await observe(ctx.worldPortableWorkspaces.contextForSession(id, active), active);
+      const target = await ctx.worldPortableWorkspaces.prepareOperation(reference.world, reference.cwd, active);
+      const { id: _id, worldId, cwd: _cwd, ...environment } = target.definition;
+      if (worldFingerprint({ ...environment, id: worldId }) !== reference.fingerprint) throw new Error('World file reference no longer matches its configured environment');
+      return { fs: new ReferencedFiles(target.owner.fs, target.definition, target.cwd), workspaceRoot: target.cwd };
+    }
+
     const workspace = await observe(ctx.worldPortableWorkspaces.contextForSession(id, active), active);
     const expected = ctx.worldPortableWorkspaces.definition(workspace.id);
     const saved = ctx.executionWorlds.bindings.get(id);

@@ -7,7 +7,9 @@
 - Binding：Session 固定引用一个 Workspace。完整身份的指纹与比较集中在 identity.ts；颜色、显示名称、置顶和归档不参与执行身份。
 - Runtime：本次连接的 helper 实例和资源 owner，不属于持久 Workspace 身份。
 
-模型与审批共用的执行上下文显式提供 `world`（环境 ID）、`workspace`（工作区 ID）和 `kind`；SSH 另外提供 runtime 等运行事实。helper 协议已有的 `world` 字段仍承载工作区执行 owner ID，未变更协议线格式。
+默认调用时，模型与审批共用的执行上下文显式提供 `world`（环境 ID）、`workspace`（工作区 ID）和 `kind`；SSH 另外提供 runtime 等运行事实。helper 协议已有的 `world` 字段仍承载工作区执行 owner ID，未变更协议线格式。
+
+[单次工具执行环境](tool-execution.md)可以临时覆盖 World/cwd。此时上下文报告实际 World/cwd，不虚构 Workspace ID；Session binding、指令和附件存储归属保持不变。调用环境也不持久登记新的 Workspace。
 
 同名 cwd 不能标识同一 World，相同 workspace ID 的不同定义或已绑定 Session 改向都会拒绝。registry 的 `portable_workspaces` domain 保存 workspace 与 membership；`workspace_presentation` 独立保存置顶、归档。展示偏好更新不修改 workspace 时间戳或绑定。浏览器通过独立的 `followWorlds` stream 接收 World 展示快照，不依赖原生 workspace feed 为未改变的 workspace 发出事件；每次连接有初始快照，取消请求会释放订阅。
 

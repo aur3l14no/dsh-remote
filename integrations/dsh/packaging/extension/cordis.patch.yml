@@ -134,3 +134,17 @@
       inject: [remoteSetup]
       config:
         providerName: spawn
+
+- id: ui-sidebar-documentpreview
+  disabled: true
+- insert:
+    - id: remote-ui-sidebar-documentpreview
+      name: './compat/@deepseek-ai/dsh-client-ui-sidebar-documentpreview/lib/index.js'
+      inject: [remoteSetup]
+
+- id: ui-tool
+  disabled: true
+- insert:
+    - id: remote-ui-tool
+      name: './compat/@deepseek-ai/dsh-client-ui-tool/lib/index.js'
+      inject: [remoteSetup]

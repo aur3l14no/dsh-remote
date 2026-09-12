@@ -16,6 +16,8 @@ Local + SSH workspace 共存已实现，见[本机与 SSH 验收](../../implemen
 
 本机 leader 显式跨 World child 与只读机器巡检已实现，见[巡检验收](../../implemented/integration/2026-09-12-cross-world-inspection.md)。
 
+单次跨 World 工具执行已实现，见[调用环境验收](../../implemented/integration/2026-09-12-tool-execution-environment.md)。
+
 ## 后续工作
 
 | 项目 | 后续工作与边界 |

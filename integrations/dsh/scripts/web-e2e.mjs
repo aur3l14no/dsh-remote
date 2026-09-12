@@ -19,10 +19,11 @@ if (live) {
   if (typeof key !== 'string' || !key) throw new Error('DeepSeek credential unavailable');
   liveEnvironment.DEEPSEEK_API_KEY = key;
 }
+const callEnvironment = process.argv[2] === '--call-environment';
 const sshApproval = process.argv[2] === '--ssh-approval';
 const attachments = process.argv[2] === '--attachments';
-const scenario = sshApproval ? 'ssh-approval.e2e.ts' : live ? 'remote-live.e2e.ts' : attachments ? 'attachments.e2e.ts' : 'portable-workspace.e2e.ts';
-const resultFile = resolve(`artifacts/dsh/${sshApproval ? 'ssh-approval-result' : live ? 'live-result' : attachments ? 'attachments-result' : 'result'}.json`);
+const scenario = callEnvironment ? 'call-environment.e2e.ts' : sshApproval ? 'ssh-approval.e2e.ts' : live ? 'remote-live.e2e.ts' : attachments ? 'attachments.e2e.ts' : 'portable-workspace.e2e.ts';
+const resultFile = resolve(`artifacts/dsh/${callEnvironment ? 'call-environment-result' : sshApproval ? 'ssh-approval-result' : live ? 'live-result' : attachments ? 'attachments-result' : 'result'}.json`);
 await rm(resultFile, { force: true });
 if (live) await rm(resolve('artifacts/dsh/live-details.json'), { force: true });
 const extension = resolve('.build/dsh/plugin-home/profiles/web/node_modules/@dsh-remote/extension');
@@ -58,8 +59,8 @@ try {
     await writeFile(resultFile, JSON.stringify({ status: 'passed', completedAt: new Date().toISOString(), ...build,
       scenario, topology: 'host Web + Chromium; two Docker Linux/SSH Worlds',
       ...(live ? { checks: JSON.parse(await readFile('artifacts/dsh/live-details.json', 'utf8')) } : {}),
-      model: sshApproval ? 'native approval fixture and MockAdapter' : live ? 'live DeepSeek API' : attachments ? 'image-capable MockAdapter' : 'synthetic replay and native MockAdapter',
-      search: sshApproval || attachments ? 'not exercised' : live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
+      model: callEnvironment || sshApproval ? 'native approval fixture and MockAdapter' : live ? 'live DeepSeek API' : attachments ? 'image-capable MockAdapter' : 'synthetic replay and native MockAdapter',
+      search: callEnvironment || sshApproval || attachments ? 'not exercised' : live ? 'native provider + external DeepSeek search' : 'native provider + controlled host HTTP endpoint' }, null, 2) + '\n');
   } finally {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', interrupt);

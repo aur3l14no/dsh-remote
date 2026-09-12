@@ -1,3 +1,4 @@
+import { currentEnvironment } from '../../execution-world/src/call-environment.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import SandboxPolicy, { type SandboxPolicyRequest } from '@deepseek-ai/dsh-sandbox-policy';
 
@@ -10,6 +11,13 @@ export default class AccountPolicy extends SandboxPolicy {
   override resolve(request: SandboxPolicyRequest = {}) {
     const session = request.session;
     if (!session) return super.resolve(request);
+    const call = currentEnvironment();
+    if (call?.execution.agent?.session.id === session.id) {
+      const mode = request.mode ?? this.overrideOf(session) ?? this.defaultMode;
+      const bound = this.ctx.executionWorlds.bindings.get(session.id);
+      const workspaceRoot = bound?.worldId === call.definition.worldId ? bound.cwd : call.cwd;
+      return { mode, workspaceRoot, sessionId: session.id };
+    }
     const definition = this.ctx.executionWorlds.bindings.get(session.id)
       ?? (session.header.origin === 'subagent' && session.header.parentSession ? this.ctx.executionWorlds.bindings.get(session.header.parentSession) : undefined);
     if (!definition) throw new Error('Sandbox policy requires a saved execution World');

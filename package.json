@@ -34,6 +34,7 @@
     "esbuild": "0.28.2",
     "js-yaml": "4.3.2",
     "mime-types": "3.0.2",
+    "pdfjs-dist": "6.3.289",
     "playwright": "1.61.1",
     "typescript": "6.0.3",
     "vitest": "4.1.8",
