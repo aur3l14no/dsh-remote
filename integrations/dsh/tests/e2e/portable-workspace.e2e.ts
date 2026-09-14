@@ -87,6 +87,11 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
   await input.press('Enter');
   await ongoingSeen;
   await page.locator('.portable-workspaces').screenshot({ path: `${root}/artifacts/dsh/sidebar-running.png` });
+  // Context, title and path share the leading icon column, so their text aligns.
+  const leadingEdges = await cardFor(first.session.header.id).evaluate(card =>
+    ['.session-context > span', '.session-title', '.session-path > span']
+      .map(selector => Math.round(card.querySelector(selector)!.getBoundingClientRect().x)));
+  expect(new Set(leadingEdges).size).toBe(1);
   await settled;
   await expect.poll(() => ongoing.count()).toBe(0);
   const preview = page.getByRole('img', { name: 'Remote preview', exact: true }).first();

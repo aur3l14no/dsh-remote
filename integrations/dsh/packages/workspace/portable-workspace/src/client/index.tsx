@@ -203,15 +203,14 @@ function installWorkspaceUi(ctx: Context) {
         .portable-workspaces button:focus-visible, .portable-workspaces summary:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
         .portable-workspaces .session-list { display: grid; align-content: start; flex: 1; min-height: 0; gap: 3px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 6px; }
         .portable-workspaces .workspace-session { position: relative; min-width: 0; }
-        .portable-workspaces .session-card { width: 100%; min-width: 0; padding: 7px 6px; display: grid; gap: 3px; text-align: left; border-radius: 8px; }
+        .portable-workspaces .session-card { width: 100%; min-width: 0; padding: 7px 6px; display: grid; grid-template-columns: 16px minmax(0, 1fr); column-gap: 6px; row-gap: 3px; align-items: center; text-align: left; border-radius: 8px; }
         .portable-workspaces button:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
         .portable-workspaces .session-card[aria-current] { background: color-mix(in srgb, currentColor 7%, transparent); }
-        .portable-workspaces .session-context { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 48px; font-size: 11px; line-height: 16px; color: color-mix(in srgb, currentColor 55%, transparent); }
-        .portable-workspaces .session-context svg, .portable-workspaces .session-path svg { flex: none; }
+        .portable-workspaces .session-leading { grid-column: 1; display: grid; place-items: center; }
+        .portable-workspaces .session-context { grid-column: 2; min-width: 0; padding-right: 48px; font-size: 11px; line-height: 16px; color: color-mix(in srgb, currentColor 55%, transparent); }
         .portable-workspaces .session-context span, .portable-workspaces .session-title, .portable-workspaces .session-path span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .portable-workspaces .session-title { font-size: 13px; line-height: 19px; font-weight: 500; letter-spacing: -.01em; }
-        .portable-workspaces .session-status { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; vertical-align: middle; }
-        .portable-workspaces .session-path { display: flex; gap: 6px; align-items: center; min-width: 0; font-size: 11px; line-height: 16px; opacity: .45; }
+        .portable-workspaces .session-title { grid-column: 2; min-width: 0; font-size: 13px; line-height: 19px; font-weight: 500; letter-spacing: -.01em; }
+        .portable-workspaces .session-path { grid-column: 2; min-width: 0; font-size: 11px; line-height: 16px; opacity: .45; }
         .portable-workspaces .session-actions { position: absolute; right: 7px; top: 5px; display: flex; gap: 2px; }
         .portable-workspaces .session-actions button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; padding: 0; opacity: 0; pointer-events: none; }
         .portable-workspaces .session-actions button[aria-pressed=true] { opacity: .5; pointer-events: auto; }
@@ -242,9 +241,12 @@ function installWorkspaceUi(ctx: Context) {
         return <div className="workspace-session" key={id}>
           <Tooltip label={`${title}\n${rowWorld?.name ?? 'Unavailable World'} / ${name}\n${row.path}`} side="right" delayMs={650} maxWidth={360}>
           <button className="session-card" disabled={!sessions.byId[id]} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => navigation.openSession(id)}>
-            <span className="session-context"><WorldLogo color={rowWorld?.color ?? '#94a3b8'} /><span>{rowWorld?.name ?? 'Unavailable World'} / {name}</span></span>
-            <span className="session-title"><span className="session-status" aria-hidden="true">{marker && <StateDot state={marker} />}</span>{title}</span>
-            <span className="session-path"><IconFolderClose16 size={12} /><span>{row.path}</span></span>
+            <span className="session-leading"><WorldLogo color={rowWorld?.color ?? '#94a3b8'} /></span>
+            <span className="session-context"><span>{rowWorld?.name ?? 'Unavailable World'} / {name}</span></span>
+            <span className="session-leading" aria-hidden="true">{marker && <StateDot state={marker} />}</span>
+            <span className="session-title">{title}</span>
+            <span className="session-leading"><IconFolderClose16 size={12} /></span>
+            <span className="session-path"><span>{row.path}</span></span>
           </button>
           </Tooltip>
           <div className="session-actions">
