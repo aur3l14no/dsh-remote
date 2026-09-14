@@ -34,6 +34,15 @@
 - id: ui-open-in-app
   disabled: true
 
+# The task registry stays on the host plane. This subclass records each job's
+# creating execution environment, so by-id calls resolve producers that declare
+# no `executionEnvironment.produces`.
+- id: jobs
+  disabled: true
+- insert:
+    - id: world-jobs
+      name: './plugins/web/lib/jobs.js'
+
 - id: session-controller
   disabled: true
 - id: workspace-controller

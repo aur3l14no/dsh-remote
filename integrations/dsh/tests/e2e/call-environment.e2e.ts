@@ -2,7 +2,7 @@ import { afterAll, expect, it } from 'vitest';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { ToolCallId } from '@deepseek-ai/dsh-llm';
+import { ToolCallId, type GenerateOptions } from '@deepseek-ai/dsh-llm';
 import { chromium, type Browser } from 'playwright';
 import { MockAdapter, textResponse, toolCallResponse } from '../../../packages/core/agent-loop/tests/mock-adapter.ts';
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts';
@@ -11,6 +11,27 @@ import { newEnglishPage } from './support.ts';
 class ImageAdapter extends MockAdapter {
   override async resolveModel(provider: string, model: string) { return { ...await super.resolveModel(provider, model), inputModalities: ['text', 'image'] as const }; }
 }
+
+/** Keeps the delegated child's turn open so its background job stays collectable. */
+class BackgroundDelegationAdapter extends MockAdapter {
+  constructor(private readonly parentSessionId: string) {
+    super([
+      toolCallResponse(randomUUID(), 'subagent', { description: 'Background child', prompt: 'Keep working.', run_in_background: true }),
+      textResponse('DONE'),
+    ]);
+  }
+
+  override async * stream(options: GenerateOptions) {
+    if (String(options.sessionId ?? '') === this.parentSessionId) { yield* super.stream(options); return; }
+    yield { type: 'block-start', index: 0, blockType: 'text' };
+    yield { type: 'text-delta', index: 0, text: 'child working' };
+    await new Promise<void>((_resolve, reject) => {
+      if (options.signal?.aborted) { reject(new Error('aborted')); return; }
+      options.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    });
+  }
+}
+
 let host: WebScaffold | undefined;
 let browser: Browser | undefined;
 afterAll(async () => { await browser?.close(); await host?.close(); });
@@ -139,6 +160,19 @@ it('routes explicit tool environments without rebinding the caller', async () =>
   expect(await invoke('job_output', { job_id: job.id })).toContain('[status: running]');
   await invoke('job_kill', { job_id: job.id });
   await expect.poll(() => jobs.get(job.id, agent).status).toBe('killed');
+  // A one-shot background subagent declares no `executionEnvironment.produces`;
+  // the registry records its job at creation, so the by-id calls below resolve.
+  const childProvider = 'environment-' + randomUUID();
+  host.ctx.llm.registerAdapter([childProvider], new BackgroundDelegationAdapter(agent.id));
+  await host.ctx.get('sessionController').selectModel({ sessionId: agent.id, provider: childProvider, model: 'fixture' });
+  const priorJobIds = new Set(jobs.list(agent).map(entry => entry.id));
+  await host.ctx.get('sessionController').prompt({ sessionId: agent.id, requestId: randomUUID() as any, mode: 'queue', content: [{ type: 'text', text: 'Perform this fixture operation.' }] }, AbortSignal.timeout(30000));
+  await agent.whenIdle();
+  const subagentJob = jobs.list(agent).find(entry => entry.kind === 'subagent' && !priorJobIds.has(entry.id))!;
+  expect(subagentJob).toBeDefined();
+  expect(await invoke('job_output', { job_id: subagentJob.id })).toContain('[status: running]');
+  await invoke('job_kill', { job_id: subagentJob.id });
+  await expect.poll(() => jobs.get(subagentJob.id, agent).status).toBe('killed');
   await invoke('terminal_open', { ...args, type: 'shell', name: 'target-b' });
   const terminals = host.ctx.get('agentPresets').serviceFor(agent, 'terminals')!;
   const terminal = terminals.list(agent).find(terminal => terminal.name === 'target-b')!;
