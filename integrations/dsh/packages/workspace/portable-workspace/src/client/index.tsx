@@ -7,16 +7,18 @@ import type {} from '@deepseek-ai/dsh-api-workspace-controller/client';
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client';
 import type { PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client';
-import { Menu, Modal, Button, Tooltip, IconFolderClose16, IconArchiveOutline20, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Menu, Modal, Button, Tooltip, IconFolderClose16, IconArchiveOutline20, StateDot, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives';
+import type {} from '@deepseek-ai/dsh-client-ui-session/client';
 import { ReloadWorlds } from './reload.tsx';
 import { Navigation } from './navigation.ts';
+import { sessionMarker } from './session-marker.ts';
 import { observe } from '../../../../../shared/lifetime.ts';
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client';
 import type { WorldView } from '../contracts.ts';
 import '../contracts.ts';
 import { contribution } from '../wire.ts';
 
-export const inject = ['slots', 'sessions', 'workspaces', 'remote', 'remote.directoryPicker', 'layout'];
+export const inject = ['slots', 'sessions', 'workspaces', 'remote', 'remote.directoryPicker', 'layout', 'uiSession'];
 export async function apply(ctx: Context) {
   await ctx.plugin({ inject: ['remote'], async apply(ctx: Context) {
     await ctx.remote.$mount({ package: contribution.package, descriptors: contribution.invocations });
@@ -43,6 +45,11 @@ function installWorkspaceUi(ctx: Context) {
   const workspaceSnapshot = () => workspaceSource.getSnapshot();
   const subscribeSessions = (listener: () => void) => sessionController.list.subscribe(listener);
   const sessionSnapshot = () => sessionController.list.getSnapshot();
+  // Pending user interactions (approval, plan review, question) are published
+  // by their owning Client domains, not by the Session list.
+  const pendingSource = ctx.uiSession.pendingInteractions;
+  const subscribePending = (listener: () => void) => pendingSource.subscribe(listener);
+  const pendingSnapshot = () => pendingSource.getSnapshot();
 
   function useWorlds() {
     const [worlds, setWorlds] = useState<WorldView[]>([]);
@@ -177,6 +184,7 @@ function installWorkspaceUi(ctx: Context) {
   function Workspaces({ renderSlot }: PropsRenderSlots<'sidebar.workspaces.directoryFlow'>) {
     const snapshot = useSyncExternalStore(subscribeWorkspaces, workspaceSnapshot);
     const sessions = useSyncExternalStore(subscribeSessions, sessionSnapshot);
+    const pending = useSyncExternalStore(subscribePending, pendingSnapshot);
     const { worlds, error: catalogError } = useWorlds();
     const pinned = worlds.flatMap(world => world.pinnedSessionIds);
     const history = snapshot.items.flatMap(row => row.sessionIds
@@ -202,6 +210,7 @@ function installWorkspaceUi(ctx: Context) {
         .portable-workspaces .session-context svg, .portable-workspaces .session-path svg { flex: none; }
         .portable-workspaces .session-context span, .portable-workspaces .session-title, .portable-workspaces .session-path span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .portable-workspaces .session-title { font-size: 13px; line-height: 19px; font-weight: 500; letter-spacing: -.01em; }
+        .portable-workspaces .session-status { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; vertical-align: middle; }
         .portable-workspaces .session-path { display: flex; gap: 6px; align-items: center; min-width: 0; font-size: 11px; line-height: 16px; opacity: .45; }
         .portable-workspaces .session-actions { position: absolute; right: 7px; top: 5px; display: flex; gap: 2px; }
         .portable-workspaces .session-actions button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; padding: 0; opacity: 0; pointer-events: none; }
@@ -226,13 +235,15 @@ function installWorkspaceUi(ctx: Context) {
         }).map(({ row, id }) => {
         const rowWorld = worlds.find(item => item.workspaceIds.includes(row.workspaceId));
         const name = rowWorld && row.title.startsWith(rowWorld.name + ' · ') ? row.title.slice(rowWorld.name.length + 3) : row.title;
-        const title = sessions.byId[id]?.title || 'New session';
+        const rowSession = sessions.byId[id];
+        const title = rowSession?.title || 'New session';
+        const marker = rowSession === undefined ? undefined : sessionMarker(rowSession, pending.get(id)?.kind);
         const isPinned = pinned.includes(id);
         return <div className="workspace-session" key={id}>
           <Tooltip label={`${title}\n${rowWorld?.name ?? 'Unavailable World'} / ${name}\n${row.path}`} side="right" delayMs={650} maxWidth={360}>
           <button className="session-card" disabled={!sessions.byId[id]} aria-label={`Open session ${id}`} aria-current={sessions.current === id ? 'page' : undefined} onClick={() => navigation.openSession(id)}>
             <span className="session-context"><WorldLogo color={rowWorld?.color ?? '#94a3b8'} /><span>{rowWorld?.name ?? 'Unavailable World'} / {name}</span></span>
-            <span className="session-title">{title}</span>
+            <span className="session-title"><span className="session-status" aria-hidden="true">{marker && <StateDot state={marker} />}</span>{title}</span>
             <span className="session-path"><IconFolderClose16 size={12} /><span>{row.path}</span></span>
           </button>
           </Tooltip>

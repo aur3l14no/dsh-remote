@@ -106,6 +106,9 @@ it('enforces SSH file authorization through native approval requests', async () 
   await approval.waitFor();
   expect(await approval.innerText()).toContain('是否允许');
   expect(await approval.innerText()).not.toContain('Execution World');
+  // The World sidebar surfaces the pending interaction as the official warning marker.
+  const warning = page.getByRole('button', { name: `Open session ${agent.id}`, exact: true }).locator('[data-state="warning"]');
+  await warning.waitFor({ state: 'visible', timeout: 15000 });
   for (const width of [1365, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(async () => (await approval.boundingBox())?.width ?? 0).toBeGreaterThan(width === 390 ? 200 : 500);
@@ -116,6 +119,7 @@ it('enforces SSH file authorization through native approval requests', async () 
   }
   await page.getByRole('button', { name: 'Reject', exact: true }).click();
   await pending;
+  await expect.poll(() => warning.count()).toBe(0);
   expect(await owner.fs.readText(file)).toBe('permitted');
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.emulateMedia({ colorScheme: 'light' });

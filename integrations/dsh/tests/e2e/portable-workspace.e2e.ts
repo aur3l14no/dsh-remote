@@ -81,8 +81,14 @@ it('keeps portable workspaces isolated across the Web lifecycle and failures', a
     if (event.type === 'deliverables/presented') deliveries.push(event);
   });
   await input.fill('Exercise the remote workspace and the local search connector.');
+  // The official status marker: the running Session shows the animated ongoing dot.
+  const ongoing = cardFor(first.session.header.id).locator('[data-state="ongoing"]');
+  const ongoingSeen = ongoing.waitFor({ state: 'visible', timeout: 30000 });
   await input.press('Enter');
+  await ongoingSeen;
+  await page.locator('.portable-workspaces').screenshot({ path: `${root}/artifacts/dsh/sidebar-running.png` });
   await settled;
+  await expect.poll(() => ongoing.count()).toBe(0);
   const preview = page.getByRole('img', { name: 'Remote preview', exact: true }).first();
   await expect.poll(() => preview.getAttribute('src')).toContain(`sessionId=${first.session.header.id}`);
   await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(13);
